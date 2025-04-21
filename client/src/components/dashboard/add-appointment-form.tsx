@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { apiRequest } from "@/lib/queryClient";
 import { Client, Service, AppointmentStatus } from "@shared/schema";
 import { generateTimeSlots } from "@/lib/utils";
@@ -272,10 +273,10 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                 value={newClientName}
                 onChange={(e) => setNewClientName(e.target.value)}
               />
-              <Input
-                placeholder="Telefone (com DDD)"
+              <PhoneInput
+                placeholder="(xx) xxxxx-xxxx"
                 value={newClientPhone}
-                onChange={(e) => setNewClientPhone(e.target.value)}
+                onChange={setNewClientPhone}
               />
               <Button
                 type="button"

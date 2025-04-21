@@ -76,10 +76,38 @@ export function getMonthStartEnd(date: Date): { start: Date; end: Date } {
 }
 
 export function combineDateAndTime(date: Date, timeString: string): Date {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const result = new Date(date);
-  result.setHours(hours, minutes, 0, 0);
-  return result;
+  // Verifica se date é uma data válida
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    console.error("Data inválida fornecida:", date);
+    throw new Error("Data inválida");
+  }
+  
+  // Verifica se timeString é uma string válida no formato HH:MM
+  if (!timeString || typeof timeString !== 'string' || !timeString.match(/^\d{1,2}:\d{2}$/)) {
+    console.error("Formato de hora inválido:", timeString);
+    throw new Error("Formato de hora inválido");
+  }
+  
+  try {
+    // Cria uma nova data para evitar modificar a original
+    const result = new Date(date.getTime());
+    
+    // Extrai horas e minutos
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    // Verifica se horas e minutos são números válidos
+    if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
+    }
+    
+    // Define horas e minutos, zerando segundos e milissegundos
+    result.setHours(hours, minutes, 0, 0);
+    
+    return result;
+  } catch (error) {
+    console.error("Erro ao combinar data e hora:", error);
+    throw new Error(`Erro ao combinar data (${date}) e hora (${timeString})`);
+  }
 }
 
 export function dateToISODateString(date: Date): string {
