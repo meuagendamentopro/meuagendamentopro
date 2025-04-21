@@ -215,8 +215,8 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
           providerId,
           clientId: data.clientId,
           serviceId: data.serviceId,
-          date: appointmentDate,
-          endTime: endTime,
+          date: appointmentDate.toISOString(), // Enviando como string ISO
+          endTime: endTime.toISOString(), // Enviando como string ISO
           status: AppointmentStatus.CONFIRMED,
           notes: data.notes || "",
         });
@@ -247,7 +247,20 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
     }
   };
 
-  const timeSlots = generateTimeSlots(8, 19, 30);
+  // Buscar configurações do provedor
+  const { data: provider } = useQuery({
+    queryKey: ["/api/providers", providerId],
+    queryFn: async ({ queryKey }) => {
+      const res = await fetch(`/api/providers/${providerId}`);
+      if (!res.ok) throw new Error("Failed to fetch provider");
+      return res.json();
+    },
+  });
+
+  // Usar os horários configurados pelo profissional ou valores padrão
+  const workingHoursStart = provider?.workingHoursStart || 8;
+  const workingHoursEnd = provider?.workingHoursEnd || 18;
+  const timeSlots = generateTimeSlots(workingHoursStart, workingHoursEnd, 30);
 
   return (
     <Form {...form}>
