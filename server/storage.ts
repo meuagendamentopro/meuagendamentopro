@@ -171,22 +171,59 @@ export class MemStorage implements IStorage {
   }
   
   async getAppointmentsByDate(providerId: number, date: Date): Promise<Appointment[]> {
-    // Set start time to beginning of day
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
+    // Cria novas datas para o início e fim do dia no fuso horário local
+    // Isso resolve problemas com fuso horário UTC vs local
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
     
-    // Set end time to end of day
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+    // Início do dia no fuso horário local (00:00:00)
+    const startDate = new Date(year, month, day, 0, 0, 0, 0);
+    
+    // Fim do dia no fuso horário local (23:59:59.999)
+    const endDate = new Date(year, month, day, 23, 59, 59, 999);
     
     return this.getAppointmentsByDateRange(providerId, startDate, endDate);
   }
   
   async getAppointmentsByDateRange(providerId: number, startDate: Date, endDate: Date): Promise<Appointment[]> {
     return Array.from(this.appointments.values())
-      .filter(a => a.providerId === providerId && 
-                  a.date >= startDate && 
-                  a.date <= endDate)
+      .filter(a => {
+        // Verifica se o appointmento é do provider correto
+        if (a.providerId !== providerId) return false;
+        
+        // Obtém ano, mês e dia da data do agendamento para comparação em fuso horário local
+        const appointmentDate = new Date(a.date);
+        const appointmentYear = appointmentDate.getFullYear();
+        const appointmentMonth = appointmentDate.getMonth();
+        const appointmentDay = appointmentDate.getDate();
+        
+        // Obtém ano, mês e dia da data inicial para comparação
+        const startYear = startDate.getFullYear();
+        const startMonth = startDate.getMonth();
+        const startDay = startDate.getDate();
+        
+        // Obtém ano, mês e dia da data final para comparação
+        const endYear = endDate.getFullYear();
+        const endMonth = endDate.getMonth();
+        const endDay = endDate.getDate();
+        
+        // Verifica se a data do agendamento está entre startDate e endDate
+        // Comparando ano, mês e dia diretamente, sem considerar hora
+        
+        // Data do agendamento está antes da data inicial?
+        if (appointmentYear < startYear) return false;
+        if (appointmentYear === startYear && appointmentMonth < startMonth) return false;
+        if (appointmentYear === startYear && appointmentMonth === startMonth && appointmentDay < startDay) return false;
+        
+        // Data do agendamento está depois da data final?
+        if (appointmentYear > endYear) return false;
+        if (appointmentYear === endYear && appointmentMonth > endMonth) return false;
+        if (appointmentYear === endYear && appointmentMonth === endMonth && appointmentDay > endDay) return false;
+        
+        // Se passou por todas as verificações, está dentro do intervalo
+        return true;
+      })
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }
   
