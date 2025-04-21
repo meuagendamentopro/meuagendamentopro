@@ -11,6 +11,8 @@ export const providers = pgTable("providers", {
   password: text("password").notNull(),
   phone: text("phone"),
   avatarUrl: text("avatar_url"),
+  workingHoursStart: integer("working_hours_start").default(8), // Horário de início em horas (padrão: 8h)
+  workingHoursEnd: integer("working_hours_end").default(18),    // Horário de término em horas (padrão: 18h) 
 });
 
 export const insertProviderSchema = createInsertSchema(providers).pick({
@@ -20,6 +22,8 @@ export const insertProviderSchema = createInsertSchema(providers).pick({
   password: true,
   phone: true,
   avatarUrl: true,
+  workingHoursStart: true,
+  workingHoursEnd: true,
 });
 
 // Service model

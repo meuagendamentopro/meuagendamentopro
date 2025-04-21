@@ -84,11 +84,16 @@ export class MemStorage implements IStorage {
   
   async createProvider(provider: InsertProvider): Promise<Provider> {
     const id = ++this.providerId;
+    // Removendo os atributos do provider original
+    const { phone, avatarUrl, workingHoursStart, workingHoursEnd, ...rest } = provider;
+    
     const newProvider: Provider = { 
-      ...provider, 
+      ...rest, 
       id,
-      phone: provider.phone || null,
-      avatarUrl: provider.avatarUrl || null
+      phone: phone || null,
+      avatarUrl: avatarUrl || null,
+      workingHoursStart: workingHoursStart !== undefined ? workingHoursStart : 8,
+      workingHoursEnd: workingHoursEnd !== undefined ? workingHoursEnd : 18
     };
     this.providers.set(id, newProvider);
     return newProvider;
