@@ -18,11 +18,21 @@ export function formatPhoneNumber(phone: string): string {
   // Remove non-numeric characters
   const cleaned = phone.replace(/\D/g, '');
   
-  // Format as (XX) XXXXX-XXXX or (XX) XXXX-XXXX
-  if (cleaned.length === 11) {
+  // Force format as (XX) XXXXX-XXXX 
+  if (cleaned.length >= 11) {
+    // If more than 11 digits, truncate
     return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 7)}-${cleaned.substring(7, 11)}`;
   } else if (cleaned.length === 10) {
-    return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}`;
+    // For 10 digit numbers, add a 9 after DDD (new Brazilian format)
+    return `(${cleaned.substring(0, 2)}) 9${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}`;
+  } else if (cleaned.length > 2) {
+    // Handle incomplete numbers but with at least DDD
+    const remainingDigits = cleaned.substring(2);
+    if (remainingDigits.length <= 5) {
+      return `(${cleaned.substring(0, 2)}) ${remainingDigits}`;
+    } else {
+      return `(${cleaned.substring(0, 2)}) ${remainingDigits.substring(0, 5)}-${remainingDigits.substring(5)}`;
+    }
   }
   
   return phone;

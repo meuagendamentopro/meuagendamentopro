@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
@@ -57,7 +58,11 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
             <FormItem>
               <FormLabel>WhatsApp</FormLabel>
               <FormControl>
-                <Input placeholder="(00) 00000-0000" {...field} />
+                <PhoneInput 
+                  placeholder="(00) 00000-0000" 
+                  value={field.value}
+                  onChange={field.onChange}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
