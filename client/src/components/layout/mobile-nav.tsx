@@ -15,6 +15,7 @@ const MobileNav: React.FC = () => {
     { href: "/appointments", name: "Agendamentos", active: location === "/appointments" },
     { href: "/clients", name: "Clientes", active: location === "/clients" },
     { href: "/services", name: "Serviços", active: location === "/services" },
+    { href: "/settings", name: "Configurações", active: location === "/settings" },
   ];
 
   return (
@@ -102,12 +103,13 @@ const MobileNav: React.FC = () => {
               >
                 Seu Perfil
               </a>
-              <a
-                href="#"
+              <Link
+                href="/settings"
                 className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                onClick={() => setIsOpen(false)}
               >
                 Configurações
-              </a>
+              </Link>
               <a
                 href="#"
                 className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"

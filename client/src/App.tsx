@@ -88,6 +88,12 @@ function Router() {
         </MainLayout>
       </Route>
       
+      <Route path="/settings">
+        <MainLayout>
+          <Settings />
+        </MainLayout>
+      </Route>
+      
       <Route component={NotFound} />
     </Switch>
   );
