@@ -89,9 +89,6 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
   }
   
   try {
-    // Cria uma nova data para evitar modificar a original
-    const result = new Date(date.getTime());
-    
     // Extrai horas e minutos
     const [hours, minutes] = timeString.split(':').map(Number);
     
@@ -100,8 +97,17 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
     }
     
-    // Define horas e minutos, zerando segundos e milissegundos
-    result.setHours(hours, minutes, 0, 0);
+    // Preserva o fuso horário local - cria data com os componentes diretamente
+    // em vez de modificar a data existente com setHours
+    const result = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      hours,
+      minutes,
+      0,
+      0
+    );
     
     return result;
   } catch (error) {
