@@ -88,11 +88,33 @@ export const appointments = pgTable("appointments", {
 export const insertAppointmentSchema = createInsertSchema(appointments, {
   date: z.union([
     z.date(),
-    z.string().transform((str) => new Date(str))
+    z.string().transform((str) => {
+      // Se for uma string ISO sem hora (formato YYYY-MM-DD),
+      // cria a data no fuso horário local
+      if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = str.split('-').map(Number);
+        return new Date(year, month - 1, day); // mês em JS é 0-indexado
+      }
+      
+      // Caso contrário, usa a data com a hora especificada (com cuidado para o fuso horário)
+      const date = new Date(str);
+      return date;
+    })
   ]),
   endTime: z.union([
     z.date(),
-    z.string().transform((str) => new Date(str))
+    z.string().transform((str) => {
+      // Se for uma string ISO sem hora (formato YYYY-MM-DD),
+      // cria a data no fuso horário local
+      if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = str.split('-').map(Number);
+        return new Date(year, month - 1, day); // mês em JS é 0-indexado
+      }
+      
+      // Caso contrário, usa a data com a hora especificada (com cuidado para o fuso horário)
+      const date = new Date(str);
+      return date;
+    })
   ])
 })
   .pick({
