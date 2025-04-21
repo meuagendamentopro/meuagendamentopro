@@ -65,8 +65,15 @@ export function addDays(date: Date, days: number): Date {
 
 export function getToday(): Date {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
+  
+  // Resetar horas, minutos, segundos e milissegundos
+  // E manter o fuso horário local
+  return new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    0, 0, 0, 0
+  );
 }
 
 export function getMonthStartEnd(date: Date): { start: Date; end: Date } {

@@ -100,16 +100,32 @@ const AppointmentsPage: React.FC = () => {
 
       // Date filter
       let matchesDate = true;
-      const appointmentDate = new Date(appointment.date);
+      
+      // Criar uma nova data apenas com ano, mês e dia para evitar problemas de fuso horário
+      const appointmentDateObj = new Date(appointment.date);
+      const appointmentDate = new Date(
+        appointmentDateObj.getFullYear(),
+        appointmentDateObj.getMonth(),
+        appointmentDateObj.getDate()
+      );
+      
       const today = getToday();
       
       if (dateFilter === "today") {
-        matchesDate = appointmentDate.toDateString() === today.toDateString();
+        // Comparar apenas ano, mês e dia
+        matchesDate = 
+          appointmentDate.getFullYear() === today.getFullYear() &&
+          appointmentDate.getMonth() === today.getMonth() &&
+          appointmentDate.getDate() === today.getDate();
       } else if (dateFilter === "tomorrow") {
         const tomorrow = addDays(today, 1);
-        matchesDate = appointmentDate.toDateString() === tomorrow.toDateString();
+        matchesDate = 
+          appointmentDate.getFullYear() === tomorrow.getFullYear() &&
+          appointmentDate.getMonth() === tomorrow.getMonth() &&
+          appointmentDate.getDate() === tomorrow.getDate();
       } else if (dateFilter === "week") {
         const weekLater = addDays(today, 7);
+        // Para comparação de intervalo, ainda podemos usar >= e <= já que resetamos as horas
         matchesDate = appointmentDate >= today && appointmentDate <= weekLater;
       }
 
