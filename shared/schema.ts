@@ -84,7 +84,17 @@ export const appointments = pgTable("appointments", {
 });
 
 // Definindo um esquema de inserção de agendamento com validações adicionais
-export const insertAppointmentSchema = createInsertSchema(appointments)
+// Modificado para aceitar strings ISO
+export const insertAppointmentSchema = createInsertSchema(appointments, {
+  date: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ]),
+  endTime: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str))
+  ])
+})
   .pick({
     providerId: true,
     clientId: true,
@@ -95,32 +105,11 @@ export const insertAppointmentSchema = createInsertSchema(appointments)
     notes: true,
   })
   .transform((data) => {
-    // Garantir que date e endTime são objetos Date válidos
-    const dataWithValidDates = { 
-      ...data,
-      // Se date já é um objeto Date válido, mantém; se for string, converte para Date
-      date: data.date instanceof Date && !isNaN(data.date.getTime()) 
-        ? data.date 
-        : new Date(data.date),
-      // Se endTime já é um objeto Date válido, mantém; se for string, converte para Date
-      endTime: data.endTime instanceof Date && !isNaN(data.endTime.getTime()) 
-        ? data.endTime 
-        : new Date(data.endTime),
-    };
-
-    // Validar que ambas as datas são válidas
-    if (isNaN(dataWithValidDates.date.getTime())) {
-      throw new Error(`Data de início inválida: ${data.date}`);
-    }
-    if (isNaN(dataWithValidDates.endTime.getTime())) {
-      throw new Error(`Data de término inválida: ${data.endTime}`);
-    }
-
     // Garantir que status e notes nunca são undefined
     return {
-      ...dataWithValidDates,
-      status: dataWithValidDates.status || AppointmentStatus.PENDING,
-      notes: dataWithValidDates.notes || null,
+      ...data,
+      status: data.status || AppointmentStatus.PENDING,
+      notes: data.notes || null,
     };
   });
 
