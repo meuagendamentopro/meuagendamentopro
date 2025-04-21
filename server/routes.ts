@@ -30,7 +30,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Provider not found" });
     }
     
-    res.json(provider);
+    // Remover a senha da resposta por segurança
+    const { password, ...providerWithoutPassword } = provider;
+    res.json(providerWithoutPassword);
+  });
+  
+  // Rota para atualizar as configurações do provedor
+  app.patch("/api/providers/:id/settings", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid provider ID" });
+    }
+    
+    const provider = await storage.getProvider(id);
+    if (!provider) {
+      return res.status(404).json({ message: "Provider not found" });
+    }
+    
+    try {
+      // Validar os campos de horário de trabalho
+      const { workingHoursStart, workingHoursEnd } = req.body;
+      
+      if (workingHoursStart === undefined || workingHoursEnd === undefined) {
+        return res.status(400).json({ 
+          message: "Missing required fields",
+          errors: ["workingHoursStart and workingHoursEnd are required"]
+        });
+      }
+      
+      if (typeof workingHoursStart !== 'number' || typeof workingHoursEnd !== 'number') {
+        return res.status(400).json({ 
+          message: "Invalid data types",
+          errors: ["workingHoursStart and workingHoursEnd must be numbers"]
+        });
+      }
+      
+      if (workingHoursStart < 0 || workingHoursStart > 23 || workingHoursEnd < 1 || workingHoursEnd > 24) {
+        return res.status(400).json({ 
+          message: "Invalid hour range",
+          errors: ["workingHoursStart must be between 0-23 and workingHoursEnd must be between 1-24"]
+        });
+      }
+      
+      if (workingHoursEnd <= workingHoursStart) {
+        return res.status(400).json({ 
+          message: "Invalid hour range",
+          errors: ["workingHoursEnd must be greater than workingHoursStart"]
+        });
+      }
+      
+      // Atualizar o provedor com os novos valores
+      const updatedProvider = {
+        ...provider,
+        workingHoursStart,
+        workingHoursEnd
+      };
+      
+      // Como não temos um método específico no storage para atualizar,
+      // vamos atualizar diretamente no mapa
+      storage.providers.set(id, updatedProvider);
+      
+      // Não retornar a senha na resposta
+      const { password, ...providerWithoutPassword } = updatedProvider;
+      res.json(providerWithoutPassword);
+    } catch (error) {
+      console.error("Error updating provider settings:", error);
+      res.status(500).json({ message: "Failed to update provider settings" });
+    }
   });
 
   // Service routes

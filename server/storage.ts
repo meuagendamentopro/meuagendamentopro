@@ -37,7 +37,8 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private providers: Map<number, Provider>;
+  // Expondo providers como público para permitir atualizações diretas do provedor
+  public providers: Map<number, Provider>;
   private services: Map<number, Service>;
   private clients: Map<number, Client>;
   private appointments: Map<number, Appointment>;

@@ -10,6 +10,7 @@ import Services from "@/pages/services";
 import Appointments from "@/pages/appointments";
 import Clients from "@/pages/clients";
 import Booking from "@/pages/booking";
+import Settings from "@/pages/settings";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";

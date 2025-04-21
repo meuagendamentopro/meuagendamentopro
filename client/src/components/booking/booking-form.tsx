@@ -41,6 +41,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       return res.json();
     },
   });
+  
+  // Fetch provider details including working hours
+  const { data: provider } = useQuery({
+    queryKey: ["/api/providers", providerId],
+    queryFn: async ({ queryKey }) => {
+      const res = await fetch(`/api/providers/${providerId}`);
+      if (!res.ok) throw new Error("Failed to fetch provider details");
+      return res.json();
+    },
+  });
 
   // Check availability for a selected service and date
   const checkAvailability = async (serviceId: number, date: Date) => {
@@ -49,8 +59,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       const service = services.find((s: Service) => s.id === serviceId);
       if (!service) return;
 
-      // Generate all possible time slots
-      const allTimeSlots = generateTimeSlots(8, 19, 30);
+      // Usar horários de trabalho do profissional, se disponíveis, ou padrão
+      const workingHoursStart = provider?.workingHoursStart || 8;
+      const workingHoursEnd = provider?.workingHoursEnd || 18;
+      console.log(`Gerando horários entre ${workingHoursStart}h e ${workingHoursEnd}h`);
+      
+      // Generate all possible time slots based on provider settings
+      const allTimeSlots = generateTimeSlots(workingHoursStart, workingHoursEnd, 30);
       const available: string[] = [];
 
       // Check each time slot for availability
