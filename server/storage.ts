@@ -84,7 +84,12 @@ export class MemStorage implements IStorage {
   
   async createProvider(provider: InsertProvider): Promise<Provider> {
     const id = ++this.providerId;
-    const newProvider: Provider = { ...provider, id };
+    const newProvider: Provider = { 
+      ...provider, 
+      id,
+      phone: provider.phone || null,
+      avatarUrl: provider.avatarUrl || null
+    };
     this.providers.set(id, newProvider);
     return newProvider;
   }
@@ -100,7 +105,12 @@ export class MemStorage implements IStorage {
   
   async createService(service: InsertService): Promise<Service> {
     const id = ++this.serviceId;
-    const newService: Service = { ...service, id };
+    const newService: Service = { 
+      ...service, 
+      id,
+      description: service.description || null,
+      active: service.active !== undefined ? service.active : true
+    };
     this.services.set(id, newService);
     return newService;
   }
@@ -133,7 +143,12 @@ export class MemStorage implements IStorage {
   
   async createClient(client: InsertClient): Promise<Client> {
     const id = ++this.clientId;
-    const newClient: Client = { ...client, id };
+    const newClient: Client = { 
+      ...client, 
+      id,
+      email: client.email || null,
+      notes: client.notes || null
+    };
     this.clients.set(id, newClient);
     return newClient;
   }
@@ -174,7 +189,9 @@ export class MemStorage implements IStorage {
     const newAppointment: Appointment = { 
       ...appointment, 
       id,
-      createdAt: new Date()
+      createdAt: new Date(),
+      notes: appointment.notes || null,
+      status: appointment.status || AppointmentStatus.PENDING
     };
     this.appointments.set(id, newAppointment);
     return newAppointment;

@@ -79,24 +79,65 @@ export const appointments = pgTable("appointments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertAppointmentSchema = createInsertSchema(appointments).pick({
-  providerId: true,
-  clientId: true,
-  serviceId: true,
-  date: true,
-  endTime: true,
-  status: true,
-  notes: true,
-});
+// Definindo um esquema de inserção de agendamento com validações adicionais
+export const insertAppointmentSchema = createInsertSchema(appointments)
+  .pick({
+    providerId: true,
+    clientId: true,
+    serviceId: true,
+    date: true,
+    endTime: true,
+    status: true,
+    notes: true,
+  })
+  .transform((data) => {
+    // Garantir que date e endTime são objetos Date válidos
+    const dataWithValidDates = { 
+      ...data,
+      // Se date já é um objeto Date válido, mantém; se for string, converte para Date
+      date: data.date instanceof Date && !isNaN(data.date.getTime()) 
+        ? data.date 
+        : new Date(data.date),
+      // Se endTime já é um objeto Date válido, mantém; se for string, converte para Date
+      endTime: data.endTime instanceof Date && !isNaN(data.endTime.getTime()) 
+        ? data.endTime 
+        : new Date(data.endTime),
+    };
 
-// Frontend schemas
+    // Validar que ambas as datas são válidas
+    if (isNaN(dataWithValidDates.date.getTime())) {
+      throw new Error(`Data de início inválida: ${data.date}`);
+    }
+    if (isNaN(dataWithValidDates.endTime.getTime())) {
+      throw new Error(`Data de término inválida: ${data.endTime}`);
+    }
+
+    // Garantir que status e notes nunca são undefined
+    return {
+      ...dataWithValidDates,
+      status: dataWithValidDates.status || AppointmentStatus.PENDING,
+      notes: dataWithValidDates.notes || null,
+    };
+  });
+
+// Frontend schemas para o formulário de agendamento
 export const bookingFormSchema = z.object({
   name: z.string().min(3, "Nome é obrigatório"),
   phone: z.string().min(10, "Telefone é obrigatório"),
   notes: z.string().optional(),
-  serviceId: z.number(),
-  date: z.string(),
-  time: z.string(),
+  serviceId: z.number().int().positive("Selecione um serviço"),
+  date: z.string().refine(
+    (date) => {
+      try {
+        const parsedDate = new Date(date);
+        return !isNaN(parsedDate.getTime());
+      } catch {
+        return false;
+      }
+    },
+    { message: "Data inválida" }
+  ),
+  time: z.string().regex(/^\d{1,2}:\d{2}$/, "Horário inválido"),
 });
 
 // Types

@@ -184,14 +184,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
-      const data = insertAppointmentSchema.parse(req.body);
+      console.log("Criando agendamento com dados:", JSON.stringify(req.body, null, 2));
       
-      // Check if the time slot is available
-      const service = await storage.getService(data.serviceId);
-      if (!service) {
-        return res.status(404).json({ message: "Service not found" });
+      // Tenta processar os dados com o esquema com transformações
+      const data = insertAppointmentSchema.parse(req.body);
+      console.log("Dados após processamento do schema:", JSON.stringify(data, null, 2));
+      
+      // Verifica se as datas são válidas
+      if (!(data.date instanceof Date) || isNaN(data.date.getTime())) {
+        return res.status(400).json({ 
+          message: "Data de início inválida",
+          details: `Valor recebido: ${JSON.stringify(req.body.date)}`
+        });
       }
       
+      if (!(data.endTime instanceof Date) || isNaN(data.endTime.getTime())) {
+        return res.status(400).json({ 
+          message: "Data de término inválida",
+          details: `Valor recebido: ${JSON.stringify(req.body.endTime)}`
+        });
+      }
+      
+      // Verifica se o serviço existe
+      const service = await storage.getService(data.serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Serviço não encontrado" });
+      }
+      
+      // Verifica disponibilidade
       const isAvailable = await storage.checkAvailability(
         data.providerId, 
         data.date, 
@@ -199,21 +219,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (!isAvailable) {
-        return res.status(409).json({ message: "Time slot is not available" });
+        return res.status(409).json({ message: "Horário indisponível" });
       }
       
+      // Cria o agendamento
       const appointment = await storage.createAppointment(data);
       
-      // Here we would send a WhatsApp notification
-      // For now, we'll just log it
-      console.log(`Would send WhatsApp message to client for appointment ${appointment.id}`);
+      // Aqui enviaríamos uma notificação via WhatsApp
+      // Por enquanto, apenas logamos
+      console.log(`Agendamento ${appointment.id} criado com sucesso! Notificação seria enviada.`);
       
       res.status(201).json(appointment);
     } catch (error) {
+      console.error("Erro ao criar agendamento:", error);
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Dados de agendamento inválidos", 
+          errors: error.errors 
+        });
       }
-      res.status(500).json({ message: "Failed to create appointment" });
+      
+      if (error instanceof Error) {
+        return res.status(400).json({ 
+          message: "Erro ao processar agendamento", 
+          details: error.message
+        });
+      }
+      
+      res.status(500).json({ message: "Falha ao criar agendamento" });
     }
   });
 
@@ -286,24 +320,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Booking endpoint (for clients)
   app.post("/api/booking", async (req: Request, res: Response) => {
     try {
+      console.log("Recebendo dados de agendamento:", JSON.stringify(req.body, null, 2));
+      
+      // Valida os dados do formulário
       const bookingData = bookingFormSchema.parse(req.body);
       
-      // Parse the datetime
-      const [year, month, day] = bookingData.date.split('-').map(Number);
-      const [hour, minute] = bookingData.time.split(':').map(Number);
+      let appointmentDate: Date;
       
-      const appointmentDate = new Date(year, month - 1, day, hour, minute);
-      
-      // Get the service to calculate end time
-      const service = await storage.getService(bookingData.serviceId);
-      if (!service) {
-        return res.status(404).json({ message: "Service not found" });
+      try {
+        // Tenta analisar a data e hora com tratamento de erro
+        if (bookingData.date.includes('-')) {
+          // Formato ISO (YYYY-MM-DD)
+          const [year, month, day] = bookingData.date.split('-').map(Number);
+          const [hour, minute] = bookingData.time.split(':').map(Number);
+        
+          if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
+            throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
+          }
+        
+          appointmentDate = new Date(year, month - 1, day, hour, minute);
+        } else if (bookingData.date.includes('/')) {
+          // Formato BR (DD/MM/YYYY)
+          const [day, month, year] = bookingData.date.split('/').map(Number);
+          const [hour, minute] = bookingData.time.split(':').map(Number);
+        
+          if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
+            throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
+          }
+        
+          appointmentDate = new Date(year, month - 1, day, hour, minute);
+        } else {
+          // Tentar como timestamp ou outro formato
+          appointmentDate = new Date(bookingData.date);
+          const [hour, minute] = bookingData.time.split(':').map(Number);
+          appointmentDate.setHours(hour, minute, 0, 0);
+        }
+        
+        if (isNaN(appointmentDate.getTime())) {
+          throw new Error(`Data inválida após conversão: ${appointmentDate}`);
+        }
+        
+        console.log("Data processada:", appointmentDate.toISOString());
+      } catch (error) {
+        console.error("Erro ao processar data e hora:", error);
+        return res.status(400).json({ 
+          message: "Formato de data ou hora inválido", 
+          details: error instanceof Error ? error.message : String(error)
+        });
       }
       
-      // Calculate end time
+      // Busca o serviço para calcular horário de término
+      const service = await storage.getService(bookingData.serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Serviço não encontrado" });
+      }
+      
+      // Calcula o horário de término
       const endTime = new Date(appointmentDate.getTime() + service.duration * 60000);
       
-      // Check availability
+      // Verifica disponibilidade
       const isAvailable = await storage.checkAvailability(
         service.providerId,
         appointmentDate,
@@ -311,10 +386,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       if (!isAvailable) {
-        return res.status(409).json({ message: "Time slot is not available" });
+        return res.status(409).json({ message: "Horário indisponível" });
       }
       
-      // Create or get existing client
+      // Cria ou obtém cliente existente
       let client = await storage.getClientByPhone(bookingData.phone);
       
       if (!client) {
@@ -326,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create the appointment
+      // Cria o agendamento
       const appointment = await storage.createAppointment({
         providerId: service.providerId,
         clientId: client.id,
@@ -337,8 +412,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: bookingData.notes || ""
       });
       
-      // Here we would send a WhatsApp confirmation
-      console.log(`Would send WhatsApp confirmation to ${client.phone} for appointment ${appointment.id}`);
+      // Aqui enviaríamos uma confirmação via WhatsApp
+      console.log(`Agendamento ${appointment.id} criado com sucesso! Confirmação seria enviada para ${client.phone}.`);
       
       res.status(201).json({
         success: true,
@@ -346,10 +421,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Agendamento realizado com sucesso! Você receberá uma confirmação por WhatsApp em breve."
       });
     } catch (error) {
+      console.error("Erro ao processar agendamento do cliente:", error);
+      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid booking data", errors: error.errors });
+        return res.status(400).json({ 
+          message: "Dados de agendamento inválidos", 
+          errors: error.errors 
+        });
       }
-      res.status(500).json({ message: "Failed to create booking" });
+      
+      if (error instanceof Error) {
+        return res.status(400).json({ 
+          message: "Erro ao processar agendamento", 
+          details: error.message
+        });
+      }
+      
+      res.status(500).json({ message: "Falha ao criar agendamento" });
     }
   });
 
