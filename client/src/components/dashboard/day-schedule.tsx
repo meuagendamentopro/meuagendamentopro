@@ -156,6 +156,16 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const [selectedDate, setSelectedDate] = React.useState<Date>(new Date());
   const [addAppointmentTime, setAddAppointmentTime] = React.useState<Date | null>(null);
   const [editAppointmentId, setEditAppointmentId] = React.useState<number | null>(null);
+  
+  // Buscar as configurações do profissional
+  const { data: provider } = useQuery({
+    queryKey: ['/api/providers', providerId],
+    queryFn: async ({ queryKey }) => {
+      const res = await fetch(`/api/providers/${providerId}`);
+      if (!res.ok) throw new Error('Failed to fetch provider');
+      return res.json();
+    }
+  });
 
   const { data: appointments, isLoading: appointmentsLoading, refetch: refetchAppointments } = 
     useQuery<Appointment[]>({
@@ -222,14 +232,22 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     refetchAppointments();
   };
 
-  // Create time slots from 8:00 to 18:00
+  // Create time slots based on provider working hours
   const timeSlots = React.useMemo(() => {
     const slots = [];
-    for (let hour = 8; hour <= 18; hour++) {
+    // Usar as configurações do profissional ou valores padrão
+    const startHour = provider?.workingHoursStart || 8;
+    const endHour = provider?.workingHoursEnd || 18;
+    
+    for (let hour = startHour; hour <= endHour; hour++) {
       slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      // Adicionar slot de 30 minutos se não estiver no fim do dia
+      if (hour < endHour) {
+        slots.push(`${hour.toString().padStart(2, '0')}:30`);
+      }
     }
     return slots;
-  }, []);
+  }, [provider]);
 
   const isLoading = appointmentsLoading || servicesLoading || clientsLoading;
   
