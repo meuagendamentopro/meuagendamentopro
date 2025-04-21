@@ -215,8 +215,8 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
           providerId,
           clientId: data.clientId,
           serviceId: data.serviceId,
-          date: appointmentDate.toISOString(), // Enviando como string ISO
-          endTime: endTime.toISOString(), // Enviando como string ISO
+          date: appointmentDate, // Enviando o objeto Date diretamente
+          endTime: endTime, // Enviando o objeto Date diretamente
           status: AppointmentStatus.CONFIRMED,
           notes: data.notes || "",
         });
