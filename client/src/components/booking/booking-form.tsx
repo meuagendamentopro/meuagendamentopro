@@ -119,6 +119,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
 
   // Handle client form submission
   const handleClientForm = (values: { name: string; phone: string; notes: string }) => {
+    // Garantir que o telefone tenha pelo menos 10 dígitos
+    if (values.name.trim().length < 3) {
+      toast({
+        title: "Nome inválido",
+        description: "O nome deve ter pelo menos 3 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (values.phone.replace(/\D/g, '').length < 10) {
+      toast({
+        title: "Telefone inválido",
+        description: "O telefone deve ter pelo menos 10 dígitos (incluindo DDD).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log("Submitting client form:", values);
     clientFormRef.current = values;
     handleSubmitBooking();
   };

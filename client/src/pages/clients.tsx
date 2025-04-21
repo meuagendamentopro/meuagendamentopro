@@ -17,6 +17,7 @@ import { Client } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import PageHeader from "@/components/layout/page-header";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -265,7 +266,7 @@ const ClientsPage: React.FC = () => {
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input className="pl-9" placeholder="(00) 00000-0000" {...field} />
+                        <PhoneInput placeholder="(00) 00000-0000" className="pl-9" {...field} />
                       </div>
                     </FormControl>
                     <FormMessage />
