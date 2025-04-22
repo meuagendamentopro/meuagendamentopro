@@ -257,10 +257,9 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
     },
   });
 
-  // Usar os horários configurados pelo profissional ou valores padrão
-  const workingHoursStart = provider?.workingHoursStart || 8;
-  const workingHoursEnd = provider?.workingHoursEnd || 18;
-  const timeSlots = generateTimeSlots(workingHoursStart, workingHoursEnd, 30);
+  // Mostrar todos os horários (00h às 23h) para o profissional gerenciar sua agenda
+  // Sem restrição de horário de trabalho na tela do profissional
+  const timeSlots = generateTimeSlots(0, 24, 30);
 
   return (
     <Form {...form}>
