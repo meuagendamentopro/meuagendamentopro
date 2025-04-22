@@ -409,9 +409,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
-        
-          // Usando UTC para evitar problemas de fuso horário na criação da data
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+          
+          // Usando UTC E compensando o fuso horário (Brasil GMT-3)
+          // Adicionamos 3 horas para compensar a diferença 
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
         } else if (bookingData.date.includes('/')) {
           // Formato BR (DD/MM/YYYY) - usando Date.UTC para garantir consistência no fuso horário
           const [day, month, year] = bookingData.date.split('/').map(Number);
@@ -421,18 +422,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
         
-          // Usando UTC para evitar problemas de fuso horário na criação da data
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+          // Usando UTC E compensando o fuso horário (Brasil GMT-3)
+          // Adicionamos 3 horas para compensar a diferença 
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
         } else {
           // Tentar como timestamp ou outro formato - usando UTC para consistência
           const baseDate = new Date(bookingData.date);
           const [hour, minute] = bookingData.time.split(':').map(Number);
           // Criar uma nova data usando UTC com os componentes extraídos da data
+          // Compensando o fuso horário (Brasil GMT-3) adicionando 3 horas
           appointmentDate = new Date(Date.UTC(
             baseDate.getFullYear(),
             baseDate.getMonth(),
             baseDate.getDate(),
-            hour, minute, 0
+            hour + 3, minute, 0
           ));
         }
         

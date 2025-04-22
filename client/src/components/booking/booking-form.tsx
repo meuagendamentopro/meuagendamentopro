@@ -8,7 +8,7 @@ import ServiceSelector from "./service-selector";
 import DateSelector from "./date-selector";
 import TimeSelector from "./time-selector";
 import ClientForm from "./client-form";
-import { formatDate } from "@/lib/dates";
+import { formatDate, combineDateAndTime } from "@/lib/dates";
 import { generateTimeSlots } from "@/lib/utils";
 import { Service } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -76,8 +76,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       // Check each time slot for availability
       for (const time of allTimeSlots) {
         const [hours, minutes] = time.split(":").map(Number);
-        const slotDate = new Date(date);
-        slotDate.setHours(hours, minutes, 0, 0);
+        // Usar Date.UTC e compensar o fuso horário Brasil (GMT-3)
+        const slotDate = new Date(Date.UTC(
+          date.getFullYear(),
+          date.getMonth(),
+          date.getDate(),
+          hours + 3, // +3 para compensar o fuso horário
+          minutes,
+          0
+        ));
 
         // Skip past time slots for today
         const now = new Date();
@@ -206,9 +213,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     setIsSubmitting(true);
 
     try {
-      const [hours, minutes] = selectedTime.split(":").map(Number);
-      const appointmentDate = new Date(selectedDate);
-      appointmentDate.setHours(hours, minutes, 0, 0);
+      // Usar a função combineDateAndTime que já tem o ajuste de fuso horário
+      const appointmentDate = combineDateAndTime(selectedDate, selectedTime);
 
       // Dados do agendamento com nome e telefone validados
       const bookingData = {

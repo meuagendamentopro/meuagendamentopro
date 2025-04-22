@@ -104,12 +104,12 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
     }
     
-    // Usar UTC para garantir consistência no fuso horário
+    // Usar UTC para garantir consistência no fuso horário e compensar para GMT-3 (Brasil)
     const result = new Date(Date.UTC(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
-      hours,
+      hours + 3, // Adiciona 3 horas para compensar o fuso horário
       minutes,
       0,
       0
