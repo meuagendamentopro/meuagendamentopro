@@ -83,16 +83,16 @@ export function getStatusTranslation(status: string): string {
   }
 }
 
-export function generateTimeSlots(startHour: number = 8, endHour: number = 18, interval: number = 30): string[] {
+export function generateTimeSlots(startHour: number = 0, endHour: number = 24, interval: number = 30): string[] {
   const timeSlots: string[] = [];
   
   // Garantindo que startHour e endHour são números válidos
-  const start = Math.max(0, Math.min(23, startHour || 8));
-  const end = Math.max(1, Math.min(24, endHour || 18));
+  const start = Math.max(0, Math.min(23, startHour || 0));
+  const end = Math.max(1, Math.min(24, endHour || 24));
   
   if (end <= start) {
-    console.warn('Horário de término deve ser maior que o horário de início. Usando horários padrão (8-18).');
-    return generateTimeSlots(8, 18, interval);
+    console.warn('Horário de término deve ser maior que o horário de início. Usando horários padrão (0-24).');
+    return generateTimeSlots(0, 24, interval);
   }
   
   for (let hour = start; hour < end; hour++) {

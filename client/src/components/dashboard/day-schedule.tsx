@@ -11,7 +11,7 @@ import {
   X
 } from "lucide-react";
 import { Appointment, AppointmentStatus } from "@shared/schema";
-import { cn } from "@/lib/utils";
+import { cn, generateTimeSlots } from "@/lib/utils";
 import { formatTime } from "@/lib/dates";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -234,20 +234,9 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
 
   // Create time slots based on provider working hours
   const timeSlots = React.useMemo(() => {
-    const slots = [];
-    // Usar as configurações do profissional ou valores padrão
-    const startHour = provider?.workingHoursStart || 8;
-    const endHour = provider?.workingHoursEnd || 18;
-    
-    for (let hour = startHour; hour <= endHour; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`);
-      // Adicionar slot de 30 minutos se não estiver no fim do dia
-      if (hour < endHour) {
-        slots.push(`${hour.toString().padStart(2, '0')}:30`);
-      }
-    }
-    return slots;
-  }, [provider]);
+    // Gerar slots para o dia inteiro (00h-23:30h) independente das configurações do profissional
+    return generateTimeSlots(0, 24, 30);
+  }, []);
 
   const isLoading = appointmentsLoading || servicesLoading || clientsLoading;
   
