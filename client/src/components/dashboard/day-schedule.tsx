@@ -12,7 +12,7 @@ import {
   Filter,
   Clock
 } from "lucide-react";
-import { Appointment, AppointmentStatus } from "@shared/schema";
+import { Appointment, AppointmentStatus, Client, Service } from "@shared/schema";
 import { cn, generateTimeSlots } from "@/lib/utils";
 import { formatTime } from "@/lib/dates";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -266,8 +266,8 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     const appointment = appointments?.find(a => a.id === appointmentId);
     if (!appointment) return { client: null, service: null };
     
-    const client = clients.find(c => c.id === appointment.clientId);
-    const service = services.find(s => s.id === appointment.serviceId);
+    const client = clients.find((c: Client) => c.id === appointment.clientId);
+    const service = services.find((s: Service) => s.id === appointment.serviceId);
     
     return { client, service };
   };

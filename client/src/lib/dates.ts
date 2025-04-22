@@ -126,3 +126,16 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
 export function dateToISODateString(date: Date): string {
   return date.toISOString().split('T')[0];
 }
+
+// Ajusta uma data UTC para ser interpretada como data local (preservando o dia correto)
+export function adjustToLocalTimezone(date: Date): Date {
+  // Cria uma nova data usando os componentes locais da data UTC
+  return new Date(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds()
+  );
+}

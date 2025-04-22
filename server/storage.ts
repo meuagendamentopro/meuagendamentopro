@@ -171,16 +171,23 @@ export class MemStorage implements IStorage {
   }
   
   async getAppointmentsByDate(providerId: number, date: Date): Promise<Appointment[]> {
-    // Extrair a data no formato "yyyy-mm-dd" para comparar apenas o dia
-    const dateStr = date.toISOString().split('T')[0];
+    // Obter o ano, mês e dia da data fornecida em hora local
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
     
     // Retorna todos os agendamentos para o provider
     const allAppointments = await this.getAppointments(providerId);
     
-    // Filtra apenas os agendamentos daquela data, comparando apenas a parte da data (sem hora)
+    // Filtra apenas os agendamentos daquela data
+    // usando a comparação de componentes de data no fuso horário local
     return allAppointments.filter(appointment => {
-      const appointmentDateStr = new Date(appointment.date).toISOString().split('T')[0];
-      return appointmentDateStr === dateStr;
+      const apptDate = new Date(appointment.date);
+      const apptYear = apptDate.getFullYear();
+      const apptMonth = apptDate.getMonth();
+      const apptDay = apptDate.getDate();
+      
+      return apptYear === year && apptMonth === month && apptDay === day;
     });
   }
   
