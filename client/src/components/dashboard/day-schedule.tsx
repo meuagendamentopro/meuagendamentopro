@@ -8,13 +8,17 @@ import {
   ChevronRight, 
   Calendar as CalendarIcon,
   Edit,
-  X
+  X,
+  Filter,
+  Clock
 } from "lucide-react";
 import { Appointment, AppointmentStatus } from "@shared/schema";
 import { cn, generateTimeSlots } from "@/lib/utils";
 import { formatTime } from "@/lib/dates";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import AddAppointmentForm from "./add-appointment-form";
@@ -156,6 +160,9 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const [selectedDate, setSelectedDate] = React.useState<Date>(new Date());
   const [addAppointmentTime, setAddAppointmentTime] = React.useState<Date | null>(null);
   const [editAppointmentId, setEditAppointmentId] = React.useState<number | null>(null);
+  const [filterStartHour, setFilterStartHour] = React.useState<number>(0);
+  const [filterEndHour, setFilterEndHour] = React.useState<number>(24);
+  const [showFilterOptions, setShowFilterOptions] = React.useState<boolean>(false);
   
   // Buscar as configurações do profissional
   const { data: provider } = useQuery({
@@ -232,11 +239,11 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     refetchAppointments();
   };
 
-  // Create time slots based on provider working hours
+  // Create time slots based on filter settings
   const timeSlots = React.useMemo(() => {
-    // Gerar slots para o dia inteiro (00h-23:30h) independente das configurações do profissional
-    return generateTimeSlots(0, 24, 30);
-  }, []);
+    // Gerar slots com base nos filtros definidos pelo usuário
+    return generateTimeSlots(filterStartHour, filterEndHour, 30);
+  }, [filterStartHour, filterEndHour]);
 
   const isLoading = appointmentsLoading || servicesLoading || clientsLoading;
   
@@ -250,7 +257,12 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     
     return appointments.find(apt => {
       const aptTime = new Date(apt.date);
-      return aptTime.getHours() === hours && aptTime.getMinutes() === minutes;
+      // Compara o dia, mês e ano junto com a hora e minuto
+      return aptTime.getDate() === targetTime.getDate() && 
+             aptTime.getMonth() === targetTime.getMonth() &&
+             aptTime.getFullYear() === targetTime.getFullYear() &&
+             aptTime.getHours() === hours && 
+             aptTime.getMinutes() === minutes;
     });
   };
 
@@ -282,31 +294,111 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
               {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </p>
           </div>
-          <div className="inline-flex shadow-sm rounded-md">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-r-none"
-              onClick={handlePreviousDay}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-none border-l-0 border-r-0"
-              onClick={handleTodayClick}
-            >
-              Hoje
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-l-none"
-              onClick={handleNextDay}
-            >
-              Próximo <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-1" /> Filtrar Horários
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Filtrar horários</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm mb-2 text-gray-500">Hora inicial</p>
+                      <Select 
+                        value={filterStartHour.toString()} 
+                        onValueChange={(value) => setFilterStartHour(parseInt(value))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora inicial" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <SelectItem key={i} value={i.toString()}>
+                              {i.toString().padStart(2, '0')}:00
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <p className="text-sm mb-2 text-gray-500">Hora final</p>
+                      <Select 
+                        value={filterEndHour.toString()} 
+                        onValueChange={(value) => setFilterEndHour(parseInt(value))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hora final" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 25 }, (_, i) => (
+                            <SelectItem key={i} value={i.toString()}>
+                              {i === 24 ? "24:00" : `${i.toString().padStart(2, '0')}:00`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterStartHour(0);
+                        setFilterEndHour(24);
+                      }}
+                    >
+                      Mostrar todos
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        if (provider) {
+                          setFilterStartHour(provider.workingHoursStart || 8);
+                          setFilterEndHour(provider.workingHoursEnd || 18);
+                        } else {
+                          setFilterStartHour(8);
+                          setFilterEndHour(18);
+                        }
+                      }}
+                    >
+                      Meus horários
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="inline-flex shadow-sm rounded-md">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-r-none"
+                onClick={handlePreviousDay}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none border-l-0 border-r-0"
+                onClick={handleTodayClick}
+              >
+                Hoje
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-l-none"
+                onClick={handleNextDay}
+              >
+                Próximo <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
