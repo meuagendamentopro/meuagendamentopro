@@ -105,15 +105,23 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
     }
     
     // Usar UTC para garantir consistência no fuso horário e compensar para GMT-3 (Brasil)
+    // Verificamos se o horário cruza para o dia seguinte
+    let adjustedHour = hours + 3;  // Adicionamos 3 horas (fuso GMT-3)
+    if (adjustedHour >= 24) {
+      adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
+    }
+    
     const result = new Date(Date.UTC(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
-      hours + 3, // Adiciona 3 horas para compensar o fuso horário
+      adjustedHour,
       minutes,
       0,
       0
     ));
+    
+    console.log(`Horário ajustado em combineDateAndTime: ${hours}:${minutes} -> ${adjustedHour}:${minutes} (dia ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()})`);
     
     return result;
   } catch (error) {

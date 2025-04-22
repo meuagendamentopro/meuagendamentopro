@@ -411,8 +411,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Usando UTC E compensando o fuso horário (Brasil GMT-3)
-          // Adicionamos 3 horas para compensar a diferença 
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+          // Verificamos se o horário cruza para o dia seguinte
+          let adjustedHour = hour + 3;  // Adicionamos 3 horas (fuso GMT-3)
+          if (adjustedHour >= 24) {
+            adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
+          }
+          
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, adjustedHour, minute, 0));
+          console.log(`Horário ajustado: ${hour}:${minute} -> ${adjustedHour}:${minute} (dia ${day}/${month}/${year})`);
         } else if (bookingData.date.includes('/')) {
           // Formato BR (DD/MM/YYYY) - usando Date.UTC para garantir consistência no fuso horário
           const [day, month, year] = bookingData.date.split('/').map(Number);
@@ -423,20 +429,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         
           // Usando UTC E compensando o fuso horário (Brasil GMT-3)
-          // Adicionamos 3 horas para compensar a diferença 
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+          // Verificamos se o horário cruza para o dia seguinte
+          let adjustedHour = hour + 3;  // Adicionamos 3 horas (fuso GMT-3)
+          if (adjustedHour >= 24) {
+            adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
+          }
+          
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, adjustedHour, minute, 0));
+          console.log(`Horário ajustado: ${hour}:${minute} -> ${adjustedHour}:${minute} (dia ${day}/${month}/${year})`);
         } else {
           // Tentar como timestamp ou outro formato - usando UTC para consistência
           const baseDate = new Date(bookingData.date);
           const [hour, minute] = bookingData.time.split(':').map(Number);
           // Criar uma nova data usando UTC com os componentes extraídos da data
           // Compensando o fuso horário (Brasil GMT-3) adicionando 3 horas
+          // Verificamos se o horário cruza para o dia seguinte
+          let adjustedHour = hour + 3;  // Adicionamos 3 horas (fuso GMT-3)
+          if (adjustedHour >= 24) {
+            adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
+          }
+          
           appointmentDate = new Date(Date.UTC(
             baseDate.getFullYear(),
             baseDate.getMonth(),
             baseDate.getDate(),
-            hour + 3, minute, 0
+            adjustedHour, minute, 0
           ));
+          console.log(`Horário ajustado: ${hour}:${minute} -> ${adjustedHour}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
         }
         
         if (isNaN(appointmentDate.getTime())) {
