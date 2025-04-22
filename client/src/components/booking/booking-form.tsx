@@ -77,14 +77,22 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       for (const time of allTimeSlots) {
         const [hours, minutes] = time.split(":").map(Number);
         // Usar Date.UTC e compensar o fuso horário Brasil (GMT-3)
+        // Verificamos se o horário cruza para o dia seguinte
+        let adjustedHour = hours + 3;  // +3 para compensar o fuso horário
+        if (adjustedHour >= 24) {
+          adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
+        }
+        
         const slotDate = new Date(Date.UTC(
           date.getFullYear(),
           date.getMonth(),
           date.getDate(),
-          hours + 3, // +3 para compensar o fuso horário
+          adjustedHour,
           minutes,
           0
         ));
+        
+        console.log(`Horário slot: ${time} -> ajustado para ${adjustedHour}:${minutes} [data: ${date.toISOString().split('T')[0]}]`);
 
         // Skip past time slots for today
         const now = new Date();

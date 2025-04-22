@@ -255,26 +255,30 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     
     const [hours, minutes] = timeString.split(':').map(Number);
     
-    // Criar uma data para o horário atual no formato UTC para comparação consistente
-    const slotDate = new Date(Date.UTC(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      hours, 
-      minutes, 
-      0
-    ));
-    
+    // Calcular o horário para comparação com agendamentos
+    // Importante: na tela vemos "23:30" mas o horário está realmente armazenado como "2:30" após a compensação
     const result = appointments.find(apt => {
       const aptDate = new Date(apt.date);
-      console.log(`Comparando slot ${timeString} com agendamento às ${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()} (${aptDate.toLocaleString()})`);
       
-      // Comparação baseada em UTC para manter consistência
-      return aptDate.getUTCHours() === slotDate.getUTCHours() && 
-             aptDate.getUTCMinutes() === slotDate.getUTCMinutes() &&
-             aptDate.getUTCDate() === slotDate.getUTCDate() &&
-             aptDate.getUTCMonth() === slotDate.getUTCMonth() &&
-             aptDate.getUTCFullYear() === slotDate.getUTCFullYear();
+      // Para horários depois das 21:00, precisamos ajustar a lógica de comparação
+      // pois eles estão armazenados como horários iniciais do dia seguinte
+      let displayHour = aptDate.getUTCHours();
+      
+      // Se o horário armazenado é entre 0 e 2 (madrugada), é provável que corresponda a um horário noturno
+      if (displayHour >= 0 && displayHour < 3) {
+        displayHour = displayHour + 21; // 0->21, 1->22, 2->23
+      } else {
+        displayHour = displayHour - 3; // Compensação normal para os outros horários
+      }
+      
+      // Comparação com o horário ajustado para exibição na interface
+      const matchesTime = 
+        displayHour === hours && 
+        aptDate.getUTCMinutes() === minutes;
+      
+      console.log(`Comparando slot ${timeString} com agendamento às ${displayHour}:${aptDate.getUTCMinutes()} (${aptDate.toLocaleString()})`);
+      
+      return matchesTime;
     });
     
     if (result) {
