@@ -31,6 +31,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingComplete, setBookingComplete] = useState(false);
+  
+  // Garante que clientFormRef.current nunca é undefined
+  if (!clientFormRef.current) {
+    clientFormRef.current = { name: "", phone: "", notes: "" };
+  }
 
   // Fetch services
   const { data: services, isLoading: servicesLoading } = useQuery({
@@ -132,30 +137,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     setSelectedTime(time);
   };
 
-  // Handle client form submission
+  // Handle client form submission - apenas armazena os valores, sem submeter
   const handleClientForm = (values: { name: string; phone: string; notes: string }) => {
-    // Garantir que o telefone tenha pelo menos 10 dígitos
-    if (values.name.trim().length < 3) {
-      toast({
-        title: "Nome inválido",
-        description: "O nome deve ter pelo menos 3 caracteres.",
-        variant: "destructive",
-      });
-      return;
-    }
+    console.log("Recebendo valores do formulário do cliente:", values);
     
-    if (values.phone.replace(/\D/g, '').length < 10) {
-      toast({
-        title: "Telefone inválido",
-        description: "O telefone deve ter pelo menos 10 dígitos (incluindo DDD).",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    console.log("Submitting client form:", values);
-    clientFormRef.current = values;
-    handleSubmitBooking();
+    // Armazena os valores recebidos na referência
+    clientFormRef.current = {
+      name: values.name.trim(),
+      phone: values.phone,
+      notes: values.notes || ""
+    };
   };
 
   // Navigate to next step
@@ -189,6 +180,25 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   // Submit booking
   const handleSubmitBooking = async () => {
     if (!selectedService || !selectedTime) return;
+    
+    // Verificar se os dados do cliente estão preenchidos
+    if (!clientFormRef.current.name || clientFormRef.current.name.trim().length < 3) {
+      toast({
+        title: "Nome inválido",
+        description: "O nome deve ter pelo menos 3 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!clientFormRef.current.phone || clientFormRef.current.phone.replace(/\D/g, '').length < 10) {
+      toast({
+        title: "Telefone inválido",
+        description: "O telefone deve ter pelo menos 10 dígitos (incluindo DDD).",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -197,10 +207,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       const appointmentDate = new Date(selectedDate);
       appointmentDate.setHours(hours, minutes, 0, 0);
 
+      // Dados do agendamento com nome e telefone validados
       const bookingData = {
-        name: clientFormRef.current.name,
+        name: clientFormRef.current.name.trim(),
         phone: clientFormRef.current.phone,
-        notes: clientFormRef.current.notes,
+        notes: clientFormRef.current.notes || "",
         serviceId: selectedService,
         date: appointmentDate.toISOString().split("T")[0],
         time: selectedTime,
@@ -391,8 +402,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
               </Button>
             ) : (
               <Button 
-                onClick={() => handleClientForm(clientFormRef.current)}
-                disabled={isSubmitting}
+                onClick={() => handleSubmitBooking()}
+                disabled={isSubmitting || !clientFormRef.current.name || !clientFormRef.current.phone}
               >
                 {isSubmitting ? "Agendando..." : "Confirmar agendamento"}
               </Button>

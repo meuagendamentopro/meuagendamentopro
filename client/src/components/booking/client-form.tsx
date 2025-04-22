@@ -16,7 +16,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface ClientFormProps {
-  onSubmitValues: (values: FormValues) => void;
+  onSubmitValues: (values: { name: string; phone: string; notes: string }) => void;
   defaultValues?: Partial<FormValues>;
 }
 
@@ -31,8 +31,29 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
   });
 
   const onSubmit = (data: FormValues) => {
-    onSubmitValues(data);
+    onSubmitValues({
+      name: data.name,
+      phone: data.phone,
+      notes: data.notes || ""
+    });
   };
+
+  // Este ref será usado para expor o formulário ao componente pai
+  React.useEffect(() => {
+    // Sempre que os valores do formulário mudarem, atualize o callback
+    const subscription = form.watch((values) => {
+      // Garante que os valores estão disponíveis para o componente pai
+      if (values.name && values.phone) {
+        onSubmitValues({
+          name: values.name,
+          phone: values.phone,
+          notes: values.notes || "",
+        });
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form, onSubmitValues]);
 
   return (
     <Form {...form}>
