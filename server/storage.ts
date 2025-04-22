@@ -267,15 +267,44 @@ export class MemStorage implements IStorage {
   
   async checkAvailability(providerId: number, date: Date, duration: number): Promise<boolean> {
     const appointments = await this.getAppointments(providerId);
-    const endTime = new Date(date.getTime() + duration * 60000);
+    const requestEndTime = new Date(date.getTime() + duration * 60000);
+    
+    // Debug
+    console.log(`Verificando disponibilidade para ${date.toISOString()} (${date.toLocaleTimeString()}) até ${requestEndTime.toISOString()} (${requestEndTime.toLocaleTimeString()})`);
     
     // Check if the appointment time conflicts with any existing appointment
-    return !appointments.some(a => 
-      (a.status === AppointmentStatus.CONFIRMED || a.status === AppointmentStatus.PENDING) &&
-      ((date >= a.date && date < a.endTime) || 
-       (endTime > a.date && endTime <= a.endTime) ||
-       (date <= a.date && endTime >= a.endTime))
-    );
+    const isNotAvailable = appointments.some(appointment => {
+      // Para comparar corretamente, precisamos garantir que a data de fim do agendamento existente seja calculada
+      const appointmentDate = new Date(appointment.date);
+      // Precisamos buscar a duração do serviço para calcular o fim do agendamento
+      const service = this.services.get(appointment.serviceId);
+      
+      if (!service) {
+        console.log(`Serviço ${appointment.serviceId} não encontrado para verificação.`);
+        return false;
+      }
+      
+      const appointmentDuration = service.duration;
+      const appointmentEndTime = new Date(appointmentDate.getTime() + appointmentDuration * 60000);
+      
+      const isPendingOrConfirmed = 
+        appointment.status === AppointmentStatus.CONFIRMED || 
+        appointment.status === AppointmentStatus.PENDING;
+        
+      // Detecta se há sobreposição entre os horários
+      const hasOverlap = 
+        (date >= appointmentDate && date < appointmentEndTime) || 
+        (requestEndTime > appointmentDate && requestEndTime <= appointmentEndTime) ||
+        (date <= appointmentDate && requestEndTime >= appointmentEndTime);
+      
+      if (isPendingOrConfirmed && hasOverlap) {
+        console.log(`Conflito detectado com agendamento ${appointment.id} (${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()})`);
+      }
+      
+      return isPendingOrConfirmed && hasOverlap;
+    });
+    
+    return !isNotAvailable;
   }
 }
 
