@@ -171,19 +171,17 @@ export class MemStorage implements IStorage {
   }
   
   async getAppointmentsByDate(providerId: number, date: Date): Promise<Appointment[]> {
-    // Cria novas datas para o início e fim do dia no fuso horário local
-    // Isso resolve problemas com fuso horário UTC vs local
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const day = date.getDate();
+    // Extrair a data no formato "yyyy-mm-dd" para comparar apenas o dia
+    const dateStr = date.toISOString().split('T')[0];
     
-    // Início do dia no fuso horário local (00:00:00)
-    const startDate = new Date(year, month, day, 0, 0, 0, 0);
+    // Retorna todos os agendamentos para o provider
+    const allAppointments = await this.getAppointments(providerId);
     
-    // Fim do dia no fuso horário local (23:59:59.999)
-    const endDate = new Date(year, month, day, 23, 59, 59, 999);
-    
-    return this.getAppointmentsByDateRange(providerId, startDate, endDate);
+    // Filtra apenas os agendamentos daquela data, comparando apenas a parte da data (sem hora)
+    return allAppointments.filter(appointment => {
+      const appointmentDateStr = new Date(appointment.date).toISOString().split('T')[0];
+      return appointmentDateStr === dateStr;
+    });
   }
   
   async getAppointmentsByDateRange(providerId: number, startDate: Date, endDate: Date): Promise<Appointment[]> {

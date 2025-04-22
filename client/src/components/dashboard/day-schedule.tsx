@@ -252,17 +252,10 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     if (!appointments) return null;
     
     const [hours, minutes] = timeString.split(':').map(Number);
-    const targetTime = new Date(selectedDate);
-    targetTime.setHours(hours, minutes, 0, 0);
     
     return appointments.find(apt => {
       const aptTime = new Date(apt.date);
-      // Compara o dia, mês e ano junto com a hora e minuto
-      return aptTime.getDate() === targetTime.getDate() && 
-             aptTime.getMonth() === targetTime.getMonth() &&
-             aptTime.getFullYear() === targetTime.getFullYear() &&
-             aptTime.getHours() === hours && 
-             aptTime.getMinutes() === minutes;
+      return aptTime.getHours() === hours && aptTime.getMinutes() === minutes;
     });
   };
 
