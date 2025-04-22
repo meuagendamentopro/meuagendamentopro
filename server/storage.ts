@@ -25,6 +25,7 @@ export interface IStorage {
   getClient(id: number): Promise<Client | undefined>;
   getClientByPhone(phone: string): Promise<Client | undefined>;
   createClient(client: InsertClient): Promise<Client>;
+  updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined>;
   
   // Appointment methods
   getAppointments(providerId: number): Promise<Appointment[]>;
@@ -157,6 +158,25 @@ export class MemStorage implements IStorage {
     };
     this.clients.set(id, newClient);
     return newClient;
+  }
+  
+  async updateClient(id: number, clientData: Partial<InsertClient>): Promise<Client | undefined> {
+    const existingClient = this.clients.get(id);
+    if (!existingClient) return undefined;
+    
+    // Atualiza o cliente existente com os novos dados, mantendo os valores existentes quando não são fornecidos
+    const updatedClient: Client = { 
+      ...existingClient,
+      ...clientData,
+      // Garantir que campos opcionais sejam tratados corretamente
+      email: clientData.email !== undefined ? clientData.email : existingClient.email,
+      notes: clientData.notes !== undefined ? clientData.notes : existingClient.notes
+    };
+    
+    this.clients.set(id, updatedClient);
+    console.log(`Cliente #${id} (${existingClient.phone}) atualizado: ${JSON.stringify(updatedClient)}`);
+    
+    return updatedClient;
   }
   
   // Appointment methods

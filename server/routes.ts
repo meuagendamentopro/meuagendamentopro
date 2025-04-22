@@ -491,16 +491,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Horário indisponível" });
       }
       
-      // Cria ou obtém cliente existente
+      // Obtém cliente existente pelo telefone ou cria um novo
       let client = await storage.getClientByPhone(bookingData.phone);
       
       if (!client) {
+        // Se o cliente não existe, cria um novo
         client = await storage.createClient({
           name: bookingData.name,
           phone: bookingData.phone,
           email: "",
           notes: bookingData.notes || ""
         });
+      } else {
+        // Se o cliente já existe mas enviou um nome diferente ou notas diferentes,
+        // atualiza os dados do cliente para manter o cadastro atualizado
+        if (client.name !== bookingData.name || 
+            (bookingData.notes && client.notes !== bookingData.notes)) {
+          
+          console.log(`Cliente já existente com telefone ${bookingData.phone}.`);
+          console.log(`Nome no sistema: "${client.name}" - Nome informado: "${bookingData.name}"`);
+          
+          // Manteremos o telefone original, mas atualizaremos as notas se forem enviadas
+          await storage.updateClient(client.id, {
+            // Não atualizamos o nome para manter consistência com o cadastro original
+            notes: bookingData.notes || client.notes
+          });
+          
+          // Adicionamos uma nota sobre o nome diferente para referência futura
+          if (client.name !== bookingData.name) {
+            const notaAdicional = client.notes 
+              ? `${client.notes}. Cliente também conhecido como: ${bookingData.name}`
+              : `Cliente também conhecido como: ${bookingData.name}`;
+            
+            await storage.updateClient(client.id, {
+              notes: notaAdicional
+            });
+          }
+        }
       }
       
       // Cria o agendamento
