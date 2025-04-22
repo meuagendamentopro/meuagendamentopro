@@ -104,9 +104,8 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
     }
     
-    // Preserva o fuso horário local - cria data com os componentes diretamente
-    // em vez de modificar a data existente com setHours
-    const result = new Date(
+    // Usar UTC para garantir consistência no fuso horário
+    const result = new Date(Date.UTC(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
@@ -114,7 +113,7 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       minutes,
       0,
       0
-    );
+    ));
     
     return result;
   } catch (error) {

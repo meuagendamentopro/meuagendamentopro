@@ -255,10 +255,26 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     
     const [hours, minutes] = timeString.split(':').map(Number);
     
+    // Criar uma data para o horário atual no formato UTC para comparação consistente
+    const slotDate = new Date(Date.UTC(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      hours, 
+      minutes, 
+      0
+    ));
+    
     const result = appointments.find(apt => {
       const aptDate = new Date(apt.date);
-      console.log(`Comparando slot ${timeString} com agendamento às ${aptDate.getHours()}:${aptDate.getMinutes()} (${aptDate.toLocaleString()})`);
-      return aptDate.getHours() === hours && aptDate.getMinutes() === minutes;
+      console.log(`Comparando slot ${timeString} com agendamento às ${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()} (${aptDate.toLocaleString()})`);
+      
+      // Comparação baseada em UTC para manter consistência
+      return aptDate.getUTCHours() === slotDate.getUTCHours() && 
+             aptDate.getUTCMinutes() === slotDate.getUTCMinutes() &&
+             aptDate.getUTCDate() === slotDate.getUTCDate() &&
+             aptDate.getUTCMonth() === slotDate.getUTCMonth() &&
+             aptDate.getUTCFullYear() === slotDate.getUTCFullYear();
     });
     
     if (result) {
@@ -418,10 +434,14 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
               {timeSlots.map(time => {
                 const appointment = findAppointmentForTime(time);
                 
-                // Calculate time as Date object for empty slots
+                // Calculate time as Date object for empty slots usando UTC
                 const [hours, minutes] = time.split(':').map(Number);
-                const slotTime = new Date(selectedDate);
-                slotTime.setHours(hours, minutes, 0, 0);
+                const slotTime = new Date(Date.UTC(
+                  selectedDate.getFullYear(),
+                  selectedDate.getMonth(),
+                  selectedDate.getDate(),
+                  hours, minutes, 0
+                ));
                 
                 if (appointment) {
                   const { client, service } = getAppointmentDetails(appointment.id);
