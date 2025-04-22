@@ -287,15 +287,25 @@ export class MemStorage implements IStorage {
       const appointmentDuration = service.duration;
       const appointmentEndTime = new Date(appointmentDate.getTime() + appointmentDuration * 60000);
       
+      // Exibir mais informações de depuração
+      console.log(`Comparando slot ${date.toLocaleTimeString()} com agendamento às ${appointmentDate.getHours()}:${appointmentDate.getMinutes()} (${appointmentDate.toLocaleDateString()}, ${appointmentDate.toLocaleTimeString()})`);
+      
       const isPendingOrConfirmed = 
         appointment.status === AppointmentStatus.CONFIRMED || 
         appointment.status === AppointmentStatus.PENDING;
         
+      // Comparar ano, mês, dia, hora e minuto
+      const sameDate = 
+        date.getUTCFullYear() === appointmentDate.getUTCFullYear() &&
+        date.getUTCMonth() === appointmentDate.getUTCMonth() &&
+        date.getUTCDate() === appointmentDate.getUTCDate();
+      
       // Detecta se há sobreposição entre os horários
-      const hasOverlap = 
+      const hasOverlap = sameDate && (
         (date >= appointmentDate && date < appointmentEndTime) || 
         (requestEndTime > appointmentDate && requestEndTime <= appointmentEndTime) ||
-        (date <= appointmentDate && requestEndTime >= appointmentEndTime);
+        (date <= appointmentDate && requestEndTime >= appointmentEndTime)
+      );
       
       if (isPendingOrConfirmed && hasOverlap) {
         console.log(`Conflito detectado com agendamento ${appointment.id} (${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()})`);

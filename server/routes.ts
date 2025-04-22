@@ -402,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Tenta analisar a data e hora com tratamento de erro
         if (bookingData.date.includes('-')) {
-          // Formato ISO (YYYY-MM-DD)
+          // Formato ISO (YYYY-MM-DD) - usando Date.UTC para garantir consistência no fuso horário
           const [year, month, day] = bookingData.date.split('-').map(Number);
           const [hour, minute] = bookingData.time.split(':').map(Number);
         
@@ -410,9 +410,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
         
-          appointmentDate = new Date(year, month - 1, day, hour, minute);
+          // Usando UTC para evitar problemas de fuso horário na criação da data
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
         } else if (bookingData.date.includes('/')) {
-          // Formato BR (DD/MM/YYYY)
+          // Formato BR (DD/MM/YYYY) - usando Date.UTC para garantir consistência no fuso horário
           const [day, month, year] = bookingData.date.split('/').map(Number);
           const [hour, minute] = bookingData.time.split(':').map(Number);
         
@@ -420,12 +421,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
         
-          appointmentDate = new Date(year, month - 1, day, hour, minute);
+          // Usando UTC para evitar problemas de fuso horário na criação da data
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
         } else {
-          // Tentar como timestamp ou outro formato
-          appointmentDate = new Date(bookingData.date);
+          // Tentar como timestamp ou outro formato - usando UTC para consistência
+          const baseDate = new Date(bookingData.date);
           const [hour, minute] = bookingData.time.split(':').map(Number);
-          appointmentDate.setHours(hour, minute, 0, 0);
+          // Criar uma nova data usando UTC com os componentes extraídos da data
+          appointmentDate = new Date(Date.UTC(
+            baseDate.getFullYear(),
+            baseDate.getMonth(),
+            baseDate.getDate(),
+            hour, minute, 0
+          ));
         }
         
         if (isNaN(appointmentDate.getTime())) {
