@@ -141,12 +141,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const handleClientForm = (values: { name: string; phone: string; notes: string }) => {
     console.log("Recebendo valores do formulário do cliente:", values);
     
-    // Armazena os valores recebidos na referência
+    // Armazena os valores recebidos na referência e garante que não sejam undefined
     clientFormRef.current = {
-      name: values.name.trim(),
-      phone: values.phone,
+      name: values.name ? values.name.trim() : "",
+      phone: values.phone || "",
       notes: values.notes || ""
     };
+    
+    // Debug - verificar se os valores estão sendo armazenados
+    console.log("Valores armazenados:", clientFormRef.current);
   };
 
   // Navigate to next step
@@ -403,7 +406,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
             ) : (
               <Button 
                 onClick={() => handleSubmitBooking()}
-                disabled={isSubmitting || !clientFormRef.current.name || !clientFormRef.current.phone}
+                disabled={isSubmitting}
               >
                 {isSubmitting ? "Agendando..." : "Confirmar agendamento"}
               </Button>

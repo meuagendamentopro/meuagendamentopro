@@ -8,9 +8,9 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
-  name: z.string().min(3, "Nome é obrigatório"),
-  phone: z.string().min(10, "Telefone é obrigatório"),
-  notes: z.string().optional(),
+  name: z.string().min(3, "Por favor, insira seu nome completo com pelo menos 3 caracteres"),
+  phone: z.string().min(10, "Por favor, insira um número de telefone válido com pelo menos 10 dígitos"),
+  notes: z.string().optional().default(""),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -42,14 +42,13 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
   React.useEffect(() => {
     // Sempre que os valores do formulário mudarem, atualize o callback
     const subscription = form.watch((values) => {
-      // Garante que os valores estão disponíveis para o componente pai
-      if (values.name && values.phone) {
-        onSubmitValues({
-          name: values.name,
-          phone: values.phone,
-          notes: values.notes || "",
-        });
-      }
+      // Envie os valores para o componente pai, mesmo que incompletos
+      // O componente pai vai lidar com a validação
+      onSubmitValues({
+        name: values.name || "",
+        phone: values.phone || "",
+        notes: values.notes || "",
+      });
     });
     
     return () => subscription.unsubscribe();
