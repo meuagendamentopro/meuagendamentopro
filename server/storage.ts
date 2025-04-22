@@ -176,19 +176,30 @@ export class MemStorage implements IStorage {
     const month = date.getMonth();
     const day = date.getDate();
     
+    console.log(`Filtrando agendamentos para data local: ${date.toLocaleDateString()} (${year}-${month+1}-${day})`);
+    
     // Retorna todos os agendamentos para o provider
     const allAppointments = await this.getAppointments(providerId);
     
     // Filtra apenas os agendamentos daquela data
     // usando a comparação de componentes de data no fuso horário local
-    return allAppointments.filter(appointment => {
+    const filteredAppointments = allAppointments.filter(appointment => {
       const apptDate = new Date(appointment.date);
       const apptYear = apptDate.getFullYear();
       const apptMonth = apptDate.getMonth();
       const apptDay = apptDate.getDate();
       
-      return apptYear === year && apptMonth === month && apptDay === day;
+      const isMatch = apptYear === year && apptMonth === month && apptDay === day;
+      
+      if (isMatch) {
+        console.log(`Encontrado agendamento para ${apptDate.toLocaleDateString()} (${apptYear}-${apptMonth+1}-${apptDay})`);
+      }
+      
+      return isMatch;
     });
+    
+    console.log(`Total de ${filteredAppointments.length} agendamentos encontrados para ${date.toLocaleDateString()}`);
+    return filteredAppointments;
   }
   
   async getAppointmentsByDateRange(providerId: number, startDate: Date, endDate: Date): Promise<Appointment[]> {

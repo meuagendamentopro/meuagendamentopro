@@ -215,10 +215,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let appointments;
     
     if (dateParam) {
-      const date = new Date(dateParam);
+      // Cria uma data no formato local (baseada no fuso horário do servidor)
+      // usando apenas o ano, mês e dia da data recebida
+      const [year, month, day] = dateParam.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 0, 0, 0);
+      
       if (isNaN(date.getTime())) {
         return res.status(400).json({ message: "Invalid date format" });
       }
+      
+      console.log(`Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
       appointments = await storage.getAppointmentsByDate(providerId, date);
     } else if (startDateParam && endDateParam) {
       const startDate = new Date(startDateParam);

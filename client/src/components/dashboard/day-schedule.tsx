@@ -178,7 +178,9 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     useQuery<Appointment[]>({
       queryKey: ['/api/providers', providerId, 'appointments', selectedDate.toISOString().split('T')[0]],
       queryFn: async ({ queryKey }) => {
-        const res = await fetch(`/api/providers/${providerId}/appointments?date=${selectedDate.toISOString().split('T')[0]}`);
+        // Usando yyyy-mm-dd sem o T para evitar problemas de fuso horário
+        const localDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+        const res = await fetch(`/api/providers/${providerId}/appointments?date=${localDate}`);
         if (!res.ok) throw new Error('Failed to fetch appointments');
         return res.json();
       }
@@ -253,10 +255,17 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     
     const [hours, minutes] = timeString.split(':').map(Number);
     
-    return appointments.find(apt => {
-      const aptTime = new Date(apt.date);
-      return aptTime.getHours() === hours && aptTime.getMinutes() === minutes;
+    const result = appointments.find(apt => {
+      const aptDate = new Date(apt.date);
+      console.log(`Comparando slot ${timeString} com agendamento às ${aptDate.getHours()}:${aptDate.getMinutes()} (${aptDate.toLocaleString()})`);
+      return aptDate.getHours() === hours && aptDate.getMinutes() === minutes;
     });
+    
+    if (result) {
+      console.log(`Encontrado agendamento para ${timeString}`);
+    }
+    
+    return result;
   };
 
   // Get client and service for an appointment

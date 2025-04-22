@@ -1,0 +1,47 @@
+Console.js:61 Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Controller`.
+    at PhoneInput (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/components/ui/phone-input.tsx:21:30)
+    at div
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=100f16c7:79:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=100f16c7:56:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/components/ui/form.tsx:130:9
+    at div
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/components/ui/form.tsx:72:6
+    at Controller (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=100f16c7:298:35)
+    at FormField (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/components/ui/form.tsx:33:6)
+    at form
+    at FormProvider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=100f16c7:102:11)
+    at div
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=100f16c7:42:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…runner/workspace/node_modules/.vite/deps/chunk-TPEMFX7K.js?v=100f16c7:61:7
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=100f16c7:79:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=100f16c7:56:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=100f16c7:42:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…runner/workspace/node_modules/.vite/deps/chunk-TQT7K6GT.js?v=100f16c7:29:5
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-UGXFY7CL.js?v=100f16c7:233:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-UGXFY7CL.js?v=100f16c7:156:58
+    at Presence (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-7ZIEIKXH.js?v=100f16c7:24:11)
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-UGXFY7CL.js?v=100f16c7:147:64
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=100f16c7:79:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=100f16c7:56:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=100f16c7:42:13
+    at https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-TPEMFX7K.js?v=100f16c7:260:22
+    at Presence (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-7ZIEIKXH.js?v=100f16c7:24:11)
+    at Provider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-E7IAXTU4.js?v=100f16c7:38:15)
+    at DialogPortal (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…nner/workspace/node_modules/.vite/deps/chunk-UGXFY7CL.js?v=100f16c7:109:11)
+    at _c3 (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-E7IAXTU4.js?v=100f16c7:38:15)
+    at Dialog (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…runner/workspace/node_modules/.vite/deps/chunk-UGXFY7CL.js?v=100f16c7:50:5)
+    at div
+    at ClientsPage (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/pages/clients.tsx:51:39)
+    at main
+    at div
+    at MainLayout (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/App.tsx?v=qukA_PNUNeGuDJtjW-tXd:32:23)
+    at Route (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=100f16c7:323:16)
+    at Switch (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=100f16c7:379:17)
+    at Router
+    at Provider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-E7IAXTU4.js?v=100f16c7:38:15)
+    at TooltipProvider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=100f16c7:61:5)
+    at QueryClientProvider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=100f16c7:2805:3)
+    at App
