@@ -145,6 +145,10 @@ export class MemStorage implements IStorage {
     return newUser;
   }
   
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
   // Método extra para pegar um provider pelo ID do usuário
   async getProviderByUserId(userId: number): Promise<Provider | undefined> {
     return Array.from(this.providers.values()).find(p => p.userId === userId);
@@ -284,7 +288,7 @@ export class MemStorage implements IStorage {
   // Appointment methods
   async getAppointments(providerId: number): Promise<Appointment[]> {
     return Array.from(this.appointments.values())
-      .filter(a => a.providerId === providerId)
+      .filter(a => a.providerId === providerId && a.status !== AppointmentStatus.CANCELLED)
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }
   

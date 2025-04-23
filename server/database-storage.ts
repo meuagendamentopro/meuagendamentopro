@@ -40,6 +40,10 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.insert(users).values(userData).returning();
     return user;
   }
+  
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
 
   // Provider methods
   async getProviders(): Promise<Provider[]> {
@@ -142,7 +146,12 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(appointments)
-      .where(eq(appointments.providerId, providerId))
+      .where(
+        and(
+          eq(appointments.providerId, providerId),
+          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
+        )
+      )
       .orderBy(appointments.date);
   }
 
@@ -178,7 +187,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(appointments.providerId, providerId),
           gte(appointments.date, startOfDay),
-          lte(appointments.date, endOfDay)
+          lte(appointments.date, endOfDay),
+          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
         )
       )
       .orderBy(appointments.date);
@@ -199,7 +209,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(appointments.providerId, providerId),
           gte(appointments.date, startDate),
-          lte(appointments.date, endDate)
+          lte(appointments.date, endDate),
+          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
         )
       )
       .orderBy(appointments.date);
