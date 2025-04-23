@@ -344,12 +344,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client routes
-  app.get("/api/clients", async (req: Request, res: Response) => {
-    const clients = await storage.getClients();
+  app.get("/api/clients", loadUserProvider, async (req: Request, res: Response) => {
+    // Obter somente os clientes associados a este provider
+    const provider = (req as any).provider;
+    const clients = await storage.getClientsByProvider(provider.id);
     res.json(clients);
   });
 
-  app.get("/api/clients/:id", async (req: Request, res: Response) => {
+  app.get("/api/clients/:id", loadUserProvider, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid client ID" });
@@ -358,6 +360,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const client = await storage.getClient(id);
     if (!client) {
       return res.status(404).json({ message: "Client not found" });
+    }
+    
+    // Verificar se o cliente pertence a este provider
+    const provider = (req as any).provider;
+    const clientsForProvider = await storage.getClientsByProvider(provider.id);
+    const clientBelongsToProvider = clientsForProvider.some(c => c.id === client.id);
+    
+    if (!clientBelongsToProvider) {
+      return res.status(403).json({ 
+        error: "Acesso não autorizado", 
+        message: "Você não tem permissão para acessar este cliente" 
+      });
     }
     
     res.json(client);
@@ -497,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(appointments);
   });
 
-  app.get("/api/appointments/:id", async (req: Request, res: Response) => {
+  app.get("/api/appointments/:id", loadUserProvider, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid appointment ID" });
@@ -506,6 +520,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const appointment = await storage.getAppointment(id);
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found" });
+    }
+    
+    // Verificar se o agendamento pertence ao provider do usuário logado
+    const provider = (req as any).provider;
+    if (appointment.providerId !== provider.id) {
+      return res.status(403).json({ 
+        error: "Acesso não autorizado", 
+        message: "Você não tem permissão para acessar este agendamento" 
+      });
     }
     
     res.json(appointment);
