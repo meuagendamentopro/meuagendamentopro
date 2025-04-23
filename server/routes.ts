@@ -9,8 +9,12 @@ import {
   AppointmentStatus
 } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configurar autenticação
+  setupAuth(app);
+  
   const httpServer = createServer(app);
 
   // Provider routes
@@ -30,9 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Provider not found" });
     }
     
-    // Remover a senha da resposta por segurança
-    const { password, ...providerWithoutPassword } = provider;
-    res.json(providerWithoutPassword);
+    res.json(provider);
   });
   
   // Rota para atualizar as configurações do provedor
@@ -79,20 +81,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Atualizar o provedor com os novos valores
-      const updatedProvider = {
-        ...provider,
+      // Agora temos um método específico no storage para atualizar o provedor
+      const providerData = {
         workingHoursStart,
         workingHoursEnd
       };
       
-      // Como não temos um método específico no storage para atualizar,
-      // vamos atualizar diretamente no mapa
-      storage.providers.set(id, updatedProvider);
+      const updatedProvider = await storage.updateProvider(id, providerData);
+      if (!updatedProvider) {
+        return res.status(500).json({ message: "Falha ao atualizar as configurações do provedor" });
+      }
       
-      // Não retornar a senha na resposta
-      const { password, ...providerWithoutPassword } = updatedProvider;
-      res.json(providerWithoutPassword);
+      res.json(updatedProvider);
     } catch (error) {
       console.error("Error updating provider settings:", error);
       res.status(500).json({ message: "Failed to update provider settings" });
