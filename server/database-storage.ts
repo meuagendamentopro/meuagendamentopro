@@ -116,6 +116,30 @@ export class DatabaseStorage implements IStorage {
   async getClients(): Promise<Client[]> {
     return await db.select().from(clients);
   }
+  
+  async getClientsByProvider(providerId: number): Promise<Client[]> {
+    // Encontra todos os clientes que têm agendamentos com este provider
+    const clientsWithAppointments = await db
+      .select({
+        clientId: appointments.clientId
+      })
+      .from(appointments)
+      .where(eq(appointments.providerId, providerId))
+      .groupBy(appointments.clientId);
+      
+    if (clientsWithAppointments.length === 0) {
+      return [];
+    }
+    
+    // Extrai os IDs dos clientes
+    const clientIds = clientsWithAppointments.map(result => result.clientId);
+    
+    // Busca os detalhes completos dos clientes
+    return await db
+      .select()
+      .from(clients)
+      .where(sql`${clients.id} IN (${clientIds.join(', ')})`);
+  }
 
   async getClient(id: number): Promise<Client | undefined> {
     const [client] = await db.select().from(clients).where(eq(clients.id, id));

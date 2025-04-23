@@ -36,6 +36,7 @@ export interface IStorage {
   
   // Client methods
   getClients(): Promise<Client[]>;
+  getClientsByProvider(providerId: number): Promise<Client[]>;
   getClient(id: number): Promise<Client | undefined>;
   getClientByPhone(phone: string): Promise<Client | undefined>;
   createClient(client: InsertClient): Promise<Client>;
@@ -244,6 +245,19 @@ export class MemStorage implements IStorage {
   // Client methods
   async getClients(): Promise<Client[]> {
     return Array.from(this.clients.values());
+  }
+  
+  async getClientsByProvider(providerId: number): Promise<Client[]> {
+    // Filtra os clientes que têm agendamentos com este provider
+    const appointments = Array.from(this.appointments.values())
+      .filter(a => a.providerId === providerId);
+      
+    // Obter IDs únicos de clientes que têm agendamentos com este provider
+    const clientIds = new Set(appointments.map(a => a.clientId));
+    
+    // Retornar os clientes que correspondem a esses IDs
+    return Array.from(this.clients.values())
+      .filter(client => clientIds.has(client.id));
   }
   
   async getClient(id: number): Promise<Client | undefined> {
