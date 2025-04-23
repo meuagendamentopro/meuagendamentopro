@@ -1,13 +1,20 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const MobileNav: React.FC = () => {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, logoutMutation } = useAuth();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
+  };
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
+    setIsOpen(false);
   };
 
   const navItems = [
@@ -15,6 +22,7 @@ const MobileNav: React.FC = () => {
     { href: "/appointments", name: "Agendamentos", active: location === "/appointments" },
     { href: "/clients", name: "Clientes", active: location === "/clients" },
     { href: "/services", name: "Serviços", active: location === "/services" },
+    { href: "/financial", name: "Financeiro", active: location === "/financial" },
     { href: "/settings", name: "Configurações", active: location === "/settings" },
   ];
 
@@ -83,19 +91,27 @@ const MobileNav: React.FC = () => {
             ))}
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200">
-            <div className="flex items-center px-4">
-              <div className="flex-shrink-0">
-                <img
-                  className="h-10 w-10 rounded-full"
-                  src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                  alt=""
-                />
+            {user && (
+              <div className="flex items-center px-4">
+                <div className="flex-shrink-0">
+                  {user.avatarUrl ? (
+                    <img
+                      className="h-10 w-10 rounded-full"
+                      src={user.avatarUrl}
+                      alt={user.name}
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center font-semibold text-lg">
+                      {user.name.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="ml-3">
+                  <div className="text-base font-medium text-gray-800">{user.name}</div>
+                  <div className="text-sm font-medium text-gray-500">{user.username}</div>
+                </div>
               </div>
-              <div className="ml-3">
-                <div className="text-base font-medium text-gray-800">Carlos Silva</div>
-                <div className="text-sm font-medium text-gray-500">carlos@example.com</div>
-              </div>
-            </div>
+            )}
             <div className="mt-3 space-y-1">
               <a
                 href="#"
@@ -110,12 +126,13 @@ const MobileNav: React.FC = () => {
               >
                 Configurações
               </Link>
-              <a
-                href="#"
-                className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+              <button
+                onClick={handleLogout}
+                className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                disabled={logoutMutation.isPending}
               >
-                Sair
-              </a>
+                {logoutMutation.isPending ? "Saindo..." : "Sair"}
+              </button>
             </div>
           </div>
         </div>

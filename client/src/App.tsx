@@ -11,11 +11,22 @@ import Appointments from "@/pages/appointments";
 import Clients from "@/pages/clients";
 import Booking from "@/pages/booking";
 import Settings from "@/pages/settings";
+import AuthPage from "@/pages/auth-page";
+import FinancialReport from "@/pages/financial-report";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
+import { useAuth } from "@/hooks/use-auth";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
+  const { user, logoutMutation } = useAuth();
+  
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
+  
   return (
     <div className="flex flex-col min-h-screen">
       {/* MAIN NAVIGATION */}
@@ -39,11 +50,22 @@ function MainLayout({ children }: { children: React.ReactNode }) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
               </button>
 
-              <UserAvatar 
-                name="Carlos Silva" 
-                email="carlos@example.com" 
-                imageUrl="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" 
-              />
+              {user && (
+                <div className="flex items-center space-x-2">
+                  <UserAvatar 
+                    name={user.name}
+                    email={user.username}
+                    imageUrl={user.avatarUrl || undefined}
+                  />
+                  <button
+                    onClick={handleLogout}
+                    className="ml-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900"
+                    disabled={logoutMutation.isPending}
+                  >
+                    Sair
+                  </button>
+                </div>
+              )}
             </div>
             
             <MobileNav />
@@ -62,37 +84,66 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      {/* Rota pública para autenticação */}
+      <Route path="/auth" component={AuthPage} />
+      
+      {/* Rota pública para agendamento de clientes */}
       <Route path="/booking" component={Booking} />
       
-      <Route path="/">
-        <MainLayout>
-          <Dashboard />
-        </MainLayout>
-      </Route>
+      {/* Rotas protegidas que exigem autenticação */}
+      <ProtectedRoute 
+        path="/" 
+        element={
+          <MainLayout>
+            <Dashboard />
+          </MainLayout>
+        } 
+      />
       
-      <Route path="/services">
-        <MainLayout>
-          <Services />
-        </MainLayout>
-      </Route>
+      <ProtectedRoute 
+        path="/services" 
+        element={
+          <MainLayout>
+            <Services />
+          </MainLayout>
+        } 
+      />
       
-      <Route path="/appointments">
-        <MainLayout>
-          <Appointments />
-        </MainLayout>
-      </Route>
+      <ProtectedRoute 
+        path="/appointments" 
+        element={
+          <MainLayout>
+            <Appointments />
+          </MainLayout>
+        } 
+      />
       
-      <Route path="/clients">
-        <MainLayout>
-          <Clients />
-        </MainLayout>
-      </Route>
+      <ProtectedRoute 
+        path="/clients" 
+        element={
+          <MainLayout>
+            <Clients />
+          </MainLayout>
+        } 
+      />
       
-      <Route path="/settings">
-        <MainLayout>
-          <Settings />
-        </MainLayout>
-      </Route>
+      <ProtectedRoute 
+        path="/settings" 
+        element={
+          <MainLayout>
+            <Settings />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/financial" 
+        element={
+          <MainLayout>
+            <FinancialReport />
+          </MainLayout>
+        } 
+      />
       
       <Route component={NotFound} />
     </Switch>
@@ -102,10 +153,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -1,0 +1,242 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface Appointment {
+  id: number;
+  providerId: number;
+  clientId: number;
+  serviceId: number;
+  date: string;
+  endTime: string;
+  status: string;
+  clientName: string;
+  serviceName: string;
+  servicePrice: number;
+}
+
+interface Service {
+  id: number;
+  name: string;
+  price: number;
+}
+
+export default function FinancialReport() {
+  const [month, setMonth] = useState<Date>(new Date());
+  const [selectedService, setSelectedService] = useState<string>("all");
+
+  // Buscar os agendamentos
+  const { data: appointments, isLoading: isLoadingAppointments } = useQuery<Appointment[]>({
+    queryKey: ["/api/providers/1/appointments"],
+  });
+
+  // Buscar os serviços
+  const { data: services, isLoading: isLoadingServices } = useQuery<Service[]>({
+    queryKey: ["/api/providers/1/services"],
+  });
+
+  if (isLoadingAppointments || isLoadingServices) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Filtrar os agendamentos por mês e status confirmado/concluído
+  const filteredAppointments = appointments?.filter((appointment) => {
+    const appointmentDate = parseISO(appointment.date);
+    return (
+      isWithinInterval(appointmentDate, {
+        start: startOfMonth(month),
+        end: endOfMonth(month),
+      }) &&
+      ["CONFIRMED", "COMPLETED"].includes(appointment.status) &&
+      (selectedService === "all" || appointment.serviceId === parseInt(selectedService))
+    );
+  });
+
+  // Calcular o total de receitas
+  const totalRevenue = filteredAppointments?.reduce(
+    (total, appointment) => total + (appointment.servicePrice || 0),
+    0
+  ) || 0;
+
+  // Agrupar por serviço para o relatório de resumo
+  const serviceGroups = filteredAppointments?.reduce((groups, appointment) => {
+    const key = appointment.serviceId;
+    if (!groups[key]) {
+      groups[key] = {
+        name: appointment.serviceName,
+        count: 0,
+        revenue: 0,
+      };
+    }
+    groups[key].count += 1;
+    groups[key].revenue += appointment.servicePrice || 0;
+    return groups;
+  }, {} as Record<string, { name: string; count: number; revenue: number }>);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Relatório Financeiro</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Filtros */}
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Filtros</CardTitle>
+            <CardDescription>Selecione o período e serviço</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Calendário para selecionar o mês */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Mês</label>
+              <Calendar
+                mode="single"
+                selected={month}
+                onSelect={(date) => setMonth(date || new Date())}
+                classNames={{
+                  caption_label: "text-sm font-medium",
+                  nav_button_previous: "absolute left-1",
+                  nav_button_next: "absolute right-1",
+                  table: "w-full border-collapse",
+                  head_cell: "text-xs font-medium text-center",
+                  cell: "text-center text-sm p-0 relative",
+                  day: "h-9 w-9 p-0 font-normal",
+                  day_selected: "bg-primary text-white hover:bg-primary",
+                }}
+                locale={ptBR}
+              />
+            </div>
+
+            {/* Select para filtrar por serviço */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Serviço</label>
+              <Select
+                value={selectedService}
+                onValueChange={setSelectedService}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os serviços" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os serviços</SelectItem>
+                  {services?.map((service) => (
+                    <SelectItem key={service.id} value={service.id.toString()}>
+                      {service.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Resumo Financeiro */}
+        <Card className="col-span-1 md:col-span-2">
+          <CardHeader>
+            <CardTitle>Resumo Financeiro</CardTitle>
+            <CardDescription>
+              {format(month, "MMMM 'de' yyyy", { locale: ptBR })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-primary">
+                R$ {totalRevenue.toFixed(2)}
+              </h2>
+              <p className="text-gray-500">Receita total</p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-semibold">Receita por Serviço</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services && serviceGroups
+                  ? Object.values(serviceGroups).map((group, index) => (
+                      <div
+                        key={index}
+                        className="p-4 border rounded-lg flex flex-col"
+                      >
+                        <span className="font-medium">{group.name}</span>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-gray-500">
+                            {group.count} atendimentos
+                          </span>
+                          <span className="font-semibold">
+                            R$ {group.revenue.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  : null}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabela de Transações */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Detalhes dos Atendimentos</CardTitle>
+          <CardDescription>
+            Lista de todos os atendimentos do período selecionado
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableCaption>
+              {filteredAppointments?.length
+                ? `Total de ${filteredAppointments.length} atendimentos`
+                : "Nenhum atendimento encontrado no período"}
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Serviço</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAppointments?.map((appointment) => (
+                <TableRow key={appointment.id}>
+                  <TableCell>
+                    {format(parseISO(appointment.date), "dd/MM/yyyy HH:mm")}
+                  </TableCell>
+                  <TableCell>{appointment.clientName}</TableCell>
+                  <TableCell>{appointment.serviceName}</TableCell>
+                  <TableCell>
+                    {appointment.status === "COMPLETED"
+                      ? "Concluído"
+                      : "Confirmado"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    R$ {appointment.servicePrice?.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
