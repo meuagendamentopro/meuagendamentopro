@@ -17,11 +17,11 @@ declare global {
 // Constantes para bcrypt
 const SALT_ROUNDS = 10;
 
-async function hashPassword(password: string): Promise<string> {
+export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+export async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
   return bcrypt.compare(supplied, stored);
 }
 

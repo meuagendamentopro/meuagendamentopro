@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -9,13 +9,70 @@ import {
   AppointmentStatus
 } from "@shared/schema";
 import { z } from "zod";
-import { setupAuth } from "./auth";
+import { setupAuth, hashPassword } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
   setupAuth(app);
   
   const httpServer = createServer(app);
+  
+  // Middleware para verificar se o usuário é administrador
+  const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Acesso não autorizado. Apenas administradores podem acessar esta rota." });
+    }
+    
+    next();
+  };
+  
+  // Rotas de administração
+  app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Erro ao buscar usuários:", error);
+      res.status(500).json({ error: "Erro ao buscar usuários" });
+    }
+  });
+  
+  app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { name, username, password, role } = req.body;
+      
+      // Validar dados
+      if (!name || !username || !password || !role) {
+        return res.status(400).json({ error: "Todos os campos são obrigatórios" });
+      }
+      
+      // Verificar se o usuário já existe
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Nome de usuário já existe" });
+      }
+      
+      // Criar o usuário com senha hasheada
+      const hashedPassword = await hashPassword(password);
+      const user = await storage.createUser({
+        name,
+        username,
+        password: hashedPassword,
+        role,
+      });
+      
+      // Retornar o usuário criado (sem a senha)
+      const { password: _, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Erro ao criar usuário:", error);
+      res.status(500).json({ error: "Erro ao criar usuário" });
+    }
+  });
 
   // Provider routes
   app.get("/api/providers", async (req: Request, res: Response) => {
