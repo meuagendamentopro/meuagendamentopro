@@ -17,7 +17,8 @@ const MobileNav: React.FC = () => {
     setIsOpen(false);
   };
 
-  const navItems = [
+  // Base do menu de navegação
+  let navItems = [
     { href: "/", name: "Dashboard", active: location === "/" },
     { href: "/appointments", name: "Agendamentos", active: location === "/appointments" },
     { href: "/clients", name: "Clientes", active: location === "/clients" },
@@ -25,6 +26,11 @@ const MobileNav: React.FC = () => {
     { href: "/financial", name: "Financeiro", active: location === "/financial" },
     { href: "/settings", name: "Configurações", active: location === "/settings" },
   ];
+  
+  // Adiciona a página de administração apenas para usuários admin
+  if (user?.role === "admin") {
+    navItems.push({ href: "/admin", name: "Administração", active: location === "/admin" });
+  }
 
   return (
     <div className="-mr-2 flex items-center sm:hidden">

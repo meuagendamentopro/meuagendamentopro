@@ -10,12 +10,57 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, hashPassword } from "./auth";
+import { WebSocketServer, WebSocket } from "ws";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
   setupAuth(app);
   
   const httpServer = createServer(app);
+  
+  // Configuração do WebSocket para atualizações em tempo real
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Armazenar conexões ativas
+  const connectedClients = new Map<WebSocket, { userId?: number }>();
+  
+  wss.on('connection', (ws: WebSocket) => {
+    console.log('Nova conexão WebSocket estabelecida');
+    
+    // Adicionar cliente à lista de conexões
+    connectedClients.set(ws, {});
+    
+    ws.on('message', (message: string) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Se a mensagem contém uma identificação de usuário, associamos à conexão
+        if (data.type === 'identify' && data.userId) {
+          console.log(`Cliente WebSocket identificado: usuário ${data.userId}`);
+          connectedClients.set(ws, { userId: data.userId });
+        }
+      } catch (error) {
+        console.error('Erro ao processar mensagem WebSocket:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      // Remover cliente da lista quando a conexão é fechada
+      connectedClients.delete(ws);
+      console.log('Conexão WebSocket fechada');
+    });
+  });
+  
+  // Função auxiliar para enviar atualizações em tempo real
+  const broadcastUpdate = (type: string, data: any) => {
+    const message = JSON.stringify({ type, data });
+    
+    connectedClients.forEach((client, ws) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(message);
+      }
+    });
+  };
   
   // Middleware para verificar se o usuário é administrador
   const isAdmin = (req: Request, res: Response, next: NextFunction) => {

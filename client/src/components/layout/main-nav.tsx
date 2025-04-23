@@ -1,11 +1,14 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const MainNav: React.FC = () => {
   const [location] = useLocation();
+  const { user } = useAuth();
 
-  const navItems = [
+  // Base do menu de navegação
+  let navItems = [
     { href: "/", name: "Dashboard", active: location === "/" },
     { href: "/appointments", name: "Agendamentos", active: location === "/appointments" },
     { href: "/clients", name: "Clientes", active: location === "/clients" },
@@ -13,6 +16,11 @@ const MainNav: React.FC = () => {
     { href: "/financial", name: "Financeiro", active: location === "/financial" },
     { href: "/settings", name: "Configurações", active: location === "/settings" },
   ];
+  
+  // Adiciona a página de administração apenas para usuários admin
+  if (user?.role === "admin") {
+    navItems.push({ href: "/admin", name: "Administração", active: location === "/admin" });
+  }
 
   return (
     <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
