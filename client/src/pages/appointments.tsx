@@ -41,7 +41,6 @@ import {
 import AddAppointmentForm from "@/components/dashboard/add-appointment-form";
 
 const AppointmentsPage: React.FC = () => {
-  const providerId = 1; // Using default provider ID from storage
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -50,34 +49,48 @@ const AppointmentsPage: React.FC = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const { toast } = useToast();
 
-  // Fetch appointments
+  // Obter dados do provider atual
+  const { data: provider } = useQuery({
+    queryKey: ["/api/my-provider"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-provider");
+      if (!res.ok) throw new Error("Failed to fetch provider data");
+      return res.json();
+    }
+  });
+  
+  const providerId = provider?.id;
+
+  // Fetch appointments usando a rota protegida
   const { data: appointments, isLoading: appointmentsLoading, refetch: refetchAppointments } = useQuery({
-    queryKey: ["/api/providers", providerId, "appointments"],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/appointments`);
+    queryKey: ["/api/my-appointments"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-appointments");
       if (!res.ok) throw new Error("Failed to fetch appointments");
       return res.json();
     },
+    enabled: !!providerId // Só executa a query quando o providerId estiver disponível
   });
 
   // Fetch clients
   const { data: clients, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],
-    queryFn: async ({ queryKey }) => {
+    queryFn: async () => {
       const res = await fetch("/api/clients");
       if (!res.ok) throw new Error("Failed to fetch clients");
       return res.json();
     },
   });
 
-  // Fetch services
+  // Fetch services usando a rota protegida
   const { data: services, isLoading: servicesLoading } = useQuery({
-    queryKey: ["/api/providers", providerId, "services"],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
+    queryKey: ["/api/my-services"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-services");
       if (!res.ok) throw new Error("Failed to fetch services");
       return res.json();
     },
+    enabled: !!providerId // Só executa a query quando o providerId estiver disponível
   });
 
   // Filter appointments
@@ -377,11 +390,13 @@ const AppointmentsPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Novo Agendamento</DialogTitle>
           </DialogHeader>
-          <AddAppointmentForm 
-            providerId={providerId}
-            initialDate={new Date()}
-            onComplete={handleDialogClose}
-          />
+          {provider && (
+            <AddAppointmentForm 
+              providerId={provider.id}
+              initialDate={new Date()}
+              onComplete={handleDialogClose}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -391,9 +406,9 @@ const AppointmentsPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Editar Agendamento</DialogTitle>
           </DialogHeader>
-          {selectedAppointment && (
+          {selectedAppointment && provider && (
             <AddAppointmentForm 
-              providerId={providerId}
+              providerId={provider.id}
               initialDate={new Date(selectedAppointment.date)}
               appointmentId={selectedAppointment.id}
               initialClientId={selectedAppointment.clientId}

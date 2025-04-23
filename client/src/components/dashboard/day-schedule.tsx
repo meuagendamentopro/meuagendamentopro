@@ -164,11 +164,11 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const [filterEndHour, setFilterEndHour] = React.useState<number>(24);
   const [showFilterOptions, setShowFilterOptions] = React.useState<boolean>(false);
   
-  // Buscar as configurações do profissional
+  // Buscar as configurações do profissional (utilizando a rota protegida)
   const { data: provider } = useQuery({
-    queryKey: ['/api/providers', providerId],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}`);
+    queryKey: ['/api/my-provider'],
+    queryFn: async () => {
+      const res = await fetch(`/api/my-provider`);
       if (!res.ok) throw new Error('Failed to fetch provider');
       return res.json();
     }
@@ -176,20 +176,20 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
 
   const { data: appointments, isLoading: appointmentsLoading, refetch: refetchAppointments } = 
     useQuery<Appointment[]>({
-      queryKey: ['/api/providers', providerId, 'appointments', selectedDate.toISOString().split('T')[0]],
-      queryFn: async ({ queryKey }) => {
+      queryKey: ['/api/my-appointments', selectedDate.toISOString().split('T')[0]],
+      queryFn: async () => {
         // Usando yyyy-mm-dd sem o T para evitar problemas de fuso horário
         const localDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-        const res = await fetch(`/api/providers/${providerId}/appointments?date=${localDate}`);
+        const res = await fetch(`/api/my-appointments?date=${localDate}`);
         if (!res.ok) throw new Error('Failed to fetch appointments');
         return res.json();
       }
     });
 
   const { data: services, isLoading: servicesLoading } = useQuery({
-    queryKey: ['/api/providers', providerId, 'services'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
+    queryKey: ['/api/my-services'],
+    queryFn: async () => {
+      const res = await fetch(`/api/my-services`);
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     }
@@ -226,6 +226,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
 
   const handleCancelAppointment = async (id: number) => {
     try {
+      // Usando a rota protegida para atualizar o status do agendamento
       await apiRequest('PATCH', `/api/appointments/${id}/status`, { 
         status: AppointmentStatus.CANCELLED 
       });
