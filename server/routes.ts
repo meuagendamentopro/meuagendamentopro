@@ -75,6 +75,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
   
+  // Middleware para verificar autenticação e carregar o provider do usuário na requisição
+  const loadUserProvider = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      // Busca o provider associado ao usuário atual
+      const provider = await storage.getProviderByUserId(req.user.id);
+      
+      if (!provider) {
+        // Usuário logado não tem provider associado
+        return res.status(404).json({ 
+          error: "Perfil de prestador não encontrado", 
+          message: "Você não tem um perfil de prestador de serviços configurado."
+        });
+      }
+      
+      // Adiciona o provider à requisição para uso nas rotas subsequentes
+      (req as any).provider = provider;
+      next();
+    } catch (error) {
+      console.error("Erro ao carregar provider do usuário:", error);
+      res.status(500).json({ error: "Erro ao carregar perfil do prestador" });
+    }
+  };
+  
   // Rotas de administração
   app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
@@ -211,10 +238,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const services = await storage.getServices(providerId);
     res.json(services);
   });
+  
+  // Rota para obter os serviços do profissional autenticado
+  app.get("/api/my-services", loadUserProvider, async (req: Request, res: Response) => {
+    const provider = (req as any).provider;
+    const services = await storage.getServices(provider.id);
+    res.json(services);
+  });
 
-  app.post("/api/services", async (req: Request, res: Response) => {
+  app.post("/api/services", loadUserProvider, async (req: Request, res: Response) => {
     try {
-      const data = insertServiceSchema.parse(req.body);
+      const provider = (req as any).provider;
+      
+      // Garantir que o serviço está sendo criado para o provider do usuário logado
+      const data = insertServiceSchema.parse({
+        ...req.body,
+        providerId: provider.id // Sobrescrever o providerId com o ID do provider do usuário logado
+      });
+      
       const service = await storage.createService(data);
       res.status(201).json(service);
     } catch (error) {
@@ -225,14 +266,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/services/:id", async (req: Request, res: Response) => {
+  app.put("/api/services/:id", loadUserProvider, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid service ID" });
     }
     
     try {
-      const data = insertServiceSchema.partial().parse(req.body);
+      const provider = (req as any).provider;
+      
+      // Verifica se o serviço pertence ao provider do usuário
+      const existingService = await storage.getService(id);
+      if (!existingService) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      
+      if (existingService.providerId !== provider.id) {
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para editar este serviço" 
+        });
+      }
+      
+      // Não permite alterar o providerId
+      const data = insertServiceSchema.partial().parse({
+        ...req.body,
+        providerId: provider.id // Garante que o providerId não é alterado
+      });
+      
       const service = await storage.updateService(id, data);
       
       if (!service) {
@@ -248,18 +309,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/services/:id", async (req: Request, res: Response) => {
+  app.delete("/api/services/:id", loadUserProvider, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid service ID" });
     }
     
-    const success = await storage.deleteService(id);
-    if (!success) {
-      return res.status(404).json({ message: "Service not found" });
+    try {
+      const provider = (req as any).provider;
+      
+      // Verifica se o serviço pertence ao provider do usuário
+      const existingService = await storage.getService(id);
+      if (!existingService) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      
+      if (existingService.providerId !== provider.id) {
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para excluir este serviço" 
+        });
+      }
+      
+      const success = await storage.deleteService(id);
+      if (!success) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Erro ao excluir serviço:", error);
+      res.status(500).json({ message: "Falha ao excluir serviço" });
     }
-    
-    res.status(204).send();
   });
 
   // Client routes
@@ -302,7 +383,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Appointment routes
+  // Rota para obter o provider do usuário logado
+  app.get("/api/my-provider", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const provider = await storage.getProviderByUserId(req.user.id);
+      
+      if (!provider) {
+        return res.status(404).json({ 
+          error: "Perfil de prestador não encontrado", 
+          message: "Você não tem um perfil de prestador de serviços configurado."
+        });
+      }
+      
+      res.json(provider);
+    } catch (error) {
+      console.error("Erro ao buscar provider do usuário:", error);
+      res.status(500).json({ error: "Erro ao buscar perfil do prestador" });
+    }
+  });
+  
+  // Rota para obter link de compartilhamento único do usuário
+  app.get("/api/my-booking-link", loadUserProvider, async (req: Request, res: Response) => {
+    const provider = (req as any).provider;
+    
+    // Gera um link de compartilhamento usando o ID do provider
+    const bookingLink = `/booking/${provider.id}`;
+    
+    res.json({ 
+      bookingLink,
+      fullUrl: `${req.protocol}://${req.get('host')}${bookingLink}`
+    });
+  });
+
+  // Appointment routes - Usando middleware para garantir acesso apenas aos próprios dados
+  app.get("/api/my-appointments", loadUserProvider, async (req: Request, res: Response) => {
+    const provider = (req as any).provider;
+    const providerId = provider.id;
+    
+    // Parse date filter parameters
+    const dateParam = req.query.date as string;
+    const startDateParam = req.query.startDate as string;
+    const endDateParam = req.query.endDate as string;
+    
+    let appointments;
+    
+    if (dateParam) {
+      // Cria uma data no formato local (baseada no fuso horário do servidor)
+      // usando apenas o ano, mês e dia da data recebida
+      const [year, month, day] = dateParam.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 0, 0, 0);
+      
+      if (isNaN(date.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      
+      console.log(`Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
+      appointments = await storage.getAppointmentsByDate(providerId, date);
+    } else if (startDateParam && endDateParam) {
+      const startDate = new Date(startDateParam);
+      const endDate = new Date(endDateParam);
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      appointments = await storage.getAppointmentsByDateRange(providerId, startDate, endDate);
+    } else {
+      appointments = await storage.getAppointments(providerId);
+    }
+    
+    res.json(appointments);
+  });
+  
+  // Manter a rota original para compatibilidade com a API pública
   app.get("/api/providers/:providerId/appointments", async (req: Request, res: Response) => {
     const providerId = parseInt(req.params.providerId);
     if (isNaN(providerId)) {
@@ -445,13 +600,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/appointments/:id/status", async (req: Request, res: Response) => {
+  // Atualizar status de agendamento (somente para o próprio provider)
+  app.patch("/api/appointments/:id/status", loadUserProvider, async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid appointment ID" });
     }
     
     try {
+      const provider = (req as any).provider;
+      
+      // Busca o agendamento para verificar se pertence ao provider do usuário logado
+      const existingAppointment = await storage.getAppointment(id);
+      if (!existingAppointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
+      // Verifica se o agendamento pertence ao provider do usuário logado
+      if (existingAppointment.providerId !== provider.id) {
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para atualizar este agendamento" 
+        });
+      }
+      
       const statusSchema = z.object({
         status: z.enum([
           AppointmentStatus.PENDING,
@@ -462,36 +634,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const { status } = statusSchema.parse(req.body);
-      const appointment = await storage.updateAppointmentStatus(id, status);
+      const updatedAppointment = await storage.updateAppointmentStatus(id, status);
       
-      if (!appointment) {
+      if (!updatedAppointment) {
         return res.status(404).json({ message: "Appointment not found" });
       }
       
       // Enviar atualização em tempo real via WebSocket
-      broadcastUpdate('appointment_updated', appointment);
+      broadcastUpdate('appointment_updated', updatedAppointment);
       
       // Aqui enviaríamos uma notificação via WhatsApp sobre a mudança de status
       // Por enquanto, apenas logamos
       console.log(`Enviando atualização em tempo real e notificação WhatsApp para agendamento ${id}: ${status}`);
       
       // Criar uma notificação no sistema para o usuário associado ao prestador
-      const provider = await storage.getProvider(appointment.providerId);
+      // Já temos acesso ao provider pelo middleware loadUserProvider
       if (provider && provider.userId) {
         try {
           // Determinar mensagem apropriada baseada no status
           let titleMsg = "Agendamento atualizado";
-          let message = `O agendamento #${appointment.id} foi atualizado para ${status}`;
+          let message = `O agendamento #${updatedAppointment.id} foi atualizado para ${status}`;
           
           if (status === AppointmentStatus.CONFIRMED) {
             titleMsg = "Agendamento confirmado";
-            message = `O agendamento #${appointment.id} foi confirmado`;
+            message = `O agendamento #${updatedAppointment.id} foi confirmado`;
           } else if (status === AppointmentStatus.CANCELLED) {
             titleMsg = "Agendamento cancelado";
-            message = `O agendamento #${appointment.id} foi cancelado`;
+            message = `O agendamento #${updatedAppointment.id} foi cancelado`;
           } else if (status === AppointmentStatus.COMPLETED) {
             titleMsg = "Agendamento concluído";
-            message = `O agendamento #${appointment.id} foi marcado como concluído`;
+            message = `O agendamento #${updatedAppointment.id} foi marcado como concluído`;
           }
           
           // Criar a notificação para o usuário
@@ -500,7 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             title: titleMsg,
             message,
             type: 'appointment',
-            appointmentId: appointment.id
+            appointmentId: updatedAppointment.id
           });
           
           console.log(`Notificação criada para o usuário ${provider.userId}`);
@@ -509,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json(appointment);
+      res.json(updatedAppointment);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid status", errors: error.errors });
