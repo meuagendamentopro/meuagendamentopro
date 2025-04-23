@@ -1,26 +1,69 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from 'drizzle-orm';
 
-// Provider/Professional model
-export const providers = pgTable("providers", {
+// Usuários do sistema (para autenticação)
+export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  role: text("role").default("provider").notNull(), // 'admin' ou 'provider'
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    usernameIdx: uniqueIndex("username_idx").on(table.username),
+  }
+});
+
+// Schema de inserção para usuários
+export const insertUserSchema = createInsertSchema(users).pick({
+  name: true,
+  username: true,
+  password: true,
+  role: true,
+  avatarUrl: true,
+});
+
+// Provider/Professional model (vinculado a um usuário)
+export const providers = pgTable("providers", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
   phone: text("phone"),
+  bookingLink: text("booking_link").unique(),
   avatarUrl: text("avatar_url"),
   workingHoursStart: integer("working_hours_start").default(8), // Horário de início em horas (padrão: 8h)
   workingHoursEnd: integer("working_hours_end").default(18),    // Horário de término em horas (padrão: 18h) 
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Relações entre tabelas
+export const providersRelations = relations(providers, ({ one }) => ({
+  user: one(users, {
+    fields: [providers.userId],
+    references: [users.id]
+  })
+}));
+
+export const usersRelations = relations(users, ({ one }) => ({
+  provider: one(providers, {
+    fields: [users.id],
+    references: [providers.userId]
+  })
+}));
+
 export const insertProviderSchema = createInsertSchema(providers).pick({
+  userId: true,
   name: true,
   email: true,
-  username: true,
-  password: true,
   phone: true,
+  bookingLink: true,
   avatarUrl: true,
   workingHoursStart: true,
   workingHoursEnd: true,
@@ -155,7 +198,82 @@ export const bookingFormSchema = z.object({
   time: z.string().regex(/^\d{1,2}:\d{2}$/, "Horário inválido"),
 });
 
+// Deixa estas linhas vazias para remover as duplicações
+
+// Tabela de notificações para alertar os profissionais sobre novos agendamentos
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default("appointment"),  // Tipo de notificação (appointment, system, etc)
+  isRead: boolean("is_read").notNull().default(false),
+  appointmentId: integer("appointment_id").references(() => appointments.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Schema de inserção para notificações
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  userId: true,
+  title: true,
+  message: true,
+  type: true,
+  appointmentId: true,
+});
+
+// Relations para notificações
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id]
+  }),
+  appointment: one(appointments, {
+    fields: [notifications.appointmentId],
+    references: [appointments.id]
+  })
+}));
+
+// Relations para appointments
+export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
+  provider: one(providers, {
+    fields: [appointments.providerId],
+    references: [providers.id],
+  }),
+  client: one(clients, {
+    fields: [appointments.clientId],
+    references: [clients.id],
+  }),
+  service: one(services, {
+    fields: [appointments.serviceId],
+    references: [services.id],
+  }),
+  notifications: many(notifications)
+}));
+
+// Relations para services
+export const servicesRelations = relations(services, ({ one, many }) => ({
+  provider: one(providers, {
+    fields: [services.providerId],
+    references: [providers.id],
+  }),
+  appointments: many(appointments)
+}));
+
+// Relations para clients
+export const clientsRelations = relations(clients, ({ many }) => ({
+  appointments: many(appointments)
+}));
+
+// Schema de login (para autenticação)
+export const loginSchema = z.object({
+  username: z.string().min(3, "Nome de usuário é obrigatório"),
+  password: z.string().min(6, "Senha é obrigatória")
+});
+
 // Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
 export type Provider = typeof providers.$inferSelect;
 export type InsertProvider = z.infer<typeof insertProviderSchema>;
 
@@ -168,4 +286,8 @@ export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
+export type LoginFormValues = z.infer<typeof loginSchema>;
