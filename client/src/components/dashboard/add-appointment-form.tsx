@@ -61,11 +61,11 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Get services for this provider
+  // Get services for this provider (usando a rota protegida)
   const { data: services, isLoading: servicesLoading } = useQuery({
-    queryKey: ['/api/providers', providerId, 'services'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
+    queryKey: ['/api/my-services'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-services');
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     }
@@ -182,9 +182,11 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       // Calculate end time
       const endTime = new Date(appointmentDate.getTime() + service.duration * 60000);
       
-      // Check availability first
+      // Check availability first usando a nova API protegida
+      const myProvider = provider || await (await fetch('/api/my-provider')).json();
+      
       const availabilityCheck = await fetch(
-        `/api/providers/${providerId}/availability?date=${appointmentDate.toISOString()}&serviceId=${data.serviceId}`
+        `/api/providers/${myProvider.id}/availability?date=${appointmentDate.toISOString()}&serviceId=${data.serviceId}`
       );
       
       const { available } = await availabilityCheck.json();
@@ -210,9 +212,9 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
           description: "Agendamento atualizado com sucesso",
         });
       } else {
-        // Create appointment
+        // Create appointment usando o ID do provider obtido da rota protegida
         const response = await apiRequest("POST", "/api/appointments", {
-          providerId,
+          providerId: myProvider.id, // Usar o ID do provider atual
           clientId: data.clientId,
           serviceId: data.serviceId,
           date: appointmentDate, // Enviando o objeto Date diretamente
@@ -230,8 +232,8 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       // Clear form
       form.reset();
       
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/providers', providerId, 'appointments'] });
+      // Invalidate queries to refresh data usando as rotas protegidas
+      queryClient.invalidateQueries({ queryKey: ['/api/my-appointments'] });
       
       // Call the onComplete callback
       if (onComplete) {
@@ -247,11 +249,11 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
     }
   };
 
-  // Buscar configurações do provedor
+  // Buscar configurações do provedor (usando rota protegida)
   const { data: provider } = useQuery({
-    queryKey: ["/api/providers", providerId],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}`);
+    queryKey: ["/api/my-provider"],
+    queryFn: async () => {
+      const res = await fetch(`/api/my-provider`);
       if (!res.ok) throw new Error("Failed to fetch provider");
       return res.json();
     },
