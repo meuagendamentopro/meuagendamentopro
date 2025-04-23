@@ -157,8 +157,14 @@ export class MemStorage implements IStorage {
     return this.providers.get(id);
   }
   
+  // Método obsoleto, mantido para compatibilidade
   async getProviderByUsername(username: string): Promise<Provider | undefined> {
-    return Array.from(this.providers.values()).find(p => p.username === username);
+    // Procura o usuário pelo username
+    const user = await this.getUserByUsername(username);
+    if (!user) return undefined;
+    
+    // Se encontrou o usuário, procura o provider associado
+    return await this.getProviderByUserId(user.id);
   }
   
   async createProvider(provider: InsertProvider): Promise<Provider> {
@@ -171,8 +177,11 @@ export class MemStorage implements IStorage {
       id,
       phone: phone || null,
       avatarUrl: avatarUrl || null,
+      bookingLink: rest.bookingLink ?? null,
       workingHoursStart: workingHoursStart !== undefined ? workingHoursStart : 8,
-      workingHoursEnd: workingHoursEnd !== undefined ? workingHoursEnd : 18
+      workingHoursEnd: workingHoursEnd !== undefined ? workingHoursEnd : 18,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.providers.set(id, newProvider);
     return newProvider;
@@ -412,6 +421,51 @@ export class MemStorage implements IStorage {
     });
     
     return !isNotAvailable;
+  }
+  
+  // Notification methods
+  async getNotifications(userId: number): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()); // Ordenar do mais recente para o mais antigo
+  }
+  
+  async getUnreadNotifications(userId: number): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId && !n.isRead)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = ++this.notificationId;
+    const newNotification: Notification = {
+      id,
+      userId: notification.userId,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type || "appointment",
+      appointmentId: notification.appointmentId || null,
+      isRead: false,
+      createdAt: new Date()
+    };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+  
+  async markNotificationAsRead(id: number): Promise<Notification | undefined> {
+    const notification = this.notifications.get(id);
+    if (!notification) return undefined;
+    
+    const updatedNotification: Notification = { ...notification, isRead: true };
+    this.notifications.set(id, updatedNotification);
+    return updatedNotification;
+  }
+  
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    const userNotifications = await this.getUnreadNotifications(userId);
+    for (const notification of userNotifications) {
+      await this.markNotificationAsRead(notification.id);
+    }
   }
 }
 

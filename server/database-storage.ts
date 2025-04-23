@@ -10,13 +10,12 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
-import { Session, SessionStore } from "express-session";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 import { pool } from "./db";
 
 export class DatabaseStorage implements IStorage {
-  public sessionStore: session.SessionStore;
+  public sessionStore: session.Store;
 
   constructor() {
     const PostgresSessionStore = connectPg(session);
@@ -55,6 +54,15 @@ export class DatabaseStorage implements IStorage {
   async getProviderByUserId(userId: number): Promise<Provider | undefined> {
     const [provider] = await db.select().from(providers).where(eq(providers.userId, userId));
     return provider;
+  }
+  
+  async getProviderByUsername(username: string): Promise<Provider | undefined> {
+    // Encontrar primeiro o usuário pelo username
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    if (!user) return undefined;
+    
+    // Depois encontrar o provider associado ao usuário
+    return this.getProviderByUserId(user.id);
   }
 
   async createProvider(providerData: InsertProvider): Promise<Provider> {
