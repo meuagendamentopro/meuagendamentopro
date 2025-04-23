@@ -69,6 +69,15 @@ export class DatabaseStorage implements IStorage {
     const [provider] = await db.insert(providers).values(providerData).returning();
     return provider;
   }
+  
+  async updateProvider(id: number, providerData: Partial<InsertProvider>): Promise<Provider | undefined> {
+    const [updatedProvider] = await db
+      .update(providers)
+      .set(providerData)
+      .where(eq(providers.id, id))
+      .returning();
+    return updatedProvider;
+  }
 
   // Service methods
   async getServices(providerId: number): Promise<Service[]> {

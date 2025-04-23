@@ -24,6 +24,7 @@ export interface IStorage {
   getProvider(id: number): Promise<Provider | undefined>;
   getProviderByUserId(userId: number): Promise<Provider | undefined>;
   createProvider(provider: InsertProvider): Promise<Provider>;
+  updateProvider(id: number, provider: Partial<InsertProvider>): Promise<Provider | undefined>;
   
   // Service methods
   getServices(providerId: number): Promise<Service[]>;
@@ -185,6 +186,20 @@ export class MemStorage implements IStorage {
     };
     this.providers.set(id, newProvider);
     return newProvider;
+  }
+  
+  async updateProvider(id: number, providerData: Partial<InsertProvider>): Promise<Provider | undefined> {
+    const existingProvider = this.providers.get(id);
+    if (!existingProvider) return undefined;
+    
+    const updatedProvider: Provider = { 
+      ...existingProvider, 
+      ...providerData,
+      updatedAt: new Date()
+    };
+    
+    this.providers.set(id, updatedProvider);
+    return updatedProvider;
   }
   
   // Service methods
@@ -469,4 +484,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Importando DatabaseStorage
+import { DatabaseStorage } from "./database-storage";
+
+// Utilizando armazenamento em banco de dados em vez de memória
+export const storage = new DatabaseStorage();
