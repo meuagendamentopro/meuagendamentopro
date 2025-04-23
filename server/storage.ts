@@ -3,14 +3,26 @@ import {
   services, type Service, type InsertService,
   clients, type Client, type InsertClient,
   appointments, type Appointment, type InsertAppointment,
-  AppointmentStatus
+  AppointmentStatus,
+  notifications, type Notification, type InsertNotification,
+  users, type User, type InsertUser
 } from "@shared/schema";
+import session from "express-session";
+import createMemoryStore from "memorystore";
 
 export interface IStorage {
+  // Propriedade para armazenar sessões
+  sessionStore: session.Store;
+
+  // User methods
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
   // Provider methods
   getProviders(): Promise<Provider[]>;
   getProvider(id: number): Promise<Provider | undefined>;
-  getProviderByUsername(username: string): Promise<Provider | undefined>;
+  getProviderByUserId(userId: number): Promise<Provider | undefined>;
   createProvider(provider: InsertProvider): Promise<Provider>;
   
   // Service methods
@@ -35,6 +47,13 @@ export interface IStorage {
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointmentStatus(id: number, status: string): Promise<Appointment | undefined>;
   checkAvailability(providerId: number, date: Date, duration: number): Promise<boolean>;
+  
+  // Notification methods
+  getNotifications(userId: number): Promise<Notification[]>;
+  getUnreadNotifications(userId: number): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<Notification | undefined>;
+  markAllNotificationsAsRead(userId: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -43,32 +62,90 @@ export class MemStorage implements IStorage {
   private services: Map<number, Service>;
   private clients: Map<number, Client>;
   private appointments: Map<number, Appointment>;
+  private users: Map<number, User>;
+  private notifications: Map<number, Notification>;
+  public sessionStore: session.Store;
   
   private providerId: number;
   private serviceId: number;
   private clientId: number;
   private appointmentId: number;
+  private userId: number;
+  private notificationId: number;
   
   constructor() {
+    const MemoryStore = createMemoryStore(session);
+    this.sessionStore = new MemoryStore({ checkPeriod: 86400000 });
+    
     this.providers = new Map();
     this.services = new Map();
     this.clients = new Map();
     this.appointments = new Map();
+    this.users = new Map();
+    this.notifications = new Map();
     
     this.providerId = 0;
     this.serviceId = 0;
     this.clientId = 0;
     this.appointmentId = 0;
+    this.userId = 0;
+    this.notificationId = 0;
+    
+    // Criar um usuário padrão admin
+    this.createUser({
+      name: "Admin",
+      username: "admin",
+      password: "$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS", // password123
+      role: "admin"
+    });
+
+    // Criar um usuário padrão para o provider
+    const user = this.createUser({
+      name: "Carlos Silva",
+      username: "carlos",
+      password: "$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS", // password123
+      role: "provider"
+    });
     
     // Add a default provider
     this.createProvider({
+      userId: 2, // O segundo usuário criado
       name: "Carlos Silva",
       email: "carlos@example.com",
-      username: "carlos",
-      password: "password123",
       phone: "(11) 99999-8888",
       avatarUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d",
+      bookingLink: "carlos"
     });
+  }
+  
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+  
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.username === username);
+  }
+  
+  async createUser(userData: InsertUser): Promise<User> {
+    const id = ++this.userId;
+    const newUser: User = {
+      id,
+      name: userData.name,
+      username: userData.username,
+      password: userData.password,
+      role: userData.role || "provider",
+      avatarUrl: userData.avatarUrl || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.users.set(id, newUser);
+    return newUser;
+  }
+  
+  // Método extra para pegar um provider pelo ID do usuário
+  async getProviderByUserId(userId: number): Promise<Provider | undefined> {
+    return Array.from(this.providers.values()).find(p => p.userId === userId);
   }
   
   // Provider methods
