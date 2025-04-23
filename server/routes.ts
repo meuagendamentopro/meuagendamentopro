@@ -399,6 +399,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Cria o agendamento
       const appointment = await storage.createAppointment(data);
       
+      // Enviar atualização em tempo real via WebSocket
+      broadcastUpdate('appointment_created', appointment);
+      
+      // Criar uma notificação para o prestador de serviço
+      const provider = await storage.getProvider(appointment.providerId);
+      if (provider && provider.userId) {
+        try {
+          await storage.createNotification({
+            userId: provider.userId,
+            title: "Novo agendamento",
+            message: `Um novo agendamento foi criado para o serviço #${appointment.serviceId}`,
+            type: 'appointment',
+            appointmentId: appointment.id
+          });
+          console.log(`Notificação criada para o usuário ${provider.userId}`);
+        } catch (error) {
+          console.error("Erro ao criar notificação:", error);
+        }
+      }
+      
       // Aqui enviaríamos uma notificação via WhatsApp
       // Por enquanto, apenas logamos
       console.log(`Agendamento ${appointment.id} criado com sucesso! Notificação seria enviada.`);
@@ -448,9 +468,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Appointment not found" });
       }
       
-      // Here we would send a WhatsApp notification for status change
-      // For now, we'll just log it
-      console.log(`Would send WhatsApp status update for appointment ${id} to ${status}`);
+      // Enviar atualização em tempo real via WebSocket
+      broadcastUpdate('appointment_updated', appointment);
+      
+      // Aqui enviaríamos uma notificação via WhatsApp sobre a mudança de status
+      // Por enquanto, apenas logamos
+      console.log(`Enviando atualização em tempo real e notificação WhatsApp para agendamento ${id}: ${status}`);
+      
+      // Criar uma notificação no sistema para o usuário associado ao prestador
+      const provider = await storage.getProvider(appointment.providerId);
+      if (provider && provider.userId) {
+        try {
+          // Determinar mensagem apropriada baseada no status
+          let titleMsg = "Agendamento atualizado";
+          let message = `O agendamento #${appointment.id} foi atualizado para ${status}`;
+          
+          if (status === AppointmentStatus.CONFIRMED) {
+            titleMsg = "Agendamento confirmado";
+            message = `O agendamento #${appointment.id} foi confirmado`;
+          } else if (status === AppointmentStatus.CANCELLED) {
+            titleMsg = "Agendamento cancelado";
+            message = `O agendamento #${appointment.id} foi cancelado`;
+          } else if (status === AppointmentStatus.COMPLETED) {
+            titleMsg = "Agendamento concluído";
+            message = `O agendamento #${appointment.id} foi marcado como concluído`;
+          }
+          
+          // Criar a notificação para o usuário
+          await storage.createNotification({
+            userId: provider.userId,
+            title: titleMsg,
+            message,
+            type: 'appointment',
+            appointmentId: appointment.id
+          });
+          
+          console.log(`Notificação criada para o usuário ${provider.userId}`);
+        } catch (error) {
+          console.error("Erro ao criar notificação:", error);
+        }
+      }
       
       res.json(appointment);
     } catch (error) {
@@ -642,6 +699,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: AppointmentStatus.PENDING,
         notes: bookingData.notes || ""
       });
+      
+      // Enviar atualização em tempo real via WebSocket
+      broadcastUpdate('appointment_created', appointment);
+      
+      // Criar uma notificação para o prestador de serviço
+      const provider = await storage.getProvider(service.providerId);
+      if (provider && provider.userId) {
+        try {
+          await storage.createNotification({
+            userId: provider.userId,
+            title: "Novo agendamento",
+            message: `${client.name} agendou ${service.name} para ${appointmentDate.toLocaleString('pt-BR')}`,
+            type: 'appointment',
+            appointmentId: appointment.id
+          });
+          console.log(`Notificação criada para o usuário ${provider.userId}`);
+        } catch (error) {
+          console.error("Erro ao criar notificação:", error);
+        }
+      }
       
       // Aqui enviaríamos uma confirmação via WhatsApp
       console.log(`Agendamento ${appointment.id} criado com sucesso! Confirmação seria enviada para ${client.phone}.`);

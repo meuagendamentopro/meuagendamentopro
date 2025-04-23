@@ -20,9 +20,42 @@ import UserAvatar from "@/components/layout/user-avatar";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { useAuth } from "@/hooks/use-auth";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { useToast } from "@/hooks/use-toast";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, logoutMutation } = useAuth();
+  const { toast } = useToast();
+  
+  // Integra o WebSocket para atualizações em tempo real
+  const { connected, error } = useWebSocket({
+    onMessage: (data) => {
+      // Exibe uma notificação quando um agendamento for atualizado
+      if (data.type === 'appointment_updated') {
+        const appointment = data.data;
+        
+        let title = "Agendamento atualizado";
+        let description = `O agendamento #${appointment.id} foi atualizado.`;
+        
+        if (appointment.status === 'confirmed') {
+          title = "Agendamento confirmado";
+          description = `O agendamento #${appointment.id} foi confirmado.`;
+        } else if (appointment.status === 'cancelled') {
+          title = "Agendamento cancelado";
+          description = `O agendamento #${appointment.id} foi cancelado.`;
+        } else if (appointment.status === 'completed') {
+          title = "Agendamento concluído";
+          description = `O agendamento #${appointment.id} foi marcado como concluído.`;
+        }
+        
+        toast({
+          title,
+          description,
+          variant: appointment.status === 'cancelled' ? "destructive" : "default",
+        });
+      }
+    }
+  });
   
   const handleLogout = () => {
     logoutMutation.mutate();
