@@ -474,8 +474,6 @@ export class MemStorage implements IStorage {
       // Exibir mais informações de depuração
       console.log(`Comparando slot ${date.toLocaleTimeString()} com agendamento às ${appointmentDate.getHours()}:${appointmentDate.getMinutes()} (${appointmentDate.toLocaleDateString()}, ${appointmentDate.toLocaleTimeString()})`);
       
-      // Apenas agendamentos pendentes ou confirmados bloqueiam o horário
-      // Agendamentos cancelados ou concluídos permitem reagendamento
       const isPendingOrConfirmed = 
         appointment.status === AppointmentStatus.CONFIRMED || 
         appointment.status === AppointmentStatus.PENDING;

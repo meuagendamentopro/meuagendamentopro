@@ -20,10 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import AddAppointmentForm from "./add-appointment-form";
-import { useWebSocket } from "@/hooks/use-websocket";
-import { useToast } from "@/hooks/use-toast";
 
 interface TimeSlotProps {
   time: string;
@@ -165,47 +163,6 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const [filterStartHour, setFilterStartHour] = React.useState<number>(0);
   const [filterEndHour, setFilterEndHour] = React.useState<number>(24);
   const [showFilterOptions, setShowFilterOptions] = React.useState<boolean>(false);
-  const { toast } = useToast();
-  
-  // Configurar WebSocket para receber atualizações em tempo real
-  useWebSocket({
-    onMessage: (data) => {
-      if (data.type === 'appointment_created' || data.type === 'appointment_updated') {
-        // Verificar se o agendamento é para o dia atualmente selecionado
-        const apptDate = new Date(data.data.date);
-        const apptDay = apptDate.getDate();
-        const apptMonth = apptDate.getMonth();
-        const apptYear = apptDate.getFullYear();
-        
-        const selectedDay = selectedDate.getDate();
-        const selectedMonth = selectedDate.getMonth();
-        const selectedYear = selectedDate.getFullYear();
-        
-        const isSameDay = 
-          apptDay === selectedDay && 
-          apptMonth === selectedMonth && 
-          apptYear === selectedYear;
-          
-        if (isSameDay && data.data.providerId === providerId) {
-          console.log("Atualização em tempo real: Agendamento no dia atual");
-          
-          // Invalida a query para o dia selecionado
-          queryClient.invalidateQueries({
-            queryKey: ['/api/my-appointments', selectedDate.toISOString().split('T')[0]]
-          });
-          
-          // Se for um novo agendamento, mostrar notificação
-          if (data.type === 'appointment_created') {
-            toast({
-              title: "Novo agendamento",
-              description: "Um novo agendamento foi adicionado ao calendário.",
-              variant: "default",
-            });
-          }
-        }
-      }
-    }
-  });
   
   // Buscar as configurações do profissional (utilizando a rota protegida)
   const { data: provider } = useQuery({
@@ -302,11 +259,6 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     // Calcular o horário para comparação com agendamentos
     // Importante: na tela vemos "23:30" mas o horário está realmente armazenado como "2:30" após a compensação
     const result = appointments.find(apt => {
-      // Ignorar agendamentos cancelados na visualização do calendário
-      if (apt.status === AppointmentStatus.CANCELLED) {
-        return false;
-      }
-      
       const aptDate = new Date(apt.date);
       
       // Para horários depois das 21:00, precisamos ajustar a lógica de comparação
