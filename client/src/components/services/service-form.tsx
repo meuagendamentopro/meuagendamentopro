@@ -23,7 +23,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface ServiceFormProps {
-  providerId: number;
+  providerId?: number;
   service?: Service | null;
   onComplete?: () => void;
 }
@@ -59,12 +59,22 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ providerId, service, onComple
 
   const onSubmit = async (data: FormValues) => {
     try {
+      // Verifica se temos o provider ID
+      if (!providerId && !service?.providerId) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível identificar o prestador de serviços associado. Por favor, tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Convert price from reais to cents
       const servicePriceInCents = Math.round(data.price * 100);
 
       // Prepare service data
       const serviceData: Partial<InsertService> = {
-        providerId,
+        providerId: providerId || service?.providerId, // Use o providerId do service caso o direto seja undefined
         name: data.name,
         description: data.description || "",
         duration: data.duration,

@@ -94,22 +94,40 @@ export class MemStorage implements IStorage {
     this.userId = 0;
     this.notificationId = 0;
     
-    // Criar apenas um usuário admin para teste
-    const adminUser = this.createUser({
+    // Vamos criar sincronamente para evitar a Promise
+    const adminId = ++this.userId;
+    const adminUser: User = {
+      id: adminId,
       name: "Admin",
       username: "admin",
       password: "$2b$10$Xuyld2OS6W/hDQ0gwKBSd.qqnDfPYMBYP4hoyEZdtbWc1T.i8yPvS", // password123 - hash recém-gerado
-      role: "admin"
-    });
+      role: "admin",
+      avatarUrl: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
     
-    // Criar um provider para o admin
-    this.createProvider({
-      userId: adminUser.id,
+    // Salvar o usuário admin diretamente
+    this.users.set(adminId, adminUser);
+    
+    // Criar o provider para o admin diretamente
+    const providerId = ++this.providerId;
+    const adminProvider: Provider = {
+      id: providerId,
+      userId: adminId,
       name: "Admin Provider",
       email: "admin@example.com",
       phone: "(11) 99999-9999",
-      bookingLink: "admin"
-    });
+      avatarUrl: null,
+      bookingLink: "admin",
+      workingHoursStart: 8,
+      workingHoursEnd: 18,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Salvar o provider do admin diretamente
+    this.providers.set(providerId, adminProvider);
   }
   
   // User methods
