@@ -27,17 +27,26 @@ const ServicesPage: React.FC = () => {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
   
-  // Using default provider ID from storage
-  const providerId = 1;
-
-  // Fetch services
-  const { data: services, isLoading } = useQuery({
-    queryKey: ['/api/providers', providerId, 'services'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
-      if (!res.ok) throw new Error('Failed to fetch services');
+  // Buscar informações do provider logado
+  const { data: provider, isLoading: isLoadingProvider } = useQuery({
+    queryKey: ['/api/my-provider'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-provider');
+      if (!res.ok) throw new Error('Failed to fetch provider');
       return res.json();
     }
+  });
+
+  // Fetch services usando my-services para o provider logado
+  const { data: services, isLoading: isLoadingServices } = useQuery({
+    queryKey: ['/api/my-services'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-services');
+      if (!res.ok) throw new Error('Failed to fetch services');
+      return res.json();
+    },
+    // Só busca os serviços após ter as informações do provider
+    enabled: !!provider
   });
 
   const handleAddService = () => {
@@ -53,7 +62,7 @@ const ServicesPage: React.FC = () => {
   const handleDeleteService = async (serviceId: number) => {
     try {
       await apiRequest('DELETE', `/api/services/${serviceId}`, undefined);
-      queryClient.invalidateQueries({ queryKey: ['/api/providers', providerId, 'services'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
       toast({
         title: "Serviço excluído",
         description: "O serviço foi excluído com sucesso.",
@@ -73,7 +82,7 @@ const ServicesPage: React.FC = () => {
         ...service,
         active: !service.active
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/providers', providerId, 'services'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
       toast({
         title: service.active ? "Serviço desativado" : "Serviço ativado",
         description: `O serviço "${service.name}" foi ${service.active ? "desativado" : "ativado"} com sucesso.`,
@@ -89,8 +98,11 @@ const ServicesPage: React.FC = () => {
 
   const handleServiceFormComplete = () => {
     setIsDialogOpen(false);
-    queryClient.invalidateQueries({ queryKey: ['/api/providers', providerId, 'services'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
   };
+
+  // Verifica se está carregando
+  const isLoading = isLoadingProvider || isLoadingServices;
 
   return (
     <div className="space-y-6">
@@ -98,7 +110,7 @@ const ServicesPage: React.FC = () => {
         title="Serviços" 
         description="Gerencie os serviços oferecidos"
       >
-        <Button onClick={handleAddService}>
+        <Button onClick={handleAddService} disabled={!provider}>
           <Plus className="h-4 w-4 mr-2" /> Adicionar serviço
         </Button>
       </PageHeader>
@@ -110,7 +122,7 @@ const ServicesPage: React.FC = () => {
           ) : !services || services.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-gray-500 mb-4">Você ainda não tem serviços cadastrados</p>
-              <Button onClick={handleAddService}>
+              <Button onClick={handleAddService} disabled={!provider}>
                 <Plus className="h-4 w-4 mr-2" /> Adicionar serviço
               </Button>
             </div>
@@ -194,7 +206,7 @@ const ServicesPage: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <ServiceForm
-            providerId={providerId}
+            providerId={provider?.id}
             service={editingService}
             onComplete={handleServiceFormComplete}
           />

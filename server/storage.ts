@@ -95,11 +95,20 @@ export class MemStorage implements IStorage {
     this.notificationId = 0;
     
     // Criar apenas um usuário admin para teste
-    this.createUser({
+    const adminUser = this.createUser({
       name: "Admin",
       username: "admin",
       password: "$2b$10$Xuyld2OS6W/hDQ0gwKBSd.qqnDfPYMBYP4hoyEZdtbWc1T.i8yPvS", // password123 - hash recém-gerado
       role: "admin"
+    });
+    
+    // Criar um provider para o admin
+    this.createProvider({
+      userId: adminUser.id,
+      name: "Admin Provider",
+      email: "admin@example.com",
+      phone: "(11) 99999-9999",
+      bookingLink: "admin"
     });
   }
   
