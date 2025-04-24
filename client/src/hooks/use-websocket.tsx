@@ -61,10 +61,17 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
           console.log('Mensagem WebSocket recebida:', data);
           
           // Processa atualizações específicas
-          if (data.type === 'appointment_updated') {
+          if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
+            console.log(`Atualizando dados após ${data.type}`);
+            
             // Invalida a consulta para atualizar a lista de agendamentos
             queryClient.invalidateQueries({
               queryKey: ['/api/providers', data.data.providerId, 'appointments']
+            });
+            
+            // Invalida a consulta my-appointments (dashboard do profissional)
+            queryClient.invalidateQueries({
+              queryKey: ['/api/my-appointments']
             });
             
             // Invalidar a consulta específica do agendamento

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Appointment, AppointmentStatus } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 const Dashboard: React.FC = () => {
   const { toast } = useToast();
@@ -20,6 +21,19 @@ const Dashboard: React.FC = () => {
     completedThisWeek: 0,
     newClientsThisMonth: 0,
     monthlyRevenue: 0,
+  });
+  
+  // Configurar o WebSocket para receber atualizações em tempo real
+  const { connected } = useWebSocket({
+    onMessage: (data) => {
+      if (data.type === 'appointment_created') {
+        toast({
+          title: 'Novo agendamento recebido!',
+          description: `Um novo agendamento foi criado através do seu link de compartilhamento.`,
+          variant: 'default',
+        });
+      }
+    },
   });
   
   // Fetch provider details for the logged in user
@@ -136,7 +150,27 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <PageHeader 
         title="Dashboard" 
-        description="Visão geral de agendamentos e desempenho"
+        description={
+          <div className="flex items-center">
+            <span>Visão geral de agendamentos e desempenho</span>
+            {connected ? (
+              <div className="ml-2 flex items-center text-sm text-green-600">
+                <span className="relative flex h-2 w-2 mr-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span className="text-xs">Atualização em tempo real ativa</span>
+              </div>
+            ) : (
+              <div className="ml-2 flex items-center text-sm text-gray-500">
+                <span className="relative flex h-2 w-2 mr-1">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
+                </span>
+                <span className="text-xs">Conectando...</span>
+              </div>
+            )}
+          </div>
+        }
       />
       
       {/* Stats Section */}
