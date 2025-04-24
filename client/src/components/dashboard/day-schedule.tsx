@@ -302,6 +302,11 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     // Calcular o horário para comparação com agendamentos
     // Importante: na tela vemos "23:30" mas o horário está realmente armazenado como "2:30" após a compensação
     const result = appointments.find(apt => {
+      // Ignorar agendamentos cancelados na visualização do calendário
+      if (apt.status === AppointmentStatus.CANCELLED) {
+        return false;
+      }
+      
       const aptDate = new Date(apt.date);
       
       // Para horários depois das 21:00, precisamos ajustar a lógica de comparação
