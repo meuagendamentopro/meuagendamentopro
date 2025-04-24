@@ -424,13 +424,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/my-booking-link", loadUserProvider, async (req: Request, res: Response) => {
     const provider = (req as any).provider;
     
-    // Gera um link de compartilhamento usando o ID do provider
-    const bookingLink = `/booking/${provider.id}`;
+    // Verifica se o provedor já tem um link de agendamento
+    if (!provider.bookingLink) {
+      // Se não tiver, atualiza o provider com um bookingLink baseado no nome de usuário
+      const user = await storage.getUser(provider.userId);
+      if (user) {
+        const bookingLink = user.username.toLowerCase();
+        await storage.updateProvider(provider.id, { bookingLink });
+        provider.bookingLink = bookingLink;
+      }
+    }
+    
+    // URL do link de compartilhamento
+    const bookingPath = `/booking/${provider.bookingLink || provider.id}`;
     
     res.json({ 
-      bookingLink,
-      fullUrl: `${req.protocol}://${req.get('host')}${bookingLink}`
+      bookingLink: bookingPath,
+      linkId: provider.bookingLink || provider.id.toString(),
+      fullUrl: `${req.protocol}://${req.get('host')}${bookingPath}`
     });
+  });
+  
+  // Rota para buscar um provider pelo bookingLink
+  app.get("/api/providers/booking/:linkId", async (req: Request, res: Response) => {
+    const { linkId } = req.params;
+    
+    try {
+      // Tenta primeiro interpretar como ID numérico (para compatibilidade)
+      const id = parseInt(linkId);
+      if (!isNaN(id)) {
+        const provider = await storage.getProvider(id);
+        if (provider) {
+          return res.json(provider);
+        }
+      }
+      
+      // Se não for ID ou não encontrar provider, tenta buscar pelo bookingLink
+      const providers = await storage.getProviders();
+      const provider = providers.find(p => p.bookingLink === linkId);
+      
+      if (provider) {
+        return res.json(provider);
+      }
+      
+      return res.status(404).json({ error: "Provider não encontrado" });
+    } catch (error) {
+      console.error("Erro ao buscar provider por link:", error);
+      res.status(500).json({ error: "Erro ao buscar dados do profissional" });
+    }
   });
 
   // Appointment routes - Usando middleware para garantir acesso apenas aos próprios dados

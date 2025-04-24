@@ -121,8 +121,9 @@ function Router() {
       {/* Rota pública para autenticação */}
       <Route path="/auth" component={AuthPage} />
       
-      {/* Rota pública para agendamento de clientes */}
+      {/* Rotas públicas para agendamento de clientes (ambos formatos) */}
       <Route path="/booking" component={Booking} />
+      <Route path="/booking/:linkId" component={Booking} />
       
       {/* Rotas protegidas que exigem autenticação */}
       <ProtectedRoute 

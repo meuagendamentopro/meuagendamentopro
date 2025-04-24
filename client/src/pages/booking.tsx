@@ -2,36 +2,58 @@ import React, { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import BookingForm from "@/components/booking/booking-form";
 import { Calendar } from "lucide-react";
+import { useLocation } from "wouter";
 
 const BookingPage: React.FC = () => {
   const [providerId, setProviderId] = useState<number | null>(null);
+  const [providerLink, setProviderLink] = useState<string | null>(null);
+  const [location] = useLocation();
   
-  // Extract providerId from URL query parameters
+  // Extract provider identifier from URL path or query parameters
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const providerParam = params.get('provider');
+    // Verificar primeiro se é uma URL de formato /booking/{link}
+    const pathMatch = location.match(/\/booking\/([^\/]+)/);
     
-    if (providerParam) {
-      const id = parseInt(providerParam);
-      if (!isNaN(id)) {
-        setProviderId(id);
-      }
+    if (pathMatch && pathMatch[1]) {
+      setProviderLink(pathMatch[1]);
     } else {
-      // Default to first provider if none specified
-      setProviderId(1);
+      // Se não for formato path, verificar query params para compatibilidade
+      const params = new URLSearchParams(window.location.search);
+      const providerParam = params.get('provider');
+      
+      if (providerParam) {
+        const id = parseInt(providerParam);
+        if (!isNaN(id)) {
+          setProviderId(id);
+        } else {
+          // Se não for um número, pode ser um link
+          setProviderLink(providerParam);
+        }
+      }
     }
-  }, []);
+  }, [location]);
   
   // Fetch provider details
   const { data: provider, isLoading } = useQuery({
-    queryKey: ['/api/providers', providerId],
+    queryKey: ['/api/providers/booking', providerLink || providerId],
     queryFn: async ({ queryKey }) => {
-      if (!providerId) return null;
-      const res = await fetch(`/api/providers/${providerId}`);
-      if (!res.ok) throw new Error('Failed to fetch provider');
-      return res.json();
+      // Se temos um link de provider
+      if (providerLink) {
+        const res = await fetch(`/api/providers/booking/${providerLink}`);
+        if (!res.ok) throw new Error('Failed to fetch provider');
+        return res.json();
+      }
+      
+      // Se temos um ID de provider (compatibilidade)
+      if (providerId) {
+        const res = await fetch(`/api/providers/${providerId}`);
+        if (!res.ok) throw new Error('Failed to fetch provider');
+        return res.json();
+      }
+      
+      return null;
     },
-    enabled: !!providerId,
+    enabled: !!(providerLink || providerId),
   });
 
   if (isLoading) {
@@ -57,8 +79,8 @@ const BookingPage: React.FC = () => {
           </p>
         </div>
 
-        {providerId ? (
-          <BookingForm providerId={providerId} />
+        {provider ? (
+          <BookingForm providerId={provider.id} />
         ) : (
           <div className="text-center p-8 bg-white rounded-lg shadow">
             <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
