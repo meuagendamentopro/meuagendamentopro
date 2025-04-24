@@ -20,8 +20,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import AddAppointmentForm from "./add-appointment-form";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { useToast } from "@/hooks/use-toast";
 
 interface TimeSlotProps {
   time: string;
@@ -163,6 +165,47 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const [filterStartHour, setFilterStartHour] = React.useState<number>(0);
   const [filterEndHour, setFilterEndHour] = React.useState<number>(24);
   const [showFilterOptions, setShowFilterOptions] = React.useState<boolean>(false);
+  const { toast } = useToast();
+  
+  // Configurar WebSocket para receber atualizações em tempo real
+  useWebSocket({
+    onMessage: (data) => {
+      if (data.type === 'appointment_created' || data.type === 'appointment_updated') {
+        // Verificar se o agendamento é para o dia atualmente selecionado
+        const apptDate = new Date(data.data.date);
+        const apptDay = apptDate.getDate();
+        const apptMonth = apptDate.getMonth();
+        const apptYear = apptDate.getFullYear();
+        
+        const selectedDay = selectedDate.getDate();
+        const selectedMonth = selectedDate.getMonth();
+        const selectedYear = selectedDate.getFullYear();
+        
+        const isSameDay = 
+          apptDay === selectedDay && 
+          apptMonth === selectedMonth && 
+          apptYear === selectedYear;
+          
+        if (isSameDay && data.data.providerId === providerId) {
+          console.log("Atualização em tempo real: Agendamento no dia atual");
+          
+          // Invalida a query para o dia selecionado
+          queryClient.invalidateQueries({
+            queryKey: ['/api/my-appointments', selectedDate.toISOString().split('T')[0]]
+          });
+          
+          // Se for um novo agendamento, mostrar notificação
+          if (data.type === 'appointment_created') {
+            toast({
+              title: "Novo agendamento",
+              description: "Um novo agendamento foi adicionado ao calendário.",
+              variant: "default",
+            });
+          }
+        }
+      }
+    }
+  });
   
   // Buscar as configurações do profissional (utilizando a rota protegida)
   const { data: provider } = useQuery({
