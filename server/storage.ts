@@ -128,6 +128,41 @@ export class MemStorage implements IStorage {
     
     // Salvar o provider do admin diretamente
     this.providers.set(providerId, adminProvider);
+    
+    // Criar usuário "link" para testes
+    const linkId = ++this.userId;
+    const linkUser: User = {
+      id: linkId,
+      name: "Link",
+      username: "link",
+      password: "$2b$10$myIqlFTttbyrqybyEYK8FOU3ILvzbt80Fr7zZeWfNg1qnq9TsV2Ji", // password123
+      role: "provider",
+      avatarUrl: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Salvar o usuário link diretamente
+    this.users.set(linkId, linkUser);
+    
+    // Criar um provider para o link
+    const linkProviderId = ++this.providerId;
+    const linkProvider: Provider = {
+      id: linkProviderId,
+      userId: linkId,
+      name: "Link Provider",
+      email: "link@example.com",
+      phone: "(11) 88888-8888",
+      avatarUrl: null,
+      bookingLink: "link",
+      workingHoursStart: 9,
+      workingHoursEnd: 17,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Salvar o provider do link diretamente
+    this.providers.set(linkProviderId, linkProvider);
   }
   
   // User methods
