@@ -450,23 +450,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { linkId } = req.params;
     
     try {
-      // Tenta primeiro interpretar como ID numérico (para compatibilidade)
-      const id = parseInt(linkId);
-      if (!isNaN(id)) {
-        const provider = await storage.getProvider(id);
-        if (provider) {
-          return res.json(provider);
+      console.log(`Buscando provider pelo linkId: ${linkId}`);
+      
+      // Tenta primeiro buscar pelo bookingLink (prioridade)
+      const providers = await storage.getProviders();
+      let provider = providers.find(p => p.bookingLink === linkId);
+      
+      // Se não encontrar pelo bookingLink, tenta como ID numérico (para compatibilidade)
+      if (!provider) {
+        const id = parseInt(linkId);
+        if (!isNaN(id)) {
+          provider = await storage.getProvider(id);
         }
       }
       
-      // Se não for ID ou não encontrar provider, tenta buscar pelo bookingLink
-      const providers = await storage.getProviders();
-      const provider = providers.find(p => p.bookingLink === linkId);
-      
       if (provider) {
+        console.log(`Provider encontrado: ${provider.name} (ID: ${provider.id})`);
         return res.json(provider);
       }
       
+      console.log(`Provider não encontrado para linkId: ${linkId}`);
       return res.status(404).json({ error: "Provider não encontrado" });
     } catch (error) {
       console.error("Erro ao buscar provider por link:", error);

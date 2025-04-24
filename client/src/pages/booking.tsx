@@ -34,26 +34,45 @@ const BookingPage: React.FC = () => {
   }, [location]);
   
   // Fetch provider details
-  const { data: provider, isLoading } = useQuery({
+  const { data: provider, isLoading, error } = useQuery({
     queryKey: ['/api/providers/booking', providerLink || providerId],
     queryFn: async ({ queryKey }) => {
+      console.log(`Buscando provider com: link=${providerLink}, id=${providerId}`);
+      
       // Se temos um link de provider
       if (providerLink) {
-        const res = await fetch(`/api/providers/booking/${providerLink}`);
-        if (!res.ok) throw new Error('Failed to fetch provider');
-        return res.json();
+        try {
+          const res = await fetch(`/api/providers/booking/${providerLink}`);
+          if (!res.ok) {
+            console.error(`Erro ao buscar provider, status: ${res.status}`);
+            throw new Error('Failed to fetch provider');
+          }
+          return res.json();
+        } catch (error) {
+          console.error('Erro ao buscar provider por link:', error);
+          throw error;
+        }
       }
       
       // Se temos um ID de provider (compatibilidade)
       if (providerId) {
-        const res = await fetch(`/api/providers/${providerId}`);
-        if (!res.ok) throw new Error('Failed to fetch provider');
-        return res.json();
+        try {
+          const res = await fetch(`/api/providers/${providerId}`);
+          if (!res.ok) {
+            console.error(`Erro ao buscar provider por ID, status: ${res.status}`);
+            throw new Error('Failed to fetch provider by ID');
+          }
+          return res.json();
+        } catch (error) {
+          console.error('Erro ao buscar provider por ID:', error);
+          throw error;
+        }
       }
       
       return null;
     },
     enabled: !!(providerLink || providerId),
+    retry: 1,
   });
 
   if (isLoading) {
