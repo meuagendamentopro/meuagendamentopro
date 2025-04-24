@@ -98,7 +98,7 @@ export class MemStorage implements IStorage {
     this.createUser({
       name: "Admin",
       username: "admin",
-      password: "$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS", // password123
+      password: "$2b$10$Xuyld2OS6W/hDQ0gwKBSd.qqnDfPYMBYP4hoyEZdtbWc1T.i8yPvS", // password123 - hash recém-gerado
       role: "admin"
     });
   }
