@@ -94,30 +94,12 @@ export class MemStorage implements IStorage {
     this.userId = 0;
     this.notificationId = 0;
     
-    // Criar um usuário padrão admin
+    // Criar apenas um usuário admin para teste
     this.createUser({
       name: "Admin",
       username: "admin",
       password: "$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS", // password123
       role: "admin"
-    });
-
-    // Criar um usuário padrão para o provider
-    const user = this.createUser({
-      name: "Carlos Silva",
-      username: "carlos",
-      password: "$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS", // password123
-      role: "provider"
-    });
-    
-    // Add a default provider
-    this.createProvider({
-      userId: 2, // O segundo usuário criado
-      name: "Carlos Silva",
-      email: "carlos@example.com",
-      phone: "(11) 99999-8888",
-      avatarUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d",
-      bookingLink: "carlos"
     });
   }
   
@@ -503,8 +485,9 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Importando DatabaseStorage
-import { DatabaseStorage } from "./database-storage";
+// Para facilitar o reset e testes, vamos usar a implementação em memória
+// import { DatabaseStorage } from "./database-storage";
+// export const storage = new DatabaseStorage();
 
-// Utilizando armazenamento em banco de dados em vez de memória
-export const storage = new DatabaseStorage();
+// Utilizando armazenamento em memória
+export const storage = new MemStorage();
