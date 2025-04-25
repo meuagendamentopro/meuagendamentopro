@@ -174,7 +174,22 @@ const Dashboard: React.FC = () => {
                     <line x1="12" y1="8" x2="12.01" y2="8"></line>
                   </svg>
                   <span className="hidden group-hover:block absolute top-6 left-0 w-64 bg-white shadow-lg p-2 rounded-md text-gray-700 text-xs z-50">
-                    {error}. Tentando reconectar automaticamente. Atualizações podem estar atrasadas.
+                    {error}. {isReconnecting ? 'Tentando reconectar...' : 'Atualizações podem estar atrasadas.'} 
+                    <button 
+                      className="mt-1 px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-[10px] w-full"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        reconnect();
+                        toast({
+                          title: "Reconectando...",
+                          description: "Tentando restabelecer a conexão em tempo real.",
+                        });
+                      }}
+                      disabled={isReconnecting}
+                    >
+                      {isReconnecting ? 'Reconectando...' : 'Tentar reconectar manualmente'}
+                    </button>
                   </span>
                 </span>
               </div>
@@ -183,7 +198,24 @@ const Dashboard: React.FC = () => {
                 <span className="relative flex h-2 w-2 mr-1">
                   <span className="animate-pulse relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
                 </span>
-                <span className="text-xs">Conectando...</span>
+                <span className="text-xs flex items-center gap-2">
+                  <span>{isReconnecting ? 'Reconectando...' : 'Conectando...'}</span>
+                  {!connected && !isReconnecting && error && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        reconnect();
+                        toast({
+                          title: "Reconectando...",
+                          description: "Tentando restabelecer a conexão em tempo real.",
+                        });
+                      }}
+                      className="px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-[10px]"
+                    >
+                      Tentar novamente
+                    </button>
+                  )}
+                </span>
               </div>
             )}
           </div>
