@@ -12,7 +12,7 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Função para estabelecer a conexão WebSocket
+  // Função para estabelecer a conexão WebSocket com retry exponencial
   const connect = useCallback(() => {
     try {
       setError(null);
@@ -23,36 +23,109 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
       console.log(`Conectando ao WebSocket: ${wsUrl}`);
       const newSocket = new WebSocket(wsUrl);
       
-      newSocket.onopen = () => {
-        console.log('Conexão WebSocket estabelecida!');
-        setConnected(true);
-        
-        // Identifica o usuário atual se estiver autenticado
-        if (user) {
-          const identifyMsg = JSON.stringify({
-            type: 'identify',
-            userId: user.id
-          });
-          newSocket.send(identifyMsg);
-          console.log(`Usuário ${user.id} identificado no WebSocket`);
+      // Variáveis para controle de reconexão
+      let retryCount = 0;
+      const maxRetry = 10;
+      const baseRetryDelay = 1000; // 1 segundo
+      const maxRetryDelay = 30000; // 30 segundos
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+      
+      // Função para calcular delay com backoff exponencial e jitter
+      const getRetryDelay = () => {
+        // Exponential backoff com jitter para evitar reconexões sincronizadas
+        const expDelay = Math.min(baseRetryDelay * Math.pow(2, retryCount), maxRetryDelay);
+        // Adiciona jitter (até 20%)
+        const jitter = expDelay * 0.2 * Math.random();
+        return expDelay + jitter;
+      };
+      
+      // Limpar timer quando necessário
+      const clearReconnectTimer = () => {
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
         }
       };
       
-      newSocket.onclose = () => {
-        console.log('Conexão WebSocket fechada');
+      // Função de reconexão
+      const reconnect = () => {
+        clearReconnectTimer();
+        
+        if (retryCount < maxRetry) {
+          const delay = getRetryDelay();
+          console.log(`Tentando reconexão WebSocket em ${Math.round(delay/1000)}s (tentativa ${retryCount + 1} de ${maxRetry})`);
+          
+          reconnectTimer = setTimeout(() => {
+            retryCount++;
+            connect();
+          }, delay);
+        } else {
+          console.error('Número máximo de tentativas de reconexão WebSocket atingido');
+          setError('Não foi possível estabelecer conexão em tempo real. Atualizações podem estar atrasadas.');
+        }
+      };
+      
+      newSocket.onopen = () => {
+        console.log('Conexão WebSocket estabelecida!');
+        setConnected(true);
+        retryCount = 0; // Reinicia contador de tentativas quando conecta
+        
+        // Identifica o usuário atual se estiver autenticado
+        if (user) {
+          try {
+            const identifyMsg = JSON.stringify({
+              type: 'identify',
+              userId: user.id
+            });
+            newSocket.send(identifyMsg);
+            console.log(`Usuário ${user.id} identificado no WebSocket`);
+          } catch (err) {
+            console.error('Erro ao enviar identificação do usuário:', err);
+          }
+        }
+      };
+      
+      newSocket.onclose = (event) => {
+        console.log(`Conexão WebSocket fechada: Código ${event.code}, Limpo: ${event.wasClean}`);
         setConnected(false);
         
-        // Tenta reconectar após um intervalo
-        setTimeout(() => {
-          if (newSocket.readyState === WebSocket.CLOSED) {
-            connect();
-          }
-        }, 5000);
+        // Não tentar reconectar se o fechamento foi limpo/intencional
+        if (!event.wasClean && navigator.onLine) {
+          reconnect();
+        }
       };
       
       newSocket.onerror = (event) => {
         console.error('Erro na conexão WebSocket:', event);
         setError('Falha na conexão em tempo real');
+      };
+      
+      // Adicionar ping para manter conexão ativa
+      const pingInterval = setInterval(() => {
+        if (newSocket.readyState === WebSocket.OPEN) {
+          try {
+            newSocket.send(JSON.stringify({ type: 'ping' }));
+          } catch (err) {
+            console.error('Erro ao enviar ping WebSocket:', err);
+          }
+        }
+      }, 30000); // 30 segundos
+      
+      // Limpar temporizadores quando o hook é desmontado
+      return () => {
+        clearInterval(pingInterval);
+        clearReconnectTimer();
+        
+        if (newSocket) {
+          // Tenta fechar de forma limpa
+          try {
+            if (newSocket.readyState === WebSocket.OPEN) {
+              newSocket.close(1000, "Fechamento normal");
+            }
+          } catch (err) {
+            console.error('Erro ao fechar WebSocket:', err);
+          }
+        }
       };
       
       newSocket.onmessage = (event) => {
@@ -97,11 +170,6 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
       };
       
       setSocket(newSocket);
-      
-      // Limpa a conexão quando o componente é desmontado
-      return () => {
-        newSocket.close();
-      };
     } catch (err) {
       console.error('Erro ao criar conexão WebSocket:', err);
       setError('Falha ao iniciar conexão em tempo real');
