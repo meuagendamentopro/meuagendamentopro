@@ -19,48 +19,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Configuração do WebSocket para atualizações em tempo real
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    clientTracking: true,
+    // Aumenta o timeout para conexões WebSocket
+    perMessageDeflate: {
+      zlibDeflateOptions: {
+        chunkSize: 1024,
+        memLevel: 7,
+        level: 3
+      },
+      zlibInflateOptions: {
+        chunkSize: 10 * 1024
+      },
+      // Outros parâmetros opcionais
+      concurrencyLimit: 10, // Limita processamento concorrente
+      threshold: 1024 // Mensagens menores que isso não são comprimidas
+    }
+  });
   
   // Armazenar conexões ativas
-  const connectedClients = new Map<WebSocket, { userId?: number }>();
+  const connectedClients = new Map<WebSocket, { userId?: number, isAlive?: boolean }>();
+  
+  // Função de heartbeat para verificar conexões ativas
+  function heartbeat(this: WebSocket) {
+    const client = connectedClients.get(this);
+    if (client) {
+      client.isAlive = true;
+      connectedClients.set(this, client);
+    }
+  }
+  
+  // Verificar periodicamente se os clientes estão ativos
+  const pingInterval = setInterval(() => {
+    let activeCount = 0;
+    let terminatedCount = 0;
+    
+    wss.clients.forEach((ws) => {
+      const client = connectedClients.get(ws);
+      
+      if (!client || client.isAlive === false) {
+        // Terminar conexões que não responderam ao ping anterior
+        ws.terminate();
+        connectedClients.delete(ws);
+        terminatedCount++;
+        return;
+      }
+      
+      // Marcar como inativo até responder ao próximo ping
+      client.isAlive = false;
+      connectedClients.set(ws, client);
+      
+      try {
+        // Enviar ping para verificar se está ativo
+        ws.ping();
+        activeCount++;
+      } catch (e) {
+        console.error('Erro ao enviar ping:', e);
+        ws.terminate();
+        connectedClients.delete(ws);
+        terminatedCount++;
+      }
+    });
+    
+    if (activeCount > 0 || terminatedCount > 0) {
+      console.log(`WebSocket heartbeat: ${activeCount} conexões ativas, ${terminatedCount} terminadas`);
+    }
+  }, 30000); // Verificar a cada 30 segundos
+  
+  // Limpar o intervalo quando o servidor for fechado
+  process.on('SIGINT', () => {
+    clearInterval(pingInterval);
+    process.exit();
+  });
   
   wss.on('connection', (ws: WebSocket) => {
     console.log('Nova conexão WebSocket estabelecida');
     
-    // Adicionar cliente à lista de conexões
-    connectedClients.set(ws, {});
+    // Inicializar como conexão ativa
+    connectedClients.set(ws, { isAlive: true });
+    
+    // Configurar o heartbeat
+    ws.on('pong', heartbeat);
     
     ws.on('message', (message: string) => {
       try {
         const data = JSON.parse(message.toString());
         
+        // Se for um ping do cliente (implementação customizada), responder
+        if (data.type === 'ping') {
+          try {
+            ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+            return;
+          } catch (e) {
+            console.error('Erro ao responder ping do cliente:', e);
+          }
+        }
+        
         // Se a mensagem contém uma identificação de usuário, associamos à conexão
         if (data.type === 'identify' && data.userId) {
           console.log(`Cliente WebSocket identificado: usuário ${data.userId}`);
-          connectedClients.set(ws, { userId: data.userId });
+          const existingClient = connectedClients.get(ws) || {};
+          connectedClients.set(ws, { ...existingClient, userId: data.userId, isAlive: true });
         }
       } catch (error) {
         console.error('Erro ao processar mensagem WebSocket:', error);
       }
     });
     
-    ws.on('close', () => {
+    ws.on('error', (error) => {
+      console.error('Erro na conexão WebSocket:', error);
+      // Remover cliente em caso de erro
+      connectedClients.delete(ws);
+      try {
+        ws.terminate();
+      } catch (e) {
+        console.error('Erro ao terminar conexão com erro:', e);
+      }
+    });
+    
+    ws.on('close', (code, reason) => {
       // Remover cliente da lista quando a conexão é fechada
       connectedClients.delete(ws);
-      console.log('Conexão WebSocket fechada');
+      console.log(`Conexão WebSocket fechada: código ${code}, razão: ${reason || 'N/A'}`);
     });
   });
   
   // Função auxiliar para enviar atualizações em tempo real
-  const broadcastUpdate = (type: string, data: any) => {
+  function broadcastUpdate(type: string, data: any) {
     const message = JSON.stringify({ type, data });
+    let sentCount = 0;
+    let errorCount = 0;
     
     connectedClients.forEach((client, ws) => {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message);
+        try {
+          ws.send(message);
+          sentCount++;
+        } catch (error) {
+          console.error('Erro ao enviar mensagem WebSocket:', error);
+          errorCount++;
+          // Marcar para remoção em caso de erro
+          try {
+            ws.close(1011, 'Erro ao enviar mensagem');
+          } catch (e) {
+            // Se não conseguir fechar normalmente, tenta terminar abruptamente
+            try {
+              ws.terminate();
+            } catch (e2) {
+              console.error('Erro ao terminar conexão problemática:', e2);
+            }
+          }
+          connectedClients.delete(ws);
+        }
       }
     });
-  };
+    
+    console.log(`Broadcast realizado: ${type} - Enviado para ${sentCount} clientes, ${errorCount} erros`);
+  }
+  
+  // Tornar a função broadcastUpdate disponível para outras partes do código
+  (global as any).broadcastUpdate = broadcastUpdate;
   
   // Middleware para verificar se o usuário é administrador
   const isAdmin = (req: Request, res: Response, next: NextFunction) => {
