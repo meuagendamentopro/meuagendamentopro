@@ -10,6 +10,7 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const { user } = useAuth();
 
   // Função para estabelecer a conexão WebSocket com retry exponencial
@@ -68,6 +69,8 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
       newSocket.onopen = () => {
         console.log('Conexão WebSocket estabelecida!');
         setConnected(true);
+        setIsReconnecting(false);
+        setError(null);
         retryCount = 0; // Reinicia contador de tentativas quando conecta
         
         // Identifica o usuário atual se estiver autenticado
@@ -91,7 +94,10 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
         
         // Não tentar reconectar se o fechamento foi limpo/intencional
         if (!event.wasClean && navigator.onLine) {
+          setIsReconnecting(true);
           reconnect();
+        } else {
+          setIsReconnecting(false);
         }
       };
       
@@ -185,9 +191,27 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
     };
   }, [connect]);
   
+  // Função para reconectar manualmente
+  const reconnectManually = useCallback(() => {
+    // Fechar a conexão atual se existir
+    if (socket) {
+      try {
+        socket.close(1000, "Fechamento manual para reconexão");
+      } catch (err) {
+        console.error('Erro ao fechar conexão para reconexão manual:', err);
+      }
+    }
+    
+    // Reiniciar a conexão
+    setIsReconnecting(true);
+    connect();
+  }, [socket, connect]);
+  
   return {
     socket,
     connected,
-    error
+    error,
+    isReconnecting,
+    reconnect: reconnectManually
   };
 };

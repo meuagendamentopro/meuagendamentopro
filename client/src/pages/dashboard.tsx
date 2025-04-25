@@ -24,7 +24,7 @@ const Dashboard: React.FC = () => {
   });
   
   // Configurar o WebSocket para receber atualizações em tempo real
-  const { connected } = useWebSocket({
+  const { connected, error, isReconnecting, reconnect } = useWebSocket({
     onMessage: (data) => {
       if (data.type === 'appointment_created') {
         toast({
@@ -161,10 +161,27 @@ const Dashboard: React.FC = () => {
                 </span>
                 <span className="text-xs">Atualização em tempo real ativa</span>
               </div>
+            ) : error ? (
+              <div className="ml-2 flex items-center text-sm text-amber-600 group relative">
+                <span className="relative flex h-2 w-2 mr-1">
+                  <span className="animate-pulse relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <span className="text-xs flex items-center">
+                  <span>Conexão limitada</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                  <span className="hidden group-hover:block absolute top-6 left-0 w-64 bg-white shadow-lg p-2 rounded-md text-gray-700 text-xs z-50">
+                    {error}. Tentando reconectar automaticamente. Atualizações podem estar atrasadas.
+                  </span>
+                </span>
+              </div>
             ) : (
               <div className="ml-2 flex items-center text-sm text-gray-500">
                 <span className="relative flex h-2 w-2 mr-1">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
+                  <span className="animate-pulse relative inline-flex rounded-full h-2 w-2 bg-gray-400"></span>
                 </span>
                 <span className="text-xs">Conectando...</span>
               </div>
