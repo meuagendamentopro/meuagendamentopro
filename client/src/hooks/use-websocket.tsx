@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { queryClient } from '@/lib/queryClient';
 
+// Adicionar tipagem para a propriedade global
+declare global {
+  interface Window {
+    __WS_CONNECTED?: boolean;
+  }
+}
+
 type WebSocketProps = {
   onMessage?: (data: any) => void;
 };
@@ -143,25 +150,35 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
           if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
             console.log(`Atualizando dados após ${data.type}`);
             
-            // Invalida a consulta para atualizar a lista de agendamentos
-            queryClient.invalidateQueries({
-              queryKey: ['/api/providers', data.data.providerId, 'appointments']
+            // Força atualização imediata sem esperar pelo stale time
+            const options = { 
+              exact: false,
+              type: 'all'
+            };
+            
+            // Refetch para atualizar a lista de agendamentos
+            queryClient.refetchQueries({
+              queryKey: ['/api/providers', data.data.providerId, 'appointments'],
+              ...options
             });
             
-            // Invalida a consulta my-appointments (dashboard do profissional)
-            queryClient.invalidateQueries({
-              queryKey: ['/api/my-appointments']
+            // Refetch para my-appointments (dashboard do profissional)
+            queryClient.refetchQueries({
+              queryKey: ['/api/my-appointments'],
+              ...options
             });
             
-            // Invalidar a consulta específica do agendamento
-            queryClient.invalidateQueries({
-              queryKey: ['/api/appointments', data.data.id]
+            // Refetch para a consulta específica do agendamento
+            queryClient.refetchQueries({
+              queryKey: ['/api/appointments', data.data.id],
+              ...options
             });
             
-            // Invalidar as notificações do usuário
+            // Refetch para as notificações do usuário
             if (user) {
-              queryClient.invalidateQueries({
-                queryKey: ['/api/users', user.id, 'notifications']
+              queryClient.refetchQueries({
+                queryKey: ['/api/users', user.id, 'notifications'],
+                ...options
               });
             }
           }
@@ -183,11 +200,29 @@ export const useWebSocket = ({ onMessage }: WebSocketProps = {}) => {
     }
   }, [user, onMessage]);
   
-  // Estabelece a conexão quando o hook é montado
+  // Estabelece a conexão quando o hook é montado - com verificação para evitar conexões duplicadas
   useEffect(() => {
+    // Armazenar se este é o hook principal para evitar múltiplas instâncias
+    const isMainHook = !window.__WS_CONNECTED;
+    
+    // Se já existe uma conexão e este não é o hook principal, não criar nova
+    if (window.__WS_CONNECTED && !isMainHook) {
+      console.log('Evitando conexão WebSocket duplicada.');
+      return;
+    }
+    
+    // Marcar como conectado para evitar múltiplas instâncias
+    window.__WS_CONNECTED = true;
+    
+    console.log('Estabelecendo conexão WebSocket principal.');
     const cleanup = connect();
+    
     return () => {
-      if (cleanup) cleanup();
+      // Só limpar se for o hook principal
+      if (isMainHook) {
+        window.__WS_CONNECTED = false;
+        if (cleanup) cleanup();
+      }
     };
   }, [connect]);
   

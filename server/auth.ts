@@ -31,10 +31,13 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || 'dev-secret-key',
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Renova o cookie em cada requisição
     store: storage.sessionStore,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 dias
       secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax' // Permite autenticação em redirecionamentos
     }
   };
 
