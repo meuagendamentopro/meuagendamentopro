@@ -24,6 +24,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [loadingTimes, setLoadingTimes] = useState<boolean>(false);
   const clientFormRef = useRef<{ name: string; phone: string; notes: string }>({
     name: "",
     phone: "",
@@ -60,9 +61,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   // Check availability for a selected service and date
   const checkAvailability = async (serviceId: number, date: Date) => {
     try {
+      // Limpar os horários disponíveis e ativar indicador de carregamento
+      setAvailableTimes([]);
+      setLoadingTimes(true);
+      
       // Find the service to get duration
       const service = services.find((s: Service) => s.id === serviceId);
-      if (!service) return;
+      if (!service) {
+        setLoadingTimes(false);
+        return;
+      }
 
       // Buscar os dados atualizados do provider para garantir que temos as configurações mais recentes
       const providerResponse = await fetch(`/api/providers/${providerId}`);
@@ -147,6 +155,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       } else if (available.length === 0) {
         setSelectedTime("");
       }
+      
+      // Desativar indicador de carregamento após concluir a busca
+      setLoadingTimes(false);
     } catch (error) {
       console.error("Error checking availability:", error);
       toast({
@@ -154,6 +165,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         description: "Não foi possível verificar horários disponíveis",
         variant: "destructive",
       });
+      // Garantir que o indicador de carregamento seja desativado mesmo em caso de erro
+      setLoadingTimes(false);
     }
   };
 
@@ -388,11 +401,20 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Horário</label>
-                  <TimeSelector
-                    availableTimes={availableTimes}
-                    selectedTime={selectedTime}
-                    onChange={handleSelectTime}
-                  />
+                  {loadingTimes ? (
+                    <div className="flex justify-center items-center py-8 border border-dashed rounded-lg bg-gray-50">
+                      <div className="flex flex-col items-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mb-2"></div>
+                        <p className="text-sm text-gray-500">Carregando horários disponíveis...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <TimeSelector
+                      availableTimes={availableTimes}
+                      selectedTime={selectedTime}
+                      onChange={handleSelectTime}
+                    />
+                  )}
                 </div>
               </div>
             </div>
