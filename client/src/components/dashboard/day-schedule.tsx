@@ -135,10 +135,20 @@ const EmptySlot: React.FC<EmptySlotProps> = ({ time, onAddAppointment }) => {
   // Obter a data e hora atuais
   const now = new Date();
   
-  // Compara usando UTC para evitar problemas de fuso horário
-  const isPast = time.getTime() < now.getTime();
+  // Verificar se o slot está no passado apenas se a data for hoje
+  // Se for uma data futura, todos os slots são considerados válidos
+  // Se for uma data passada, todos os slots são considerados inválidos
   
-  console.log(`Verificando horário: ${time.toLocaleString()} - Hora atual: ${now.toLocaleString()} - É passado? ${isPast}`);
+  const today = new Date();
+  const isToday = 
+    time.getDate() === today.getDate() &&
+    time.getMonth() === today.getMonth() &&
+    time.getFullYear() === today.getFullYear();
+  
+  // Apenas verifica se é passado quando estamos olhando para o dia atual
+  const isPast = isToday && time.getTime() < now.getTime();
+  
+  console.log(`Verificando horário: ${time.toLocaleString()} - Hora atual: ${now.toLocaleString()} - É mesmo dia? ${isToday} - É passado? ${isPast}`);
 
   return (
     <div 
