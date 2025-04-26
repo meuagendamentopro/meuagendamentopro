@@ -10,7 +10,7 @@ import {
   notifications, Notification, InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql, inArray } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 import { pool } from "./db";
@@ -136,10 +136,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(appointments.providerId, providerId))
       .groupBy(appointments.clientId);
       
-    // Combina os dois conjuntos de IDs de clientes
+    // Combina os dois conjuntos de IDs de clientes sem usar Set
     const associatedClientIds = clientAssociations.map(result => result.clientId);
     const appointmentClientIds = clientsWithAppointments.map(result => result.clientId);
-    const allClientIds = [...new Set([...associatedClientIds, ...appointmentClientIds])];
+    
+    // Usar um objeto para deduplicar os IDs
+    const uniqueIds: {[key: number]: boolean} = {};
+    associatedClientIds.forEach(id => uniqueIds[id] = true);
+    appointmentClientIds.forEach(id => uniqueIds[id] = true);
+    
+    const allClientIds = Object.keys(uniqueIds).map(id => parseInt(id));
     
     // Se não há clientes, retorna array vazio
     if (allClientIds.length === 0) {
@@ -147,19 +153,15 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Busca os detalhes completos dos clientes
-    // Usando placeholders para evitar problemas de sintaxe SQL
-    if (allClientIds.length === 0) {
-      return [];
-    } else if (allClientIds.length === 1) {
+    if (allClientIds.length === 1) {
       return await db
         .select()
         .from(clients)
         .where(eq(clients.id, allClientIds[0]));
     } else {
-      return await db
-        .select()
-        .from(clients)
-        .where(inArray(clients.id, allClientIds));
+      // Para evitar problemas com o inArray, usamos uma abordagem alternativa
+      const clientList = await db.select().from(clients);
+      return clientList.filter(client => allClientIds.includes(client.id));
     }
   }
 
