@@ -37,33 +37,55 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    // Log para fins de depuração, mostra o ambiente
+    console.log(`Ambiente: ${process.env.NODE_ENV}`);
+    console.log(`DATABASE_URL disponível: ${!!process.env.DATABASE_URL}`);
+    console.log(`Porta configurada: ${process.env.PORT || 5000}`);
+    
+    // Registra as rotas da API
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Middleware de tratamento de erros
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      console.error("Erro na aplicação:", err);
+      res.status(status).json({ message });
+    });
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    // Configuração do frontend
+    if (app.get("env") === "development") {
+      console.log("Configurando ambiente de desenvolvimento (Vite)");
+      await setupVite(app, server);
+    } else {
+      console.log("Configurando ambiente de produção (arquivos estáticos)");
+      serveStatic(app);
+    }
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Rota de fallback para capturar todos os caminhos não tratados
+    app.get('*', (req, res) => {
+      if (app.get("env") === "development") {
+        // No desenvolvimento, deixa o Vite lidar com isso
+        res.status(404).send('Página não encontrada');
+      } else {
+        // Em produção, serve o index.html para suportar client-side routing
+        res.sendFile('index.html', { root: './dist/client' });
+      }
+    });
+
+    // Use a porta do ambiente ou 5000 como fallback
+    const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`Servidor rodando na porta ${port} em modo ${app.get("env")}`);
+    });
+  } catch (error) {
+    console.error("Erro fatal durante a inicialização do servidor:", error);
+    // Não deixa o processo morrer silenciosamente
+    process.exit(1);
   }
-
-  // Use a porta do ambiente ou 5000 como fallback
-  // No ambiente de produção (deploy), a porta geralmente é fornecida como uma variável de ambiente
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
