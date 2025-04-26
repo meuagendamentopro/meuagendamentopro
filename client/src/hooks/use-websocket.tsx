@@ -10,6 +10,8 @@ declare global {
     __WS_CONNECTION_HANDLERS?: Set<(status: boolean) => void>;
     __WS_ERROR_HANDLERS?: Set<(error: string | null) => void>;
     __WS_MESSAGE_HANDLERS?: Set<(data: any) => void>;
+    __TOAST_TRIGGER?: (props: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
+    dispatchEvent(event: Event): boolean;
   }
 }
 
@@ -236,6 +238,40 @@ function createSingletonWebSocket(userId?: number) {
               queryKey: ['/api/users', userId, 'notifications'],
               ...queryOptions
             });
+          }
+          
+          // Força uma atualização da página do dashboard quando um novo agendamento é criado
+          if (data.type === 'appointment_created') {
+            // Verifica se estamos na página de dashboard
+            const currentPath = window.location.pathname;
+            if (currentPath === '/' || currentPath.includes('/dashboard')) {
+              console.log('Detectado novo agendamento, atualizando a página do dashboard...');
+              
+              // Mostra uma notificação toast antes de atualizar
+              try {
+                // Se o toast já estiver disponível no escopo global, usamos ele
+                if (window.__TOAST_TRIGGER) {
+                  window.__TOAST_TRIGGER({
+                    title: 'Novo agendamento recebido!',
+                    description: 'Atualizando dados da agenda...',
+                  });
+                }
+              } catch (e) {
+                console.error('Erro ao mostrar toast:', e);
+              }
+              
+              // Aguarda 1 segundo para que o toast seja exibido antes de atualizar
+              setTimeout(() => {
+                // Recarrega apenas os dados da agenda ao invés da página toda
+                // Isso mantém o estado atual da interface mas atualiza os dados
+                queryClient.refetchQueries({ queryKey: ['/api/my-appointments'] });
+                
+                // Atualiza a interface para refletir as mudanças
+                window.dispatchEvent(new CustomEvent('appointment-created', { 
+                  detail: data.data 
+                }));
+              }, 1000);
+            }
           }
         }
         

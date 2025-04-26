@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -53,9 +53,25 @@ function MainLayout({ children }: { children: React.ReactNode }) {
           description,
           variant: appointment.status === 'cancelled' ? "destructive" : "default",
         });
+      } else if (data.type === 'appointment_created') {
+        const appointment = data.data;
+        
+        // Exibe uma notificação quando um novo agendamento for criado
+        toast({
+          title: "Novo agendamento recebido!",
+          description: `Um novo agendamento foi criado para o dia ${new Date(appointment.date).toLocaleDateString()}.`,
+        });
       }
     }
   });
+  
+  // Registra o toast como um gatilho global para permitir que outros componentes o utilizem
+  useEffect(() => {
+    window.__TOAST_TRIGGER = toast;
+    return () => {
+      window.__TOAST_TRIGGER = undefined;
+    };
+  }, [toast]);
   
   const handleLogout = () => {
     logoutMutation.mutate();
