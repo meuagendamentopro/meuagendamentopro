@@ -482,10 +482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Client not found" });
     }
     
-    // Verificar se o cliente pertence a este provider
+    // Verificar se o cliente pertence a este provider usando a associação direta
     const provider = (req as any).provider;
-    const clientsForProvider = await storage.getClientsByProvider(provider.id);
-    const clientBelongsToProvider = clientsForProvider.some(c => c.id === client.id);
+    const clientBelongsToProvider = await storage.clientBelongsToProvider(provider.id, client.id);
     
     if (!clientBelongsToProvider) {
       return res.status(403).json({ 
@@ -505,9 +504,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if client already exists with this phone number
       const existingClient = await storage.getClientByPhone(data.phone);
       if (existingClient) {
-        // Para associar este cliente ao provider, precisamos criar um agendamento mínimo
-        // ou alterar o esquema do banco. Por enquanto, vamos apenas retornar o cliente.
         console.log(`Cliente existente encontrado pelo telefone: ${data.phone}, ID: ${existingClient.id}`);
+        
+        // Associar cliente existente a este provider, se ainda não estiver associado
+        try {
+          const belongsToProvider = await storage.clientBelongsToProvider(provider.id, existingClient.id);
+          if (!belongsToProvider) {
+            await storage.associateClientWithProvider(provider.id, existingClient.id);
+            console.log(`Cliente existente #${existingClient.id} associado ao provider #${provider.id}`);
+          } else {
+            console.log(`Cliente #${existingClient.id} já está associado ao provider #${provider.id}`);
+          }
+        } catch (err) {
+          console.error("Erro ao associar cliente existente:", err);
+        }
+        
         return res.json(existingClient);
       }
       
@@ -515,47 +526,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = await storage.createClient(data);
       console.log(`Novo cliente criado: ${client.name} (ID: ${client.id})`);
       
-      // Para associar o cliente ao provider, precisamos criar um "agendamento fantasma"
-      // até termos um relacionamento direto entre cliente e provider na base de dados
+      // Associar o cliente diretamente ao provider usando a tabela de associação
       try {
-        // Criar um agendamento mínimo para associar cliente ao provider
-        // Data passada para não aparecer na agenda atual
-        const pastDate = new Date();
-        pastDate.setFullYear(pastDate.getFullYear() - 1); // Um ano atrás
-        
-        // Primeiro, verifica se o provider já tem algum serviço
-        const services = await storage.getServices(provider.id);
-        let serviceId;
-        
-        if (services.length > 0) {
-          // Usa o primeiro serviço disponível
-          serviceId = services[0].id;
-        } else {
-          // Cria um serviço mínimo para o provider (invisível ao usuário)
-          const tempService = await storage.createService({
-            providerId: provider.id,
-            name: "Serviço temporário",
-            price: 0,
-            duration: 30,
-            active: false
-          });
-          serviceId = tempService.id;
-        }
-        
-        await storage.createAppointment({
-          providerId: provider.id,
-          clientId: client.id,
-          serviceId: serviceId,
-          date: pastDate,
-          endTime: new Date(pastDate.getTime() + 30 * 60000), // 30 min depois
-          status: AppointmentStatus.CANCELLED,
-          notes: "[Registro automatico para vincular cliente]"
-        });
-        
-        console.log(`Vínculo criado entre cliente ${client.id} e provider ${provider.id}`);
+        await storage.associateClientWithProvider(provider.id, client.id);
+        console.log(`Novo cliente #${client.id} associado ao provider #${provider.id}`);
       } catch (err) {
-        console.error("Erro ao criar vínculo cliente-provider:", err);
-        // Não falha a operação se o vínculo não for criado, apenas loga o erro
+        console.error("Erro ao associar cliente ao provider:", err);
+        // Não falha a operação se a associação não for criada, apenas loga o erro
       }
       
       res.status(201).json(client);
