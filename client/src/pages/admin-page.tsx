@@ -59,6 +59,47 @@ export default function AdminPage() {
       return res.json();
     },
   });
+  
+  // Mutação para limpar o banco de dados
+  const clearDatabaseMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/clear-database");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao limpar banco de dados");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Banco de dados limpo",
+        description: data.message || "Dados limpos com sucesso.",
+        variant: "default",
+      });
+      
+      // Invalidar todas as consultas para atualizar os dados na UI
+      queryClient.invalidateQueries();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao limpar banco de dados",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Função para confirmar e executar a limpeza do banco de dados
+  const handleClearDatabase = () => {
+    // Confirmar a ação com o usuário
+    if (window.confirm(
+      "ATENÇÃO: Esta ação irá remover todos os agendamentos, serviços e clientes do sistema. " +
+      "Esta ação não pode ser desfeita. " +
+      "Deseja realmente continuar?"
+    )) {
+      clearDatabaseMutation.mutate();
+    }
+  };
 
   // Formulário
   const form = useForm<UserFormValues>({

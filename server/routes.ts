@@ -1,12 +1,18 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { 
   insertServiceSchema, 
   insertClientSchema, 
   insertAppointmentSchema, 
   bookingFormSchema,
-  AppointmentStatus
+  AppointmentStatus,
+  services,
+  clients,
+  providerClients,
+  appointments,
+  notifications
 } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, hashPassword } from "./auth";
