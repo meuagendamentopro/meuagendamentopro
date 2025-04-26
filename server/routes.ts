@@ -516,6 +516,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create client" });
     }
   });
+  
+  // Rota para atualizar cliente
+  app.put("/api/clients/:id", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do cliente inválido" });
+      }
+      
+      // Verifica se o cliente existe
+      const client = await storage.getClient(id);
+      if (!client) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      
+      // Verifica se o cliente pertence a este provider
+      const provider = (req as any).provider;
+      const clientsForProvider = await storage.getClientsByProvider(provider.id);
+      const clientBelongsToProvider = clientsForProvider.some(c => c.id === client.id);
+      
+      if (!clientBelongsToProvider) {
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para atualizar este cliente" 
+        });
+      }
+      
+      // Validar dados
+      const data = insertClientSchema.partial().parse(req.body);
+      
+      // Atualizar cliente
+      const updatedClient = await storage.updateClient(id, data);
+      
+      // Responder com o cliente atualizado
+      res.json(updatedClient);
+    } catch (error) {
+      console.error('Erro ao atualizar cliente:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados do cliente inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Falha ao atualizar cliente" });
+    }
+  });
+  
+  // Rota para excluir cliente (implementada como soft delete)
+  app.delete("/api/clients/:id", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do cliente inválido" });
+      }
+      
+      // Verifica se o cliente existe
+      const client = await storage.getClient(id);
+      if (!client) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      
+      // Verifica se o cliente pertence a este provider
+      const provider = (req as any).provider;
+      const clientsForProvider = await storage.getClientsByProvider(provider.id);
+      const clientBelongsToProvider = clientsForProvider.some(c => c.id === client.id);
+      
+      if (!clientBelongsToProvider) {
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para excluir este cliente" 
+        });
+      }
+      
+      // Verificar se o cliente possui agendamentos
+      const appointments = await storage.getAppointments(provider.id);
+      const hasAppointments = appointments.some(a => a.clientId === id);
+      
+      if (hasAppointments) {
+        // Implementar soft delete - atualiza o cliente com flag desativado 
+        const updatedClient = await storage.updateClient(id, { 
+          notes: `[DESATIVADO] ${client.notes || ''}`,
+          // Se tivermos um campo 'active' no futuro, poderíamos usar aqui
+        });
+        
+        return res.json({ 
+          message: "Cliente marcado como desativado pois possui agendamentos", 
+          client: updatedClient 
+        });
+      }
+      
+      // Se não tiver agendamentos, poderia implementar hard delete no futuro
+      // Por enquanto, apenas marca como desativado
+      const updatedClient = await storage.updateClient(id, { 
+        notes: `[DESATIVADO] ${client.notes || ''}`,
+      });
+      
+      res.json({ 
+        message: "Cliente desativado com sucesso",
+        client: updatedClient
+      });
+    } catch (error) {
+      console.error('Erro ao excluir cliente:', error);
+      res.status(500).json({ message: "Falha ao excluir cliente" });
+    }
+  });
 
   // Rota para obter o provider do usuário logado
   app.get("/api/my-provider", async (req: Request, res: Response) => {
