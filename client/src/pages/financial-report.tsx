@@ -58,7 +58,12 @@ export default function FinancialReport() {
 
   // Filtrar os agendamentos por mês e status confirmado/concluído
   const filteredAppointments = appointments?.filter((appointment) => {
-    const appointmentDate = parseISO(appointment.date);
+    // Garantir que a data seja uma string antes de passar para parseISO
+    const dateStr = typeof appointment.date === 'string' 
+      ? appointment.date 
+      : appointment.date.toISOString();
+    const appointmentDate = parseISO(dateStr);
+    
     return (
       isWithinInterval(appointmentDate, {
         start: startOfMonth(month),
@@ -76,8 +81,9 @@ export default function FinancialReport() {
   ) || 0;
 
   // Agrupar por serviço para o relatório de resumo
+  type GroupType = { name: string; count: number; revenue: number };
   const serviceGroups = filteredAppointments?.reduce((groups, appointment) => {
-    const key = appointment.serviceId;
+    const key = appointment.serviceId.toString();
     if (!groups[key]) {
       groups[key] = {
         name: appointment.serviceName,
@@ -88,7 +94,7 @@ export default function FinancialReport() {
     groups[key].count += 1;
     groups[key].revenue += appointment.servicePrice || 0;
     return groups;
-  }, {} as Record<string, { name: string; count: number; revenue: number }>);
+  }, {} as Record<string, GroupType>);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -217,7 +223,12 @@ export default function FinancialReport() {
               {filteredAppointments?.map((appointment) => (
                 <TableRow key={appointment.id}>
                   <TableCell>
-                    {format(parseISO(appointment.date), "dd/MM/yyyy HH:mm")}
+                    {format(
+                      parseISO(typeof appointment.date === 'string' 
+                        ? appointment.date 
+                        : appointment.date.toISOString()), 
+                      "dd/MM/yyyy HH:mm"
+                    )}
                   </TableCell>
                   <TableCell>{appointment.clientName}</TableCell>
                   <TableCell>{appointment.serviceName}</TableCell>
