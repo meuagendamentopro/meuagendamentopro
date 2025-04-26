@@ -26,7 +26,8 @@ interface EnrichedAppointment extends BaseAppointment {
 }
 
 export default function FinancialReport() {
-  const [month, setMonth] = useState<Date>(new Date());
+  // Usaremos selectedDate para controlar o dia específico selecionado
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedService, setSelectedService] = useState<string>("all");
 
   // Obter o provider atual 
@@ -66,9 +67,17 @@ export default function FinancialReport() {
       : appointment.date.toISOString();
     const appointmentDate = parseISO(dateStr);
     
+    // Verificar se estamos filtrando por dia específico ou por mês inteiro
+    // Se o usuário selecionar um dia específico no calendário, filtrar apenas esse dia
+    // Caso contrário, mostrar todo o mês
+    const isSameDay = format(appointmentDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+    
+    console.log(`Data do agendamento: ${format(appointmentDate, 'dd/MM/yyyy')}, Data selecionada: ${format(selectedDate, 'dd/MM/yyyy')}, É o mesmo dia? ${isSameDay}`);
+    
+    // Verificamos se a data está dentro do mês selecionado
     const inInterval = isWithinInterval(appointmentDate, {
-      start: startOfMonth(month),
-      end: endOfMonth(month),
+      start: startOfMonth(selectedDate),
+      end: endOfMonth(selectedDate),
     });
     
     // Problema identificado: o status está em minúsculas no banco de dados, mas estamos procurando em maiúsculas
@@ -88,7 +97,11 @@ export default function FinancialReport() {
       preco: appointment.servicePrice
     });
     
-    return inInterval && validStatus && validService;
+    // Se uma data específica foi selecionada no calendário, filtramos pelo dia específico
+    // Caso contrário, mostramos todos os agendamentos do mês
+    const validDate = isSameDay;
+    
+    return validDate && validStatus && validService;
   });
 
   // Calcular o total de receitas
@@ -134,11 +147,11 @@ export default function FinancialReport() {
           <CardContent className="space-y-4">
             {/* Calendário para selecionar o mês */}
             <div>
-              <label className="block text-sm font-medium mb-2">Mês</label>
+              <label className="block text-sm font-medium mb-2">Data</label>
               <Calendar
                 mode="single"
-                selected={month}
-                onSelect={(date) => setMonth(date || new Date())}
+                selected={selectedDate}
+                onSelect={(date) => setSelectedDate(date || new Date())}
                 classNames={{
                   caption_label: "text-sm font-medium",
                   nav_button_previous: "absolute left-1",
@@ -181,7 +194,7 @@ export default function FinancialReport() {
           <CardHeader>
             <CardTitle>Resumo Financeiro</CardTitle>
             <CardDescription>
-              {format(month, "MMMM 'de' yyyy", { locale: ptBR })}
+              {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </CardDescription>
           </CardHeader>
           <CardContent>
