@@ -1292,9 +1292,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // IMPORTANTE: O cliente já está aplicando o ajuste de fuso horário (GMT-3),
-          // então usamos o horário sem ajustes adicionais aqui
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-          console.log(`Usando horário original: ${hour}:${minute} (dia ${day}/${month}/${year})`);
+          // então precisamos adicionar 3 horas para compensar a conversão dupla
+          // Isso corrige o problema de horários de noite (19h) aparecerem como tarde (16h)
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+          console.log(`Usando horário ajustado: ${hour}:${minute} → ${hour + 3}:${minute} (dia ${day}/${month}/${year})`);
           
         } else if (bookingData.date.includes('/')) {
           // Formato BR (DD/MM/YYYY) - usando Date.UTC para garantir consistência no fuso horário
@@ -1306,9 +1307,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         
           // IMPORTANTE: O cliente já está aplicando o ajuste de fuso horário (GMT-3),
-          // então usamos o horário sem ajustes adicionais aqui
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-          console.log(`Usando horário original: ${hour}:${minute} (dia ${day}/${month}/${year})`);
+          // então precisamos adicionar 3 horas para compensar a conversão dupla
+          // Isso corrige o problema de horários de noite (19h) aparecerem como tarde (16h)
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+          console.log(`Usando horário ajustado: ${hour}:${minute} → ${hour + 3}:${minute} (dia ${day}/${month}/${year})`);
           
         } else {
           // Tentar como timestamp ou outro formato - usando UTC para consistência
@@ -1316,14 +1318,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const [hour, minute] = bookingData.time.split(':').map(Number);
           
           // IMPORTANTE: O cliente já está aplicando o ajuste de fuso horário (GMT-3),
-          // então usamos o horário sem ajustes adicionais aqui
+          // então precisamos adicionar 3 horas para compensar a conversão dupla
+          // Isso corrige o problema de horários de noite (19h) aparecerem como tarde (16h)
           appointmentDate = new Date(Date.UTC(
             baseDate.getFullYear(),
             baseDate.getMonth(),
             baseDate.getDate(),
-            hour, minute, 0
+            hour + 3, minute, 0
           ));
-          console.log(`Usando horário original: ${hour}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
+          console.log(`Usando horário ajustado: ${hour}:${minute} → ${hour + 3}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
         }
         
         if (isNaN(appointmentDate.getTime())) {
