@@ -42,11 +42,11 @@ const SettingsPage: React.FC = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Buscar dados do provedor atual (id 1 para demonstração)
+  // Buscar dados do provedor atual através da API my-provider
   const { data: provider, isLoading } = useQuery({
-    queryKey: ["/api/providers/1"],
+    queryKey: ["/api/my-provider"],
     queryFn: async ({ queryKey }) => {
-      const res = await fetch("/api/providers/1");
+      const res = await fetch("/api/my-provider");
       if (!res.ok) throw new Error("Failed to fetch provider data");
       return res.json();
     },
@@ -73,7 +73,12 @@ const SettingsPage: React.FC = () => {
   // Mutation para atualizar as configurações
   const updateSettings = useMutation({
     mutationFn: async (data: SettingsFormValues) => {
-      return apiRequest("PATCH", "/api/providers/1/settings", data);
+      if (!provider || !provider.id) {
+        throw new Error("Dados do provedor não disponíveis");
+      }
+      
+      console.log(`Atualizando configurações para provider ID ${provider.id}:`, data);
+      return apiRequest("PATCH", `/api/providers/${provider.id}/settings`, data);
     },
     onSuccess: () => {
       toast({
