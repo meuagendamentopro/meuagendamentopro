@@ -1216,32 +1216,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Check availability
   app.get("/api/providers/:providerId/availability", async (req: Request, res: Response) => {
+    console.log(`=== VERIFICANDO DISPONIBILIDADE ===`);
+    console.log(`Parâmetros recebidos:`, req.params, req.query);
+    
     const providerId = parseInt(req.params.providerId);
     if (isNaN(providerId)) {
+      console.log(`❌ ID do prestador inválido: ${req.params.providerId}`);
       return res.status(400).json({ message: "Invalid provider ID" });
     }
     
     const dateParam = req.query.date as string;
     const serviceIdParam = req.query.serviceId as string;
     
+    console.log(`Data param: ${dateParam}`);
+    console.log(`Service ID param: ${serviceIdParam}`);
+    
     if (!dateParam || !serviceIdParam) {
+      console.log(`❌ Data ou ID do serviço ausentes`);
       return res.status(400).json({ message: "Date and serviceId are required" });
     }
     
     const date = new Date(dateParam);
     const serviceId = parseInt(serviceIdParam);
     
+    console.log(`Data convertida: ${date.toISOString()} (${date.toLocaleString()})`);
+    console.log(`ID do serviço: ${serviceId}`);
+    
     if (isNaN(date.getTime()) || isNaN(serviceId)) {
+      console.log(`❌ Data ou ID do serviço inválidos`);
       return res.status(400).json({ message: "Invalid date or service ID" });
     }
     
     const service = await storage.getService(serviceId);
     if (!service) {
+      console.log(`❌ Serviço não encontrado: ${serviceId}`);
       return res.status(404).json({ message: "Service not found" });
     }
     
+    console.log(`✓ Serviço encontrado: ${service.name}, duração: ${service.duration} minutos`);
+    
     const isAvailable = await storage.checkAvailability(providerId, date, service.duration);
-    res.json({ available: isAvailable });
+    console.log(`✓ Resultado da verificação: ${isAvailable ? 'DISPONÍVEL' : 'INDISPONÍVEL'}`);
+    
+    // Adicionar detalhes no retorno para debug
+    res.json({ 
+      available: isAvailable,
+      date: date.toISOString(),
+      localDate: date.toLocaleString(),
+      serviceId,
+      serviceName: service.name,
+      duration: service.duration,
+      providerId
+    });
   });
 
   // Booking endpoint (for clients)
