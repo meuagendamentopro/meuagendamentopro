@@ -59,7 +59,7 @@ export default function FinancialReport() {
     );
   }
 
-  // Filtrar os agendamentos por mês e status confirmado/concluído
+  // Filtrar os agendamentos por mês e APENAS status confirmado/concluído
   const filteredAppointments = appointments?.filter((appointment) => {
     // Garantir que a data seja uma string antes de passar para parseISO
     const dateStr = typeof appointment.date === 'string' 
@@ -69,7 +69,6 @@ export default function FinancialReport() {
     
     // Verificar se estamos filtrando por dia específico ou por mês inteiro
     // Se o usuário selecionar um dia específico no calendário, filtrar apenas esse dia
-    // Caso contrário, mostrar todo o mês
     const isSameDay = format(appointmentDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
     
     console.log(`Data do agendamento: ${format(appointmentDate, 'dd/MM/yyyy')}, Data selecionada: ${format(selectedDate, 'dd/MM/yyyy')}, É o mesmo dia? ${isSameDay}`);
@@ -80,7 +79,9 @@ export default function FinancialReport() {
       end: endOfMonth(selectedDate),
     });
     
-    // Problema identificado: o status está em minúsculas no banco de dados, mas estamos procurando em maiúsculas
+    // MUITO IMPORTANTE: Incluir APENAS os agendamentos com status "confirmed" ou "completed"
+    // Os agendamentos com status "pending" não devem ser contabilizados financeiramente
+    // pois eles ainda podem ser cancelados
     const validStatus = ["confirmed", "completed"].includes(appointment.status.toLowerCase());
     console.log(`Status do agendamento: "${appointment.status}" - É válido? ${validStatus}`);
     
@@ -195,6 +196,9 @@ export default function FinancialReport() {
             <CardTitle>Resumo Financeiro</CardTitle>
             <CardDescription>
               {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              <div className="mt-2 text-xs text-amber-600 font-medium">
+                * Apenas agendamentos confirmados ou concluídos são contabilizados
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent>
