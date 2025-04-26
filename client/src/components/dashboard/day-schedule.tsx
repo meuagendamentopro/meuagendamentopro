@@ -343,17 +343,28 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     // 2. O horário está entre o início e o fim do agendamento
     
     const result = appointments.find(apt => {
+      // Criar uma cópia da data do agendamento
       const startTime = new Date(apt.date);
+      
+      // Adicionar 3 horas para compensar fuso horário (UTC → GMT-3)
+      const adjustedStartHours = startTime.getHours() + 3;
+      const adjustedStartTime = new Date(startTime);
+      adjustedStartTime.setHours(adjustedStartHours);
+      
+      // Calcular o horário de término ajustado
       const endTime = apt.endTime ? new Date(apt.endTime) : 
         new Date(startTime.getTime() + 30*60000); // Fallback de 30 minutos se não tiver endTime
       
-      // Verificar se o horário atual é o início do agendamento
-      if (startTime.getHours() === hours && startTime.getMinutes() === minutes) {
+      const adjustedEndTime = new Date(endTime);
+      adjustedEndTime.setHours(endTime.getHours() + 3);
+      
+      // Verificar se o horário atual corresponde ao início do agendamento ajustado
+      if (adjustedStartTime.getHours() === hours && adjustedStartTime.getMinutes() === minutes) {
         return true;
       }
       
-      // Verificar se o horário atual está dentro do intervalo do agendamento (exceto o exato final)
-      if (currentTime >= startTime && currentTime < endTime) {
+      // Verificar se o horário atual está dentro do intervalo do agendamento ajustado
+      if (currentTime >= adjustedStartTime && currentTime < adjustedEndTime) {
         return true;
       }
       
