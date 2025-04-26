@@ -153,19 +153,36 @@ function createSingletonWebSocket(userId?: number) {
       console.log(`Conexão WebSocket fechada: Código ${event.code}, Limpo: ${event.wasClean}`);
       window.__WS_CONNECTED = false;
       
+      // Limpar ping interval quando a conexão é fechada
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
       // Notifica todos os handlers
       window.__WS_CONNECTION_HANDLERS?.forEach(handler => handler(false));
       
-      // Não tentar reconectar se o fechamento foi limpo/intencional
-      if (!event.wasClean && navigator.onLine) {
+      // Tenta reconectar para qualquer fechamento não limpo (incluindo código 1006)
+      // e apenas se o navegador estiver online
+      if (navigator.onLine) {
         reconnect();
       }
     };
     
     socket.onerror = (event) => {
       console.error('Erro na conexão WebSocket:', event);
-      const errorMsg = 'Falha na conexão em tempo real';
-      window.__WS_ERROR_HANDLERS?.forEach(handler => handler(errorMsg));
+      
+      // Em caso de erro, marca a conexão como perdida
+      window.__WS_CONNECTED = false;
+      
+      // Limpar ping interval quando ocorre erro na conexão
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
+      // Um erro provavelmente já vai acionar o evento onclose, então não notificamos
+      // os handlers aqui para evitar notificações duplicadas
     };
     
     socket.onmessage = (event) => {

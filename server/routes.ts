@@ -497,19 +497,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(client);
   });
 
-  app.post("/api/clients", async (req: Request, res: Response) => {
+  app.post("/api/clients", loadUserProvider, async (req: Request, res: Response) => {
     try {
       const data = insertClientSchema.parse(req.body);
+      const provider = (req as any).provider;
       
       // Check if client already exists with this phone number
       const existingClient = await storage.getClientByPhone(data.phone);
       if (existingClient) {
+        // Para associar este cliente ao provider, precisamos criar um agendamento mínimo
+        // ou alterar o esquema do banco. Por enquanto, vamos apenas retornar o cliente.
+        console.log(`Cliente existente encontrado pelo telefone: ${data.phone}, ID: ${existingClient.id}`);
         return res.json(existingClient);
       }
       
+      // Criar o cliente
       const client = await storage.createClient(data);
+      console.log(`Novo cliente criado: ${client.name} (ID: ${client.id})`);
+      
+      // Para associar o cliente ao provider, precisamos criar um "agendamento fantasma"
+      // até termos um relacionamento direto entre cliente e provider na base de dados
+      try {
+        // Criar um agendamento mínimo para associar cliente ao provider
+        // Data passada para não aparecer na agenda atual
+        const pastDate = new Date();
+        pastDate.setFullYear(pastDate.getFullYear() - 1); // Um ano atrás
+        
+        // Primeiro, verifica se o provider já tem algum serviço
+        const services = await storage.getServices(provider.id);
+        let serviceId;
+        
+        if (services.length > 0) {
+          // Usa o primeiro serviço disponível
+          serviceId = services[0].id;
+        } else {
+          // Cria um serviço mínimo para o provider (invisível ao usuário)
+          const tempService = await storage.createService({
+            providerId: provider.id,
+            name: "Serviço temporário",
+            price: 0,
+            duration: 30,
+            active: false
+          });
+          serviceId = tempService.id;
+        }
+        
+        await storage.createAppointment({
+          providerId: provider.id,
+          clientId: client.id,
+          serviceId: serviceId,
+          date: pastDate,
+          endTime: new Date(pastDate.getTime() + 30 * 60000), // 30 min depois
+          status: AppointmentStatus.CANCELLED,
+          notes: "[Registro automatico para vincular cliente]"
+        });
+        
+        console.log(`Vínculo criado entre cliente ${client.id} e provider ${provider.id}`);
+      } catch (err) {
+        console.error("Erro ao criar vínculo cliente-provider:", err);
+        // Não falha a operação se o vínculo não for criado, apenas loga o erro
+      }
+      
       res.status(201).json(client);
     } catch (error) {
+      console.error("Erro ao criar cliente:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
