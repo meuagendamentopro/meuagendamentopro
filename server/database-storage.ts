@@ -314,7 +314,36 @@ export class DatabaseStorage implements IStorage {
     // Debug
     console.log(`Verificando disponibilidade para ${date.toISOString()} (${date.toLocaleTimeString()}) até ${requestEndTime.toISOString()} (${requestEndTime.toLocaleTimeString()})`);
     
-    // Seleciona todos os agendamentos para o provedor na mesma data
+    // Passo 1: Verificar se a data/hora está dentro do horário de trabalho do prestador
+    const provider = await this.getProvider(providerId);
+    if (!provider) {
+      console.log(`Provider ${providerId} não encontrado para verificação de disponibilidade.`);
+      return false;
+    }
+    
+    // Verificar horário de trabalho configurado
+    const workingHoursStart = provider.workingHoursStart ?? 8;  // Padrão: 8:00
+    const workingHoursEnd = provider.workingHoursEnd ?? 18;     // Padrão: 18:00
+    
+    // Extrair a hora do agendamento solicitado (hora local)
+    const requestHour = date.getHours();
+    const requestEndHour = requestEndTime.getHours();
+    const requestEndMinutes = requestEndTime.getMinutes();
+    
+    console.log(`Verificando horário de trabalho: Solicitado ${requestHour}:${date.getMinutes()} a ${requestEndHour}:${requestEndMinutes}, Configurado ${workingHoursStart}:00 a ${workingHoursEnd}:00`);
+    
+    // Verificar se o horário solicitado está dentro do horário de trabalho
+    // O fim do agendamento deve estar dentro do horário de trabalho
+    // (por isso verificamos requestEndHour < workingHoursEnd ou,
+    // para casos onde termina exatamente no fim do expediente, requestEndHour == workingHoursEnd && requestEndMinutes == 0)
+    if (requestHour < workingHoursStart || 
+        (requestEndHour > workingHoursEnd || 
+         (requestEndHour === workingHoursEnd && requestEndMinutes > 0))) {
+      console.log(`Horário fora do expediente configurado (${workingHoursStart}h às ${workingHoursEnd}h)`);
+      return false;
+    }
+    
+    // Passo 2: Seleciona todos os agendamentos para o provedor na mesma data
     const appointmentsOnDay = await this.getAppointmentsByDate(providerId, date);
     
     // Para cada agendamento, verifica se há conflito de horário
