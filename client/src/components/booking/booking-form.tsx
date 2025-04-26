@@ -79,10 +79,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       // Exibir os dados completos do profissional para verificação de campos
       console.log("Provider completo:", JSON.stringify(latestProvider, null, 2));
       
-      // PROBLEMA IDENTIFICADO: Usando valores fixos! Vamos corrigir
-      // Horários padrão apenas se não estiverem configurados
-      let workingHoursStart = 8; // Valor padrão 8h
-      let workingHoursEnd = 18;  // Valor padrão 18h
+      // Horários padrão (apenas se as configurações do provider estiverem ausentes)
+      let workingHoursStart = 10; // Valor padrão 10h
+      let workingHoursEnd = 21;   // Valor padrão 21h
       
       // Verificar se a resposta tem os campos esperados com os valores corretos
       if (latestProvider && typeof latestProvider.workingHoursStart === 'number') {
@@ -98,6 +97,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       } else {
         console.warn(`⚠️ Horário de término não encontrado no provider, usando padrão: ${workingHoursEnd}`);
       }
+      
+      // Imprimir dados do provider para debugging
+      console.log("▶️ Configurações de horário (provider):");
+      console.log(`   - ID: ${providerId}`);
+      console.log(`   - Horário configurado: ${workingHoursStart}h às ${workingHoursEnd}h`);
           
       console.log(`Gerando horários entre ${workingHoursStart}h e ${workingHoursEnd}h para provider ${providerId}`);
       
