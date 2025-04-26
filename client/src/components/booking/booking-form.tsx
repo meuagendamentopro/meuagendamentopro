@@ -69,8 +69,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       const providerResponse = await fetch(`/api/providers/${providerId}`);
       const latestProvider = await providerResponse.json();
       
-      const workingHoursStart = latestProvider?.workingHoursStart || provider?.workingHoursStart || 8;
-      const workingHoursEnd = latestProvider?.workingHoursEnd || provider?.workingHoursEnd || 18;
+      // Usar os horários configurados pelo provedor, sem fallback para valores padrão
+      const workingHoursStart = latestProvider?.workingHoursStart !== undefined 
+        ? latestProvider.workingHoursStart 
+        : provider?.workingHoursStart !== undefined
+          ? provider.workingHoursStart
+          : 1; // Valor padrão só se nenhum dos dois existir
+          
+      const workingHoursEnd = latestProvider?.workingHoursEnd !== undefined
+        ? latestProvider.workingHoursEnd
+        : provider?.workingHoursEnd !== undefined
+          ? provider.workingHoursEnd
+          : 23; // Valor padrão só se nenhum dos dois existir
+          
       console.log(`Gerando horários entre ${workingHoursStart}h e ${workingHoursEnd}h para provider ${providerId}`);
       
       // Generate all possible time slots based on provider settings
