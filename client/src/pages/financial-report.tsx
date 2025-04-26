@@ -41,6 +41,8 @@ export default function FinancialReport() {
     queryKey: ["/api/providers", providerId, "appointments"],
     enabled: !!providerId,
   });
+  
+  console.log("Dados de agendamentos recebidos:", appointments);
 
   // Buscar os serviços
   const { data: services, isLoading: isLoadingServices } = useQuery<Service[]>({
@@ -64,21 +66,39 @@ export default function FinancialReport() {
       : appointment.date.toISOString();
     const appointmentDate = parseISO(dateStr);
     
-    return (
-      isWithinInterval(appointmentDate, {
-        start: startOfMonth(month),
-        end: endOfMonth(month),
-      }) &&
-      ["CONFIRMED", "COMPLETED"].includes(appointment.status) &&
-      (selectedService === "all" || appointment.serviceId === parseInt(selectedService))
-    );
+    const inInterval = isWithinInterval(appointmentDate, {
+      start: startOfMonth(month),
+      end: endOfMonth(month),
+    });
+    
+    const validStatus = ["CONFIRMED", "COMPLETED"].includes(appointment.status);
+    
+    const validService = (selectedService === "all" || appointment.serviceId === parseInt(selectedService));
+    
+    console.log(`Analisando agendamento #${appointment.id}:`, {
+      data: format(appointmentDate, 'dd/MM/yyyy'),
+      noIntervalo: inInterval,
+      status: appointment.status,
+      statusValido: validStatus,
+      servicoSelecionado: selectedService,
+      idServico: appointment.serviceId,
+      servicoValido: validService,
+      preco: appointment.servicePrice
+    });
+    
+    return inInterval && validStatus && validService;
   });
 
   // Calcular o total de receitas
-  const totalRevenue = filteredAppointments?.reduce(
-    (total, appointment) => total + (appointment.servicePrice || 0),
-    0
-  ) || 0;
+  console.log("Agendamentos filtrados:", filteredAppointments);
+  
+  const totalRevenue = filteredAppointments?.reduce((total, appointment) => {
+    const price = appointment.servicePrice || 0;
+    console.log(`Agendamento #${appointment.id}: adicionando R$ ${price} ao total`);
+    return total + price;
+  }, 0) || 0;
+  
+  console.log("Total calculado:", totalRevenue);
 
   // Agrupar por serviço para o relatório de resumo
   type GroupType = { name: string; count: number; revenue: number };
