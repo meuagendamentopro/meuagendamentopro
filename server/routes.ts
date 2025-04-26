@@ -339,6 +339,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Erro ao criar usuário" });
     }
   });
+  
+  // Rota para atualizar um usuário existente (apenas Admin)
+  app.put("/api/admin/users/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID de usuário inválido" });
+      }
+      
+      // Impedir alteração do usuário admin principal (ID 1)
+      if (id === 1) {
+        return res.status(403).json({ error: "Não é permitido modificar o usuário administrador principal" });
+      }
+      
+      // Buscar o usuário existente
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      const { name, username, password, role } = req.body;
+      const updateData: Partial<{ name: string, username: string, password: string, role: string }> = {};
+      
+      // Validar e adicionar campos a serem atualizados
+      if (name) updateData.name = name;
+      
+      if (username && username !== existingUser.username) {
+        // Verificar se o novo nome de usuário já existe
+        const existingUsername = await storage.getUserByUsername(username);
+        if (existingUsername && existingUsername.id !== id) {
+          return res.status(400).json({ error: "Nome de usuário já existe" });
+        }
+        updateData.username = username;
+      }
+      
+      if (role) updateData.role = role;
+      
+      // Se uma nova senha foi fornecida, hashear e atualizar
+      if (password) {
+        updateData.password = await hashPassword(password);
+      }
+      
+      // Atualizar usuário
+      const updatedUser = await storage.updateUser(id, updateData);
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao atualizar usuário" });
+      }
+      
+      // Retornar o usuário atualizado (sem a senha)
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.status(200).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Erro ao atualizar usuário:", error);
+      res.status(500).json({ error: "Erro ao atualizar usuário" });
+    }
+  });
+  
+  // Rota para excluir um usuário (apenas Admin)
+  app.delete("/api/admin/users/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID de usuário inválido" });
+      }
+      
+      // Impedir exclusão do usuário admin principal (ID 1)
+      if (id === 1) {
+        return res.status(403).json({ error: "Não é permitido excluir o usuário administrador principal" });
+      }
+      
+      // Verificar se o usuário existe
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Excluir o usuário
+      const success = await storage.deleteUser(id);
+      if (!success) {
+        return res.status(500).json({ error: "Falha ao excluir usuário" });
+      }
+      
+      res.status(200).json({ success: true, message: "Usuário excluído com sucesso" });
+    } catch (error) {
+      console.error("Erro ao excluir usuário:", error);
+      res.status(500).json({ error: "Erro ao excluir usuário" });
+    }
+  });
 
   // Provider routes
   app.get("/api/providers", async (req: Request, res: Response) => {

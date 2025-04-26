@@ -21,6 +21,24 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Definição do schema do formulário
 const userFormSchema = z.object({
@@ -44,9 +62,35 @@ interface User {
   createdAt: string;
 }
 
+// Schema para edição de usuário (sem exigir senha)
+const editUserFormSchema = z.object({
+  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+  username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
+  password: z.string().optional(),
+  confirmPassword: z.string().optional(),
+  role: z.enum(["admin", "provider"]),
+}).refine(data => {
+  // Se uma senha foi fornecida, confirmar que ambas coincidem
+  if (data.password) {
+    return data.password === data.confirmPassword;
+  }
+  return true;
+}, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+type EditUserFormValues = z.infer<typeof editUserFormSchema>;
+
 export default function AdminPage() {
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Estados para diálogos e ações
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userToDeleteId, setUserToDeleteId] = useState<number | null>(null);
 
   // Consulta para buscar usuários
   const { data: users, isLoading: isLoadingUsers } = useQuery<User[]>({
@@ -146,11 +190,268 @@ export default function AdminPage() {
     const { confirmPassword, ...userData } = data;
     createUserMutation.mutate(userData);
   };
+  
+  // Formulário de edição
+  const editForm = useForm<EditUserFormValues>({
+    resolver: zodResolver(editUserFormSchema),
+    defaultValues: {
+      name: "",
+      username: "",
+      password: "",
+      confirmPassword: "",
+      role: "provider",
+    },
+  });
+  
+  // Atualiza os valores do formulário quando um usuário é selecionado para edição
+  React.useEffect(() => {
+    if (selectedUser) {
+      editForm.reset({
+        name: selectedUser.name,
+        username: selectedUser.username,
+        password: "",
+        confirmPassword: "",
+        role: selectedUser.role as "admin" | "provider",
+      });
+    }
+  }, [selectedUser, editForm]);
+  
+  // Mutação para atualizar usuário
+  const updateUserMutation = useMutation({
+    mutationFn: async (data: { id: number, userData: Partial<EditUserFormValues> }) => {
+      const res = await apiRequest("PUT", `/api/admin/users/${data.id}`, data.userData);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao atualizar usuário");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Usuário atualizado",
+        description: "O usuário foi atualizado com sucesso",
+      });
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Mutação para excluir usuário
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/users/${id}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao excluir usuário");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Usuário excluído",
+        description: "O usuário foi removido com sucesso",
+      });
+      setIsDeleteDialogOpen(false);
+      setUserToDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Handler para abrir o diálogo de edição
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setIsEditDialogOpen(true);
+  };
+  
+  // Handler para abrir o diálogo de confirmação de exclusão
+  const handleDeleteUser = (id: number) => {
+    setUserToDeleteId(id);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  // Handler para confirmar a edição do usuário
+  const handleEditSubmit = (data: EditUserFormValues) => {
+    if (!selectedUser) return;
+    
+    // Remover campos vazios ou nulos
+    const updateData: Partial<EditUserFormValues> = {};
+    
+    if (data.name) updateData.name = data.name;
+    if (data.username) updateData.username = data.username;
+    if (data.role) updateData.role = data.role;
+    
+    // Incluir senha apenas se fornecida
+    if (data.password && data.password.trim() !== "") {
+      const { confirmPassword, ...dataWithPassword } = data;
+      Object.assign(updateData, { password: data.password });
+    }
+    
+    updateUserMutation.mutate({ 
+      id: selectedUser.id, 
+      userData: updateData 
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Administração</h1>
 
+      {/* Diálogo de edição */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do usuário. Deixe a senha em branco para manter a mesma.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome Completo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome completo" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome de Usuário</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome de usuário" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nova Senha (opcional)</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Deixe em branco para manter a mesma senha" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar Nova Senha</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Confirme a nova senha"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Usuário</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo de usuário" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="admin">Administrador</SelectItem>
+                          <SelectItem value="provider">Provedor de Serviço</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  disabled={updateUserMutation.isPending}
+                >
+                  {updateUserMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                  )}
+                  Salvar Alterações
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de confirmação de exclusão */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
+              e removerá seus dados do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => userToDeleteId && deleteUserMutation.mutate(userToDeleteId)}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="grid grid-cols-1 gap-6">
         {/* Card de Limpeza do Banco de Dados */}
         <Card className="bg-red-50 border-red-200">
@@ -317,6 +618,7 @@ export default function AdminPage() {
                     <TableHead>Usuário</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Data de Cadastro</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -331,6 +633,27 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>
                           {format(new Date(user.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                              Editar
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteUser(user.id)}
+                              disabled={user.id === 1} // Impedir exclusão do admin principal
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                              Excluir
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
