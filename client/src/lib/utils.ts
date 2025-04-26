@@ -90,6 +90,8 @@ export function generateTimeSlots(startHour: number = 0, endHour: number = 24, i
   const start = Math.max(0, Math.min(23, startHour || 0));
   const end = Math.max(1, Math.min(24, endHour || 24));
   
+  console.log(`▶️ Gerando horários das ${start}h às ${end}h com intervalo de ${interval} minutos`);
+  
   if (end <= start) {
     console.warn('Horário de término deve ser maior que o horário de início. Usando horários padrão (0-24).');
     return generateTimeSlots(0, 24, interval);
