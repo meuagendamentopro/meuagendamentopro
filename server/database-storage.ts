@@ -119,6 +119,14 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getClientsByProvider(providerId: number): Promise<Client[]> {
+    // Busca clientes associados a este provider na tabela de associação
+    const clientAssociations = await db
+      .select({
+        clientId: providerClients.clientId
+      })
+      .from(providerClients)
+      .where(eq(providerClients.providerId, providerId));
+      
     // Encontra todos os clientes que têm agendamentos com este provider
     const clientsWithAppointments = await db
       .select({
@@ -128,18 +136,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(appointments.providerId, providerId))
       .groupBy(appointments.clientId);
       
-    if (clientsWithAppointments.length === 0) {
+    // Combina os dois conjuntos de IDs de clientes
+    const associatedClientIds = clientAssociations.map(result => result.clientId);
+    const appointmentClientIds = clientsWithAppointments.map(result => result.clientId);
+    const allClientIds = [...new Set([...associatedClientIds, ...appointmentClientIds])];
+    
+    // Se não há clientes, retorna array vazio
+    if (allClientIds.length === 0) {
       return [];
     }
-    
-    // Extrai os IDs dos clientes
-    const clientIds = clientsWithAppointments.map(result => result.clientId);
     
     // Busca os detalhes completos dos clientes
     return await db
       .select()
       .from(clients)
-      .where(sql`${clients.id} IN (${clientIds.join(', ')})`);
+      .where(sql`${clients.id} IN (${allClientIds.join(', ')})`);
   }
 
   async getClient(id: number): Promise<Client | undefined> {
