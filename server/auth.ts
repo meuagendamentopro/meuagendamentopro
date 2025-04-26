@@ -26,16 +26,26 @@ export async function comparePasswords(supplied: string, stored: string): Promis
 }
 
 export function setupAuth(app: Express) {
-  // Usamos o armazenamento de sessão da própria instância de storage
+  // Configuração de sessão mais robusta
+  console.log(`Configurando sessão. Ambiente: ${process.env.NODE_ENV}`);
+  console.log(`SESSION_SECRET disponível: ${!!process.env.SESSION_SECRET}`);
+  
+  // Usamos uma string constante como fallback para não quebrar o desenvolvimento
+  const sessionSecret = process.env.SESSION_SECRET || 'meu-agendamento-secret-key-development-only';
+  
+  // Configurações de sessão
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || 'dev-secret-key',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     rolling: true, // Renova o cookie em cada requisição
     store: storage.sessionStore,
+    name: 'meuagendamento.sid', // Nome específico para evitar colisões
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 dias
-      secure: process.env.NODE_ENV === 'production',
+      // No ambiente de produção, só use secure: true se estiver em HTTPS
+      secure: process.env.NODE_ENV === 'production' && 
+              (process.env.SECURE_COOKIE === 'true' || undefined),
       httpOnly: true,
       sameSite: 'lax' // Permite autenticação em redirecionamentos
     }
@@ -61,13 +71,37 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  // Serializa o usuário de forma mais robusta
+  passport.serializeUser((user, done) => {
+    // Verifica se o ID do usuário está presente
+    if (user && user.id) {
+      done(null, user.id);
+    } else {
+      console.error("Falha ao serializar usuário:", user);
+      done(new Error("Falha ao serializar usuário - ID ausente"));
+    }
+  });
   
-  passport.deserializeUser(async (id: number, done) => {
+  // Deserializa o usuário com tratamento de erro mais robusto
+  passport.deserializeUser(async (id: any, done) => {
     try {
-      const user = await storage.getUser(id);
+      // Certifica-se de que o ID é um número
+      const userId = typeof id === 'string' ? parseInt(id, 10) : id;
+      
+      if (isNaN(userId)) {
+        return done(new Error(`ID de usuário inválido: ${id}`));
+      }
+      
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        console.error(`Usuário não encontrado para o ID: ${userId}`);
+        return done(null, false);
+      }
+      
       done(null, user);
     } catch (error) {
+      console.error("Erro ao deserializar usuário:", error);
       done(error);
     }
   });
