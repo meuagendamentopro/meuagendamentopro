@@ -147,10 +147,20 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Busca os detalhes completos dos clientes
-    return await db
-      .select()
-      .from(clients)
-      .where(sql`${clients.id} IN (${allClientIds.join(', ')})`);
+    // Usando placeholders para evitar problemas de sintaxe SQL
+    if (allClientIds.length === 0) {
+      return [];
+    } else if (allClientIds.length === 1) {
+      return await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, allClientIds[0]));
+    } else {
+      return await db
+        .select()
+        .from(clients)
+        .where(inArray(clients.id, allClientIds));
+    }
   }
 
   async getClient(id: number): Promise<Client | undefined> {
