@@ -40,14 +40,23 @@ export default function FinancialReport() {
   const [month, setMonth] = useState<Date>(new Date());
   const [selectedService, setSelectedService] = useState<string>("all");
 
+  // Obter o provider atual 
+  const { data: myProvider, isLoading: isLoadingProvider } = useQuery({
+    queryKey: ["/api/my-provider"],
+  });
+  
+  const providerId = myProvider?.id;
+
   // Buscar os agendamentos
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery<Appointment[]>({
-    queryKey: ["/api/providers/1/appointments"],
+    queryKey: ["/api/providers", providerId, "appointments"],
+    enabled: !!providerId,
   });
 
   // Buscar os serviços
   const { data: services, isLoading: isLoadingServices } = useQuery<Service[]>({
-    queryKey: ["/api/providers/1/services"],
+    queryKey: ["/api/providers", providerId, "services"],
+    enabled: !!providerId,
   });
 
   if (isLoadingAppointments || isLoadingServices) {
