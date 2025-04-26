@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { format, parseISO, isToday, addDays, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,8 @@ import {
   Edit,
   X,
   Filter,
-  Clock
+  Clock,
+  RefreshCw
 } from "lucide-react";
 import { Appointment, AppointmentStatus, Client, Service } from "@shared/schema";
 import { cn, generateTimeSlots } from "@/lib/utils";
@@ -19,8 +20,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import AddAppointmentForm from "./add-appointment-form";
 
 interface TimeSlotProps {
@@ -179,6 +181,9 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const [filterStartHour, setFilterStartHour] = React.useState<number>(0);
   const [filterEndHour, setFilterEndHour] = React.useState<number>(24);
   const [showFilterOptions, setShowFilterOptions] = React.useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   // Buscar as configurações do profissional (utilizando a rota protegida)
   const { data: provider } = useQuery({
@@ -201,6 +206,53 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
         return res.json();
       }
     });
+    
+  // Atualiza dados quando uma mensagem de WebSocket sobre novos agendamentos é recebida
+  useEffect(() => {
+    // Define a função de callback do WebSocket
+    function handleWebSocketMessage(event: MessageEvent) {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'appointment_created' || data.type === 'appointment_updated') {
+          // Invalidar o cache e forçar um refetch
+          queryClient.invalidateQueries({ queryKey: ['/api/my-appointments'] });
+          refetchAppointments();
+        }
+      } catch (error) {
+        console.error('Erro ao processar mensagem do WebSocket:', error);
+      }
+    }
+    
+    // Adiciona o event listener na janela global
+    window.addEventListener('message', (event) => {
+      // Verifica se a mensagem é do WebSocket
+      if (event.data && typeof event.data === 'string' && event.data.startsWith('{')) {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'websocket-message') {
+            handleWebSocketMessage(data.event);
+          }
+        } catch (e) {
+          // Ignora erros de parse JSON
+        }
+      }
+    });
+    
+    // Define o objeto window.__WEBSOCKET_HANDLERS se não existir
+    if (!window.__WEBSOCKET_HANDLERS) {
+      window.__WEBSOCKET_HANDLERS = {};
+    }
+    
+    // Registra um handler específico para o componente
+    window.__WEBSOCKET_HANDLERS.daySchedule = handleWebSocketMessage;
+    
+    return () => {
+      // Limpa o handler ao desmontar o componente
+      if (window.__WEBSOCKET_HANDLERS) {
+        delete window.__WEBSOCKET_HANDLERS.daySchedule;
+      }
+    };
+  }, [queryClient, refetchAppointments, selectedDate]);
 
   const { data: services, isLoading: servicesLoading } = useQuery({
     queryKey: ['/api/my-services'],

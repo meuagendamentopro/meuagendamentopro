@@ -11,6 +11,7 @@ declare global {
     __WS_ERROR_HANDLERS?: Set<(error: string | null) => void>;
     __WS_MESSAGE_HANDLERS?: Set<(data: any) => void>;
     __TOAST_TRIGGER?: (props: { title: string; description: string; variant?: 'default' | 'destructive' }) => void;
+    __WEBSOCKET_HANDLERS?: Record<string, (event: MessageEvent) => void>;
     dispatchEvent(event: Event): boolean;
   }
 }
@@ -231,6 +232,22 @@ function createSingletonWebSocket(userId?: number) {
             queryKey: ['/api/appointments', data.data.id],
             ...queryOptions
           });
+          
+          // Aciona todos os handlers de websocket registrados (DaySchedule, etc.)
+          if (window.__WEBSOCKET_HANDLERS) {
+            Object.keys(window.__WEBSOCKET_HANDLERS).forEach(key => {
+              try {
+                const handler = window.__WEBSOCKET_HANDLERS![key];
+                if (typeof handler === 'function') {
+                  handler({
+                    data: JSON.stringify(data)
+                  } as unknown as MessageEvent);
+                }
+              } catch (e) {
+                console.error(`Erro ao chamar handler de websocket ${key}:`, e);
+              }
+            });
+          }
           
           // Refetch para as notificações do usuário
           if (userId) {
