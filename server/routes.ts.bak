@@ -561,8 +561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verifica se o cliente pertence a este provider
       const provider = (req as any).provider;
-      // Usando associação direta em vez de buscar todos os clientes
-      const clientBelongsToProvider = await storage.clientBelongsToProvider(provider.id, client.id);
+      const clientsForProvider = await storage.getClientsByProvider(provider.id);
+      const clientBelongsToProvider = clientsForProvider.some(c => c.id === client.id);
       
       if (!clientBelongsToProvider) {
         return res.status(403).json({ 
@@ -604,8 +604,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verifica se o cliente pertence a este provider
       const provider = (req as any).provider;
-      // Usando associação direta em vez de buscar todos os clientes
-      const clientBelongsToProvider = await storage.clientBelongsToProvider(provider.id, client.id);
+      const clientsForProvider = await storage.getClientsByProvider(provider.id);
+      const clientBelongsToProvider = clientsForProvider.some(c => c.id === client.id);
       
       if (!clientBelongsToProvider) {
         return res.status(403).json({ 
