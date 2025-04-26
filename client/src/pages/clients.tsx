@@ -140,6 +140,36 @@ const ClientsPage: React.FC = () => {
     }
   };
 
+  // Handle client deletion
+  const handleDeleteClient = (client: Client) => {
+    setClientToDelete(client);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  // Confirm and process client deletion
+  const confirmDelete = async () => {
+    if (!clientToDelete) return;
+    
+    try {
+      await apiRequest("DELETE", `/api/clients/${clientToDelete.id}`);
+      
+      toast({
+        title: "Cliente desativado",
+        description: "O cliente foi desativado com sucesso.",
+      });
+      
+      // Atualizar a lista de clientes
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível desativar o cliente.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Generate initials from name
   const getInitials = (name: string) => {
     return name
@@ -351,6 +381,30 @@ const ClientsPage: React.FC = () => {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar cliente</AlertDialogTitle>
+            <AlertDialogDescription>
+              {clientToDelete && (
+                <>
+                  Tem certeza que deseja desativar o cliente <strong>{clientToDelete.name}</strong>?
+                  <br /><br />
+                  Se o cliente tiver agendamentos, será apenas marcado como desativado.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Desativar cliente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
