@@ -324,26 +324,38 @@ const Dashboard: React.FC = () => {
                       <span className="font-medium">Seu link personalizado:</span> {myProvider?.bookingLink || "Não configurado"}
                     </p>
                   </div>
-                  <div className="mt-4 flex justify-between">
+                  <div className="mt-4 flex flex-col gap-3">
+                    <div className="flex justify-between">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="flex items-center gap-1" 
+                        onClick={() => setQrCodeModalOpen(true)}
+                      >
+                        <QrCode className="h-4 w-4" />
+                        QR Code
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={refreshData}
+                        disabled={refreshing}
+                      >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                        {refreshing ? 'Atualizando...' : 'Atualizar dados'}
+                      </Button>
+                    </div>
+                    
                     <Button 
                       size="sm" 
-                      className="bg-[#25D366] hover:bg-[#20bd5a]" 
+                      className="bg-[#25D366] hover:bg-[#20bd5a] w-full" 
                       onClick={() => {
                         const url = `https://wa.me/?text=${encodeURIComponent(`Faça seu agendamento online: ${bookingLinkData.fullUrl}`)}`;
                         window.open(url, '_blank');
                       }}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle mr-1"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-                      WhatsApp
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={refreshData}
-                      disabled={refreshing}
-                    >
-                      <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                      {refreshing ? 'Atualizando...' : 'Atualizar dados'}
+                      Compartilhar no WhatsApp
                     </Button>
                   </div>
                 </div>
@@ -362,6 +374,16 @@ const Dashboard: React.FC = () => {
           <ServicesList providerId={providerId} />
         </div>
       </div>
+      
+      {/* Render the QR Code modal */}
+      {bookingLinkData && myProvider && (
+        <QRCodeModal
+          open={qrCodeModalOpen}
+          onOpenChange={setQrCodeModalOpen}
+          url={bookingLinkData.fullUrl}
+          providerName={myProvider.name}
+        />
+      )}
     </div>
   );
 };

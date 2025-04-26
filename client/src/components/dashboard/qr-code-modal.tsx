@@ -60,26 +60,39 @@ export default function QRCodeModal({ open, onOpenChange, url, providerName }: Q
 
   // Função para compartilhar o QR Code (se a Web Share API estiver disponível)
   const handleShare = async () => {
-    if (navigator.share && qrCodeDataUrl) {
+    if (typeof navigator !== 'undefined' && 'share' in navigator && qrCodeDataUrl) {
       try {
         // Converter Data URL para blob
         const response = await fetch(qrCodeDataUrl);
         const blob = await response.blob();
         const file = new File([blob], "qrcode-agendamento.png", { type: "image/png" });
         
-        await navigator.share({
-          title: `Link de Agendamento - ${providerName}`,
-          text: `Escaneie este QR Code para agendar com ${providerName}`,
-          files: [file],
-        });
+        if ('canShare' in navigator && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `Link de Agendamento - ${providerName}`,
+            text: `Escaneie este QR Code para agendar com ${providerName}`,
+            files: [file],
+          });
+        } else {
+          // Fallback para compartilhar apenas o URL
+          await navigator.share({
+            title: `Link de Agendamento - ${providerName}`,
+            text: `Faça seu agendamento online com ${providerName}`,
+            url: url,
+          });
+        }
       } catch (error) {
         console.error("Erro ao compartilhar:", error);
-        // Fallback para compartilhar apenas o URL
-        navigator.share({
-          title: `Link de Agendamento - ${providerName}`,
-          text: `Faça seu agendamento online com ${providerName}`,
-          url: url,
-        }).catch(err => console.error("Erro ao compartilhar URL:", err));
+        // Tentar compartilhar apenas o URL como último recurso
+        try {
+          await navigator.share({
+            title: `Link de Agendamento - ${providerName}`,
+            text: `Faça seu agendamento online com ${providerName}`,
+            url: url,
+          });
+        } catch (err) {
+          console.error("Erro ao compartilhar URL:", err);
+        }
       }
     }
   };
@@ -140,7 +153,7 @@ export default function QRCodeModal({ open, onOpenChange, url, providerName }: Q
               Baixar
             </Button>
             
-            {navigator.share && (
+            {typeof navigator !== 'undefined' && 'share' in navigator && (
               <Button 
                 type="button" 
                 onClick={handleShare} 
