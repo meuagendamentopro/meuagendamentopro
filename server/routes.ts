@@ -244,32 +244,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Iniciando limpeza do banco de dados...");
       
-      // Importar apenas o pool para executar SQL direto
-      const pool = require('./db').pool;
-      
+      // Usar diretamente as funções do Drizzle ORM
       try {
-        // Limpar todas as tabelas exceto users e providers
-        // Desabilitar verificação de chaves estrangeiras
-        await pool.query('SET session_replication_role = replica;');
-        
-        // Limpar todas as tabelas
-        await pool.query('TRUNCATE TABLE notifications;');
+        console.log("Limpando notificações...");
+        await db.delete(notifications);
         console.log("Notificações removidas com sucesso");
         
-        await pool.query('TRUNCATE TABLE appointments;');
+        console.log("Limpando agendamentos...");
+        await db.delete(appointments);
         console.log("Agendamentos removidos com sucesso");
         
-        await pool.query('TRUNCATE TABLE provider_clients;');
+        console.log("Limpando associações entre provedores e clientes...");
+        await db.delete(providerClients);
         console.log("Associações entre provedores e clientes removidas com sucesso");
         
-        await pool.query('TRUNCATE TABLE clients;');
+        console.log("Limpando clientes...");
+        await db.delete(clients);
         console.log("Clientes removidos com sucesso");
         
-        await pool.query('TRUNCATE TABLE services;');
+        console.log("Limpando serviços...");
+        await db.delete(services);
         console.log("Serviços removidos com sucesso");
-        
-        // Reativar verificação de chaves estrangeiras
-        await pool.query('SET session_replication_role = DEFAULT;');
         
         // Envia notificação em tempo real
         broadcastUpdate('database_cleared', { message: 'Banco de dados limpo com sucesso' });
@@ -311,6 +306,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         role,
       });
+      
+      // Se for um usuário do tipo provider, criar também um provider associado
+      if (role === 'provider') {
+        try {
+          // Gerar um link de agendamento único baseado no nome de usuário
+          const bookingLink = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          // Criar provider associado ao usuário
+          const provider = await storage.createProvider({
+            userId: user.id,
+            name: `${name}'s Service`,
+            email: `${username}@example.com`, // Email temporário baseado no nome de usuário
+            phone: "",
+            bookingLink,
+            workingHoursStart: 8, // Horário padrão de início (8h)
+            workingHoursEnd: 18,  // Horário padrão de término (18h)
+          });
+          
+          console.log(`Provider criado para usuário ${user.id} com link de agendamento: ${bookingLink}`);
+        } catch (providerError) {
+          console.error("Erro ao criar provider para o usuário:", providerError);
+          // Não interrompemos o fluxo se falhar a criação do provider
+        }
+      }
       
       // Retornar o usuário criado (sem a senha)
       const { password: _, ...userWithoutPassword } = user;
