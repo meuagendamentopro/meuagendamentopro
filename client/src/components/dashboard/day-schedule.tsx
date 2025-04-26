@@ -132,7 +132,13 @@ interface EmptySlotProps {
 }
 
 const EmptySlot: React.FC<EmptySlotProps> = ({ time, onAddAppointment }) => {
-  const isPast = isBefore(time, new Date());
+  // Obter a data e hora atuais
+  const now = new Date();
+  
+  // Compara usando UTC para evitar problemas de fuso horário
+  const isPast = time.getTime() < now.getTime();
+  
+  console.log(`Verificando horário: ${time.toLocaleString()} - Hora atual: ${now.toLocaleString()} - É passado? ${isPast}`);
 
   return (
     <div 
@@ -439,14 +445,21 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
               {timeSlots.map(time => {
                 const appointment = findAppointmentForTime(time);
                 
-                // Calculate time as Date object for empty slots usando UTC
+                // Calculate time as Date object for empty slots
                 const [hours, minutes] = time.split(':').map(Number);
-                const slotTime = new Date(Date.UTC(
-                  selectedDate.getFullYear(),
-                  selectedDate.getMonth(),
-                  selectedDate.getDate(),
-                  hours, minutes, 0
-                ));
+                
+                // Criar um objeto de data para representar o horário do slot
+                // Usando a data local (hoje) ao invés de UTC para evitar problemas com fuso horário
+                const slotTime = new Date();
+                slotTime.setFullYear(selectedDate.getFullYear());
+                slotTime.setMonth(selectedDate.getMonth());
+                slotTime.setDate(selectedDate.getDate());
+                slotTime.setHours(hours);
+                slotTime.setMinutes(minutes);
+                slotTime.setSeconds(0);
+                
+                console.log(`Criando slot de tempo: ${time} => ${slotTime.toLocaleString()}`);
+                
                 
                 if (appointment) {
                   const { client, service } = getAppointmentDetails(appointment.id);
