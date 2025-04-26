@@ -147,12 +147,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         
         // Pular horários que já passaram no dia atual
         const now = new Date();
-        if (
-          date.getDate() === now.getDate() &&
-          date.getMonth() === now.getMonth() &&
-          date.getFullYear() === now.getFullYear() &&
-          slotDate < now
-        ) {
+        
+        // Debug da comparação de horários
+        console.log(`Verificando horário: ${date.toLocaleDateString()}, ${hours}:${minutes}:00 - Hora atual: ${now.toLocaleDateString()}, ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()} - É mesmo dia? ${isSameDay(date, now)}`);
+        
+        // Verificar se esta é uma data futura ou, se for hoje, verificar se o horário ainda não passou
+        // Para a data atual, só consideramos horários futuros
+        // IMPORTANTE: Comparamos o horário não ajustado (original) com a hora atual
+        const isToday = isSameDay(date, now);
+        const isPast = isToday && (hours < now.getHours() || (hours === now.getHours() && minutes <= now.getMinutes()));
+        
+        console.log(`- É passado? ${isPast}`);
+        
+        if (isToday && isPast) {
           console.log(`Pulando horário passado: ${time}`);
           continue;
         }
