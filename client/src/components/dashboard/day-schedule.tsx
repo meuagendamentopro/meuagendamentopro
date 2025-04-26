@@ -324,34 +324,71 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     
     const [hours, minutes] = timeString.split(':').map(Number);
     
+    // Log para depuração
+    console.log(`Procurando agendamento para o horário ${timeString}`);
+    console.log(`Agendamentos disponíveis:`, appointments.map(apt => {
+      const date = new Date(apt.date);
+      return {
+        id: apt.id,
+        date: date.toLocaleString(),
+        utcHours: date.getUTCHours(),
+        utcMinutes: date.getUTCMinutes(),
+        clientId: apt.clientId,
+        serviceId: apt.serviceId
+      };
+    }));
+    
     // Calcular o horário para comparação com agendamentos
-    // Importante: na tela vemos "23:30" mas o horário está realmente armazenado como "2:30" após a compensação
+    // Importante: na tela vemos "20:30" mas o horário está realmente armazenado como "23:30" após a compensação
+    // ou o contrário - depende do caso
     const result = appointments.find(apt => {
       const aptDate = new Date(apt.date);
       
-      // Para horários depois das 21:00, precisamos ajustar a lógica de comparação
-      // pois eles estão armazenados como horários iniciais do dia seguinte
-      let displayHour = aptDate.getUTCHours();
+      // Horário UTC do agendamento
+      const utcHour = aptDate.getUTCHours();
+      const utcMinutes = aptDate.getUTCMinutes();
       
-      // Se o horário armazenado é entre 0 e 2 (madrugada), é provável que corresponda a um horário noturno
-      if (displayHour >= 0 && displayHour < 3) {
-        displayHour = displayHour + 21; // 0->21, 1->22, 2->23
-      } else {
-        displayHour = displayHour - 3; // Compensação normal para os outros horários
+      // Ajuste para compensar a diferença de fuso horário no banco e na exibição
+      let displayHour = utcHour;
+      
+      // Existem dois casos:
+      // 1. Horários armazenados entre 0-3 UTC: correspondem a 21-23 na interface (noite)
+      // 2. Horários armazenados entre 3-23 UTC: correspondem a 0-20 na interface (dia)
+      
+      // Caso 1: Conversão de madrugada UTC para noite na interface
+      if (utcHour >= 0 && utcHour < 3) {
+        displayHour = utcHour + 21; // 0->21, 1->22, 2->23
+      } 
+      // Caso 2: Conversão do resto do dia (ajuste normal de -3 horas)
+      else {
+        displayHour = utcHour - 3; // 3->0, 4->1, ... 23->20
       }
       
-      // Comparação com o horário ajustado para exibição na interface
-      const matchesTime = 
-        displayHour === hours && 
-        aptDate.getUTCMinutes() === minutes;
+      // Caso especial: Quando buscamos horário 20:30 na interface, o agendamento pode estar como 23:30 UTC
+      const possibleMatch1 = hours === displayHour && minutes === utcMinutes;
       
-      console.log(`Comparando slot ${timeString} com agendamento às ${displayHour}:${aptDate.getUTCMinutes()} (${aptDate.toLocaleString()})`);
+      // Caso especial inverso: Quando o agendamento está como 20:30 na interface
+      // Ele pode estar armazenado como 23:30 UTC
+      const specialCase = (hours === 20 || hours === 21 || hours === 22 || hours === 23);
+      let possibleMatch2 = false;
       
-      return matchesTime;
+      if (specialCase) {
+        const adjustedHour = (hours + 3) % 24; // 20->23, 21->0, 22->1, 23->2
+        possibleMatch2 = adjustedHour === utcHour && minutes === utcMinutes;
+      }
+      
+      // Log detalhado para depuração
+      console.log(`Comparação: Slot interface ${hours}:${minutes} com agendamento ${displayHour}:${utcMinutes} (UTC original: ${utcHour}:${utcMinutes})`);
+      console.log(`Match normal: ${possibleMatch1}, Match especial: ${possibleMatch2}`);
+      
+      // Consideramos um match se qualquer uma das condições for verdadeira
+      return possibleMatch1 || possibleMatch2;
     });
     
     if (result) {
-      console.log(`Encontrado agendamento para ${timeString}`);
+      console.log(`✅ Encontrado agendamento para ${timeString}:`, result);
+    } else {
+      console.log(`❌ Nenhum agendamento encontrado para ${timeString}`);
     }
     
     return result;

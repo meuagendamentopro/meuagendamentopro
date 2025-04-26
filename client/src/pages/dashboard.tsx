@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, CheckCircle, Users, DollarSign } from "lucide-react";
+import { Calendar, CheckCircle, Users, DollarSign, RefreshCw } from "lucide-react";
 import PageHeader from "@/components/layout/page-header";
 import StatCard from "@/components/dashboard/stat-card";
 import DaySchedule from "@/components/dashboard/day-schedule";
@@ -16,12 +16,33 @@ import { useWebSocket } from "@/hooks/use-websocket";
 
 const Dashboard: React.FC = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [stats, setStats] = useState({
     todayAppointments: 0,
     completedThisWeek: 0,
     newClientsThisMonth: 0,
     monthlyRevenue: 0,
   });
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Função para forçar atualização de todos os dados
+  const refreshData = useCallback(() => {
+    setRefreshing(true);
+    
+    // Forçar atualização dos dados de agendamentos e clientes
+    Promise.all([
+      queryClient.refetchQueries({ queryKey: ['/api/my-appointments'] }),
+      queryClient.refetchQueries({ queryKey: ['/api/providers'] }),
+      queryClient.refetchQueries({ queryKey: ['/api/clients'] })
+    ]).finally(() => {
+      setTimeout(() => setRefreshing(false), 500);
+    });
+    
+    toast({
+      title: "Atualizando dados",
+      description: "Buscando as informações mais recentes...",
+    });
+  }, [queryClient, toast]);
   
   // Configurar o WebSocket para receber atualizações em tempo real
   const { connected, error, isReconnecting, reconnect } = useWebSocket({
@@ -32,6 +53,9 @@ const Dashboard: React.FC = () => {
           description: `Um novo agendamento foi criado através do seu link de compartilhamento.`,
           variant: 'default',
         });
+        
+        // Atualizar os dados automaticamente quando um novo agendamento é criado
+        refreshData();
       }
     },
   });
