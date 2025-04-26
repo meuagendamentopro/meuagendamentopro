@@ -7,7 +7,11 @@ export function formatDate(date: Date): string {
 }
 
 export function formatTime(date: Date): string {
-  return date.toLocaleTimeString('pt-BR', {
+  // Cria uma nova data adicionando 3 horas para compensar UTC para Brasília (GMT-3)
+  const localDate = new Date(date.getTime());
+  localDate.setHours(localDate.getHours() + 3);
+  
+  return localDate.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
