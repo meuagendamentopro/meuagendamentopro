@@ -1068,8 +1068,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Horário indisponível" });
       }
       
-      // Cria o agendamento
-      const appointment = await storage.createAppointment(data);
+      // Calcula o horário de término baseado na duração do serviço
+      const endTime = new Date(data.date.getTime() + service.duration * 60000);
+      console.log(`Horário calculado para o agendamento: ${data.date.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`);
+      
+      // Cria o agendamento com o horário de término explícito
+      const appointment = await storage.createAppointment({
+        ...data,
+        endTime
+      });
       
       // Enviar atualização em tempo real via WebSocket
       broadcastUpdate('appointment_created', appointment);

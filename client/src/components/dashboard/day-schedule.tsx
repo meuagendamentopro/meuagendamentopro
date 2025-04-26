@@ -333,68 +333,43 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     // Split the time string to get hours and minutes
     const [hours, minutes] = timeString.split(':').map(Number);
     
-    // DEBUGGING: Log all appointments
-    console.log(`SLOTS: Buscando agendamentos para ${timeString}`);
-    appointments.forEach(apt => {
-      const aptDate = new Date(apt.date);
-      console.log(`SLOTS: Agendamento ${apt.id}:`, {
-        hora_utc: `${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()}`,
-        hora_local: aptDate.toLocaleTimeString(),
-        data_local: aptDate.toLocaleDateString(),
-        data_completa: aptDate.toString()
-      });
-    });
-
-    // ABORDAGEM DIRETA:
-    // Verificamos o problema específico: o horário das 20:30 está aparecendo como 17:30
+    // Abordagem simplificada: verificar cada agendamento para este horário
+    const currentTime = new Date(selectedDate);
+    currentTime.setHours(hours, minutes, 0, 0);
     
-    // 1. Solução para o horário 20:30 específico (problema relatado)
-    if (timeString === '20:30') {
-      // Procura qualquer agendamento que tenha 20:30 ou 23:30 UTC
-      return appointments.find(apt => {
-        const date = new Date(apt.date);
-        return (
-          // Verifica se o agendamento é às 20:30 local
-          (date.getHours() === 20 && date.getMinutes() === 30) ||
-          // Ou se é às 23:30 UTC (que seria 20:30 após ajuste)
-          (date.getUTCHours() === 23 && date.getUTCMinutes() === 30)
-        );
-      });
-    }
+    // Encontrar todos os agendamentos que ocorrem neste horário
+    // Um agendamento ocorre no horário se:
+    // 1. O horário de início do agendamento é exatamente este horário, OU
+    // 2. O horário está entre o início e o fim do agendamento
     
-    // 2. Se for o horário 17:30, verificar se não é o mesmo agendamento das 20:30
-    // que está sendo mostrado erroneamente em dois horários
-    if (timeString === '17:30') {
-      // Vamos verificar se esse agendamento também corresponde às 20:30
-      const possible20_30Appointment = appointments.find(apt => {
-        const date = new Date(apt.date);
-        return (date.getUTCHours() === 23 && date.getUTCMinutes() === 30);
-      });
-      
-      // Se encontramos um agendamento que corresponde às 20:30, não mostrar aqui
-      if (possible20_30Appointment) {
-        return null;
-      }
-    }
-    
-    // 3. Para os demais horários, usamos a abordagem normal
     const result = appointments.find(apt => {
-      const aptDate = new Date(apt.date);
+      const startTime = new Date(apt.date);
+      const endTime = apt.endTime ? new Date(apt.endTime) : 
+        new Date(startTime.getTime() + 30*60000); // Fallback de 30 minutos se não tiver endTime
       
-      // Ajuste de fuso horário: hora local = UTC - 3
-      const localHour = (aptDate.getUTCHours() - 3 + 24) % 24;
+      // Verificar se o horário atual é o início do agendamento
+      if (startTime.getHours() === hours && startTime.getMinutes() === minutes) {
+        return true;
+      }
       
-      // Checagem simples usando o horário ajustado
-      return localHour === hours && aptDate.getUTCMinutes() === minutes;
+      // Verificar se o horário atual está dentro do intervalo do agendamento (exceto o exato final)
+      if (currentTime >= startTime && currentTime < endTime) {
+        return true;
+      }
+      
+      return false;
     });
     
-    // Log apenas se encontrou
+    // Log para debug
     if (result) {
       const aptDate = new Date(result.date);
+      const endTime = result.endTime ? new Date(result.endTime) : 
+        new Date(aptDate.getTime() + (result.serviceDuration || 30)*60000);
+      
       console.log(`✓ Agendamento encontrado para ${timeString}:`, {
         id: result.id,
-        hora_utc: `${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()}`,
-        hora_display: `${timeString}`,
+        inicio: aptDate.toLocaleTimeString(),
+        fim: endTime.toLocaleTimeString(),
         data: aptDate.toLocaleDateString()
       });
     }
