@@ -363,8 +363,12 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     // Log para debug
     if (result) {
       const aptDate = new Date(result.date);
+      // Buscar a duração do serviço através da função getServiceDuration
+      const service = services?.find(s => s.id === result.serviceId);
+      const serviceDuration = service ? service.duration : 30;
+      
       const endTime = result.endTime ? new Date(result.endTime) : 
-        new Date(aptDate.getTime() + (result.serviceDuration || 30)*60000);
+        new Date(aptDate.getTime() + serviceDuration * 60000);
       
       console.log(`✓ Agendamento encontrado para ${timeString}:`, {
         id: result.id,

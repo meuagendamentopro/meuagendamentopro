@@ -401,18 +401,23 @@ export class DatabaseStorage implements IStorage {
       const appointmentEndTime = appointment.endTime || new Date(appointmentDate.getTime() + service.duration * 60000);
       
       // Exibir mais informações de depuração
-      console.log(`Comparando slot ${date.toLocaleTimeString()} com agendamento às ${appointmentDate.getHours()}:${appointmentDate.getMinutes()} (${appointmentDate.toLocaleDateString()}, ${appointmentDate.toLocaleTimeString()})`);
-      console.log(`Horário de término do agendamento: ${appointmentEndTime.toLocaleTimeString()} (${appointmentEndTime.toISOString()})`);
+      console.log(`Verificando conflito de horários para agendamento ${appointment.id}:`);
+      console.log(`- Horário solicitado: ${date.toLocaleTimeString()} - ${requestEndTime.toLocaleTimeString()}`);
+      console.log(`- Agendamento existente: ${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()}`);
+      
+      // Converter para objetos Date com mesmo fuso horário para comparação correta
+      const startA = new Date(date);
+      const endA = new Date(requestEndTime);
+      const startB = new Date(appointmentDate);
+      const endB = new Date(appointmentEndTime);
       
       const isPendingOrConfirmed = 
         appointment.status === AppointmentStatus.CONFIRMED || 
         appointment.status === AppointmentStatus.PENDING;
         
-      // Verificar se há sobreposição de horários
-      const hasOverlap = 
-        (date >= appointmentDate && date < appointmentEndTime) || 
-        (requestEndTime > appointmentDate && requestEndTime <= appointmentEndTime) ||
-        (date <= appointmentDate && requestEndTime >= appointmentEndTime);
+      // Verificar sobreposição com algoritmo simplificado:
+      // Não há sobreposição se um termina antes do outro começar
+      const hasOverlap = !(endA <= startB || endB <= startA);
       
       if (isPendingOrConfirmed && hasOverlap) {
         console.log(`Conflito detectado com agendamento ${appointment.id} (${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()})`);
