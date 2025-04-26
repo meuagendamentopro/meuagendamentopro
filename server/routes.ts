@@ -632,7 +632,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       appointments = await storage.getAppointments(providerId);
     }
     
-    res.json(appointments);
+    // Enriquecer os agendamentos com informações de cliente e serviço
+    const enrichedAppointments = await Promise.all(
+      appointments.map(async (appointment) => {
+        // Obter cliente
+        const client = await storage.getClient(appointment.clientId);
+        
+        // Obter serviço
+        const service = await storage.getService(appointment.serviceId);
+        
+        return {
+          ...appointment,
+          clientName: client?.name || "Cliente não encontrado",
+          serviceName: service?.name || "Serviço não encontrado",
+          servicePrice: service?.price || 0,
+          serviceDuration: service?.duration || 0
+        };
+      })
+    );
+    
+    res.json(enrichedAppointments);
   });
   
   // Manter a rota original para compatibilidade com a API pública
@@ -672,7 +691,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       appointments = await storage.getAppointments(providerId);
     }
     
-    res.json(appointments);
+    // Enriquecer os agendamentos com informações de cliente e serviço
+    const enrichedAppointments = await Promise.all(
+      appointments.map(async (appointment) => {
+        // Obter cliente
+        const client = await storage.getClient(appointment.clientId);
+        
+        // Obter serviço
+        const service = await storage.getService(appointment.serviceId);
+        
+        return {
+          ...appointment,
+          clientName: client?.name || "Cliente não encontrado",
+          serviceName: service?.name || "Serviço não encontrado",
+          servicePrice: service?.price || 0,
+          serviceDuration: service?.duration || 0
+        };
+      })
+    );
+    
+    res.json(enrichedAppointments);
   });
 
   app.get("/api/appointments/:id", loadUserProvider, async (req: Request, res: Response) => {

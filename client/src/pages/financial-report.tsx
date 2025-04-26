@@ -16,32 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface Appointment {
-  id: number;
-  providerId: number;
-  clientId: number;
-  serviceId: number;
-  date: string;
-  endTime: string;
-  status: string;
-  clientName: string;
-  serviceName: string;
-  servicePrice: number;
-}
-
-interface Service {
-  id: number;
-  name: string;
-  price: number;
-}
+import { Appointment, Service, Provider } from "@shared/schema";
 
 export default function FinancialReport() {
   const [month, setMonth] = useState<Date>(new Date());
   const [selectedService, setSelectedService] = useState<string>("all");
 
   // Obter o provider atual 
-  const { data: myProvider, isLoading: isLoadingProvider } = useQuery({
+  const { data: myProvider, isLoading: isLoadingProvider } = useQuery<Provider>({
     queryKey: ["/api/my-provider"],
   });
   
