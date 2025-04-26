@@ -369,13 +369,32 @@ export class DatabaseStorage implements IStorage {
     
     console.log(`Verificando horário de trabalho: Solicitado ${requestHour}:${date.getMinutes()} a ${requestEndHour}:${requestEndMinutes}, Configurado ${workingHoursStart}:00 a ${workingHoursEnd}:00`);
     
+    // Criar objetos Date para comparar horários de forma mais precisa
+    // Cria um Date só com o horário (sem data) para facilitar a comparação
+    const today = new Date();
+    
+    // Data de referência (hoje) com horário de início de trabalho
+    const workStart = new Date(today);
+    workStart.setHours(workingHoursStart, 0, 0, 0);
+    
+    // Data de referência (hoje) com horário de fim de trabalho
+    const workEnd = new Date(today);
+    workEnd.setHours(workingHoursEnd, 0, 0, 0);
+    
+    // Horário solicitado (apenas a parte da hora)
+    const requestTimeStart = new Date(today);
+    requestTimeStart.setHours(date.getHours(), date.getMinutes(), 0, 0);
+    
+    // Horário de término solicitado (apenas a parte da hora)
+    const requestTimeEnd = new Date(today);
+    requestTimeEnd.setHours(requestEndTime.getHours(), requestEndTime.getMinutes(), 0, 0);
+    
+    console.log(`Comparando horários:
+    - Horário de trabalho: ${workStart.toLocaleTimeString()} - ${workEnd.toLocaleTimeString()}
+    - Horário solicitado: ${requestTimeStart.toLocaleTimeString()} - ${requestTimeEnd.toLocaleTimeString()}`);
+    
     // Verificar se o horário solicitado está dentro do horário de trabalho
-    // O fim do agendamento deve estar dentro do horário de trabalho
-    // (por isso verificamos requestEndHour < workingHoursEnd ou,
-    // para casos onde termina exatamente no fim do expediente, requestEndHour == workingHoursEnd && requestEndMinutes == 0)
-    if (requestHour < workingHoursStart || 
-        (requestEndHour > workingHoursEnd || 
-         (requestEndHour === workingHoursEnd && requestEndMinutes > 0))) {
+    if (requestTimeStart < workStart || requestTimeEnd > workEnd) {
       console.log(`Horário fora do expediente configurado (${workingHoursStart}h às ${workingHoursEnd}h)`);
       return false;
     }
