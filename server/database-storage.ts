@@ -42,6 +42,43 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
   
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        ...userData,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    try {
+      // Verificar se é um provider e deletar primeiro
+      const provider = await this.getProviderByUserId(id);
+      if (provider) {
+        // Deletar todos os serviços do provider
+        await db.delete(services).where(eq(services.providerId, provider.id));
+        
+        // Deletar todas as associações provider-client
+        await db.delete(providerClients).where(eq(providerClients.providerId, provider.id));
+        
+        // Deletar o provider
+        await db.delete(providers).where(eq(providers.id, provider.id));
+      }
+      
+      // Finalmente, deletar o usuário
+      await db.delete(users).where(eq(users.id, id));
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
+      return false;
+    }
+  }
+  
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users);
   }

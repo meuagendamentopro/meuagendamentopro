@@ -19,6 +19,8 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
   getAllUsers(): Promise<User[]>;
   
   // Provider methods
@@ -198,6 +200,50 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, newUser);
     return newUser;
+  }
+  
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) return undefined;
+    
+    const updatedUser: User = {
+      ...existingUser,
+      ...userData,
+      updatedAt: new Date()
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    // Não permitir excluir o usuário admin principal
+    if (id === 1) return false;
+    
+    try {
+      // Verificar se é um provider e deletar primeiro
+      const provider = await this.getProviderByUserId(id);
+      if (provider) {
+        // Remover todos os serviços do provider
+        Array.from(this.services.values())
+          .filter(s => s.providerId === provider.id)
+          .forEach(service => this.services.delete(service.id));
+          
+        // Remover todas as associações provider-client
+        Array.from(this.providerClients.values())
+          .filter(pc => pc.providerId === provider.id)
+          .forEach(pc => this.providerClients.delete(pc.id));
+          
+        // Remover o provider
+        this.providers.delete(provider.id);
+      }
+      
+      // Finalmente, remover o usuário
+      return this.users.delete(id);
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
+      return false;
+    }
   }
   
   async getAllUsers(): Promise<User[]> {
