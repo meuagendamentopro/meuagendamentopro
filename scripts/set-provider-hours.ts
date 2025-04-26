@@ -8,7 +8,7 @@ async function setProviderHours() {
     
     // Horários específicos para configurar
     const workingHoursStart = 10; // 10h
-    const workingHoursEnd = 20;   // 20h
+    const workingHoursEnd = 23;   // 23h (estendido para atender horários noturnos)
     
     // Atualizar todos os providers (ou filtrar por ID caso necessário)
     const result = await db
