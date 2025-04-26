@@ -244,34 +244,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Iniciando limpeza do banco de dados...");
       
-      // Limpar todas as notificações
-      await db.delete(notifications);
-      console.log("Notificações removidas com sucesso");
+      // Importar apenas o pool para executar SQL direto
+      const pool = require('./db').pool;
       
-      // Limpar todos os agendamentos
-      await db.delete(appointments);
-      console.log("Agendamentos removidos com sucesso");
-      
-      // Limpar associações entre provedores e clientes
-      await db.delete(providerClients);
-      console.log("Associações entre provedores e clientes removidas com sucesso");
-      
-      // Limpar todos os clientes
-      await db.delete(clients);
-      console.log("Clientes removidos com sucesso");
-      
-      // Limpar todos os serviços
-      await db.delete(services);
-      console.log("Serviços removidos com sucesso");
-      
-      // Envia notificação em tempo real
-      broadcastUpdate('database_cleared', { message: 'Banco de dados limpo com sucesso' });
-      
-      res.status(200).json({ 
-        success: true, 
-        message: "Banco de dados limpo com sucesso. Todas as tabelas exceto usuários e provedores foram limpas." 
-      });
-    } catch (error) {
+      try {
+        // Limpar todas as tabelas exceto users e providers
+        // Desabilitar verificação de chaves estrangeiras
+        await pool.query('SET session_replication_role = replica;');
+        
+        // Limpar todas as tabelas
+        await pool.query('TRUNCATE TABLE notifications;');
+        console.log("Notificações removidas com sucesso");
+        
+        await pool.query('TRUNCATE TABLE appointments;');
+        console.log("Agendamentos removidos com sucesso");
+        
+        await pool.query('TRUNCATE TABLE provider_clients;');
+        console.log("Associações entre provedores e clientes removidas com sucesso");
+        
+        await pool.query('TRUNCATE TABLE clients;');
+        console.log("Clientes removidos com sucesso");
+        
+        await pool.query('TRUNCATE TABLE services;');
+        console.log("Serviços removidos com sucesso");
+        
+        // Reativar verificação de chaves estrangeiras
+        await pool.query('SET session_replication_role = DEFAULT;');
+        
+        // Envia notificação em tempo real
+        broadcastUpdate('database_cleared', { message: 'Banco de dados limpo com sucesso' });
+        
+        res.status(200).json({ 
+          success: true, 
+          message: "Banco de dados limpo com sucesso. Todas as tabelas exceto usuários e provedores foram limpas." 
+        });
+      } catch (dbError: any) {
+        console.error("Erro nas operações do banco:", dbError);
+        throw new Error(`Erro nas operações de banco de dados: ${dbError.message || 'Erro desconhecido'}`);
+      }
+    } catch (error: any) {
       console.error("Erro ao limpar banco de dados:", error);
       res.status(500).json({ error: "Falha ao limpar banco de dados" });
     }
