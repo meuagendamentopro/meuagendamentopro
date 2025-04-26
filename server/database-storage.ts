@@ -397,11 +397,12 @@ export class DatabaseStorage implements IStorage {
       }
       
       const appointmentDate = appointment.date;
-      const appointmentDuration = service.duration;
-      const appointmentEndTime = new Date(appointmentDate.getTime() + appointmentDuration * 60000);
+      // Use the stored endTime instead of calculating it
+      const appointmentEndTime = appointment.endTime || new Date(appointmentDate.getTime() + service.duration * 60000);
       
       // Exibir mais informações de depuração
       console.log(`Comparando slot ${date.toLocaleTimeString()} com agendamento às ${appointmentDate.getHours()}:${appointmentDate.getMinutes()} (${appointmentDate.toLocaleDateString()}, ${appointmentDate.toLocaleTimeString()})`);
+      console.log(`Horário de término do agendamento: ${appointmentEndTime.toLocaleTimeString()} (${appointmentEndTime.toISOString()})`);
       
       const isPendingOrConfirmed = 
         appointment.status === AppointmentStatus.CONFIRMED || 
