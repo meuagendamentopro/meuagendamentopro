@@ -53,8 +53,8 @@ function createSingletonWebSocket(userId?: number) {
 
   // Variáveis para controle de reconexão
   let retryCount = 0;
-  const maxRetry = 10;
-  const baseRetryDelay = 1000; // 1 segundo
+  const maxRetry = 3; // Reduzido de 10 para 3
+  const baseRetryDelay = 5000; // Aumentado de 1s para 5s
   const maxRetryDelay = 30000; // 30 segundos
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pingInterval: ReturnType<typeof setInterval> | null = null;
@@ -62,7 +62,7 @@ function createSingletonWebSocket(userId?: number) {
   // Função para calcular delay com backoff exponencial e jitter
   const getRetryDelay = () => {
     // Exponential backoff com jitter para evitar reconexões sincronizadas
-    const expDelay = Math.min(baseRetryDelay * Math.pow(2, retryCount), maxRetryDelay);
+    const expDelay = Math.min(baseRetryDelay * Math.pow(1.5, retryCount), maxRetryDelay);
     // Adiciona jitter (até 20%)
     const jitter = expDelay * 0.2 * Math.random();
     return expDelay + jitter;
@@ -92,11 +92,25 @@ function createSingletonWebSocket(userId?: number) {
       
       // Notifica todos os handlers que estamos reconectando
       window.__WS_CONNECTION_HANDLERS?.forEach(handler => handler(false));
-      window.__WS_ERROR_HANDLERS?.forEach(handler => handler('Reconectando...'));
+      
+      // Só notifica na primeira tentativa para não poluir a interface
+      if (retryCount === 0) {
+        window.__WS_ERROR_HANDLERS?.forEach(handler => 
+          handler('Tentando reconectar. Atualizações em tempo real podem estar atrasadas.')
+        );
+      }
     } else {
-      console.error('Número máximo de tentativas de reconexão WebSocket atingido');
-      const errorMsg = 'Não foi possível estabelecer conexão em tempo real. Atualizações podem estar atrasadas.';
-      window.__WS_ERROR_HANDLERS?.forEach(handler => handler(errorMsg));
+      console.log('Número máximo de tentativas de reconexão WebSocket atingido');
+      
+      // Desiste quietamente após tentativas para não incomodar o usuário
+      // A aplicação continuará funcionando normalmente, só não terá atualizações em tempo real
+      window.__WS_ERROR_HANDLERS?.forEach(handler => handler(null));
+      
+      // Uma última tentativa será feita após um intervalo longo (2 minutos)
+      reconnectTimer = setTimeout(() => {
+        retryCount = 0; // Reinicia o contador para permitir novas tentativas
+        createSingletonWebSocket(userId);
+      }, 120000); // 2 minutos
     }
   };
   

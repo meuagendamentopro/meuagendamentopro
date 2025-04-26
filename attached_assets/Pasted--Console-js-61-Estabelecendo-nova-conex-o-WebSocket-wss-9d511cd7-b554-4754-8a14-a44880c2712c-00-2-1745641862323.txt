@@ -1,0 +1,50 @@
+
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+2Console.js:61 Estabelecendo nova conexão WebSocket: wss://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/ws
+Console.js:61 Erro na conexão WebSocket: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+Mt.forEach.n.<computed> @ Console.js:61
+socket.onerror @ use-websocket.tsx:173Understand this error
+Console.js:61 Conexão WebSocket fechada: Código 1006, Limpo: false
+Console.js:61 Tentando reconexão WebSocket em 1s (tentativa 1 de 10)
+Console.js:61 Erro na 
