@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, CheckCircle, Users, DollarSign, RefreshCw } from "lucide-react";
+import { Calendar, CheckCircle, Users, DollarSign, RefreshCw, QrCode } from "lucide-react";
 import PageHeader from "@/components/layout/page-header";
 import StatCard from "@/components/dashboard/stat-card";
 import DaySchedule from "@/components/dashboard/day-schedule";
 import AppointmentTable from "@/components/dashboard/appointment-table";
 import ServicesList from "@/components/dashboard/services-list";
+import QRCodeModal from "@/components/dashboard/qr-code-modal";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ const Dashboard: React.FC = () => {
     monthlyRevenue: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [qrCodeModalOpen, setQrCodeModalOpen] = useState(false);
   
   // Função para forçar atualização de todos os dados
   const refreshData = useCallback(() => {
