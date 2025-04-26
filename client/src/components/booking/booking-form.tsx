@@ -8,7 +8,7 @@ import ServiceSelector from "./service-selector";
 import DateSelector from "./date-selector";
 import TimeSelector from "./time-selector";
 import ClientForm from "./client-form";
-import { formatDate, combineDateAndTime } from "@/lib/dates";
+import { formatDate, combineDateAndTime, isSameDay } from "@/lib/dates";
 import { generateTimeSlots } from "@/lib/utils";
 import { Service } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -165,13 +165,24 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         }
 
         // Verificar disponibilidade no backend
-        const res = await fetch(
-          `/api/providers/${providerId}/availability?date=${slotDate.toISOString()}&serviceId=${serviceId}`
-        );
-        const data = await res.json();
-
-        if (data.available) {
-          available.push(time);
+        try {
+          console.log(`Verificando disponibilidade para horário ${time} (${slotDate.toISOString()})`);
+          
+          const res = await fetch(
+            `/api/providers/${providerId}/availability?date=${slotDate.toISOString()}&serviceId=${serviceId}`
+          );
+          const data = await res.json();
+          
+          console.log(`Resposta de disponibilidade para ${time}: ${JSON.stringify(data)}`);
+          
+          if (data.available) {
+            available.push(time);
+            console.log(`✅ Horário ${time} adicionado como disponível`);
+          } else {
+            console.log(`❌ Horário ${time} não disponível: ${data.message || "Motivo não especificado"}`);
+          }
+        } catch (error) {
+          console.error(`Erro ao verificar disponibilidade para ${time}:`, error);
         }
       }
 
