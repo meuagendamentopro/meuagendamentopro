@@ -30,13 +30,14 @@ async function main() {
     console.log("Pushing schema to database...");
     await db.execute(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
     
-    // Criar tabelas do schema
-    await db.execute(`DROP TABLE IF EXISTS notifications CASCADE;`);
-    await db.execute(`DROP TABLE IF EXISTS appointments CASCADE;`);
-    await db.execute(`DROP TABLE IF EXISTS services CASCADE;`);
-    await db.execute(`DROP TABLE IF EXISTS clients CASCADE;`);
-    await db.execute(`DROP TABLE IF EXISTS providers CASCADE;`);
-    await db.execute(`DROP TABLE IF EXISTS users CASCADE;`);
+    // Criar tabelas do schema sem remover dados existentes
+    // Não vamos mais fazer drop das tabelas para não perder dados
+    // await db.execute(`DROP TABLE IF EXISTS notifications CASCADE;`);
+    // await db.execute(`DROP TABLE IF EXISTS appointments CASCADE;`);
+    // await db.execute(`DROP TABLE IF EXISTS services CASCADE;`);
+    // await db.execute(`DROP TABLE IF EXISTS clients CASCADE;`);
+    // await db.execute(`DROP TABLE IF EXISTS providers CASCADE;`);
+    // await db.execute(`DROP TABLE IF EXISTS users CASCADE;`);
 
     // Create tables
     await db.execute(`

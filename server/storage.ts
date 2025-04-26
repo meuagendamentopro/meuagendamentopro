@@ -632,9 +632,9 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Para facilitar o reset e testes, vamos usar a implementação em memória
-// import { DatabaseStorage } from "./database-storage";
-// export const storage = new DatabaseStorage();
+// Migração para banco de dados persistente
+import { DatabaseStorage } from "./database-storage";
+export const storage = new DatabaseStorage();
 
-// Utilizando armazenamento em memória
-export const storage = new MemStorage();
+// Armazenamento em memória (comentado)
+// export const storage = new MemStorage();
