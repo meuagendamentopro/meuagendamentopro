@@ -5,7 +5,8 @@ import {
   appointments, type Appointment, type InsertAppointment,
   AppointmentStatus,
   notifications, type Notification, type InsertNotification,
-  users, type User, type InsertUser
+  users, type User, type InsertUser,
+  providerClients, type ProviderClient, type InsertProviderClient
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -42,6 +43,11 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined>;
   
+  // Provider-Client association methods
+  associateClientWithProvider(providerId: number, clientId: number): Promise<ProviderClient>;
+  getProviderClients(providerId: number): Promise<ProviderClient[]>;
+  clientBelongsToProvider(providerId: number, clientId: number): Promise<boolean>;
+  
   // Appointment methods
   getAppointments(providerId: number): Promise<Appointment[]>;
   getAppointment(id: number): Promise<Appointment | undefined>;
@@ -64,6 +70,7 @@ export class MemStorage implements IStorage {
   public providers: Map<number, Provider>;
   private services: Map<number, Service>;
   private clients: Map<number, Client>;
+  private providerClients: Map<number, ProviderClient>; // Nova propriedade para associação provider-client
   private appointments: Map<number, Appointment>;
   private users: Map<number, User>;
   private notifications: Map<number, Notification>;
@@ -72,6 +79,7 @@ export class MemStorage implements IStorage {
   private providerId: number;
   private serviceId: number;
   private clientId: number;
+  private providerClientId: number; // Novo contador
   private appointmentId: number;
   private userId: number;
   private notificationId: number;

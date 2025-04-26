@@ -96,6 +96,7 @@ export const clients = pgTable("clients", {
   phone: text("phone").notNull(),
   email: text("email"),
   notes: text("notes"),
+  active: boolean("active").default(true).notNull(), // Para soft delete
 });
 
 export const insertClientSchema = createInsertSchema(clients).pick({
@@ -103,6 +104,21 @@ export const insertClientSchema = createInsertSchema(clients).pick({
   phone: true,
   email: true,
   notes: true,
+  active: true,
+});
+
+// Tabela de associação entre providers e clients
+export const providerClients = pgTable("provider_clients", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").notNull().references(() => providers.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Criamos um schema simples para inserção na tabela de associação
+export const insertProviderClientSchema = createInsertSchema(providerClients).pick({
+  providerId: true,
+  clientId: true,
 });
 
 // Appointment status enum
@@ -259,9 +275,27 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   appointments: many(appointments)
 }));
 
+// Relations para a tabela de associação provider-client
+export const providerClientsRelations = relations(providerClients, ({ one }) => ({
+  provider: one(providers, {
+    fields: [providerClients.providerId],
+    references: [providers.id]
+  }),
+  client: one(clients, {
+    fields: [providerClients.clientId],
+    references: [clients.id]
+  })
+}));
+
+// Relations para providers (adicionando a relação com clients)
+export const providersClientsRelation = relations(providers, ({ many }) => ({
+  providerClients: many(providerClients)
+}));
+
 // Relations para clients
 export const clientsRelations = relations(clients, ({ many }) => ({
-  appointments: many(appointments)
+  appointments: many(appointments),
+  providerClients: many(providerClients)
 }));
 
 // Schema de login (para autenticação)
@@ -288,6 +322,9 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type ProviderClient = typeof providerClients.$inferSelect;
+export type InsertProviderClient = z.infer<typeof insertProviderClientSchema>;
 
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
