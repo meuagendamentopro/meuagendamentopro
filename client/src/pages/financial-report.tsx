@@ -16,7 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Appointment, Service, Provider } from "@shared/schema";
+import { Appointment as BaseAppointment, Service, Provider } from "@shared/schema";
+
+// Extend the base appointment type with the properties added by our API
+interface EnrichedAppointment extends BaseAppointment {
+  clientName: string;
+  serviceName: string;
+  servicePrice: number;
+}
 
 export default function FinancialReport() {
   const [month, setMonth] = useState<Date>(new Date());
@@ -30,7 +37,7 @@ export default function FinancialReport() {
   const providerId = myProvider?.id;
 
   // Buscar os agendamentos
-  const { data: appointments, isLoading: isLoadingAppointments } = useQuery<Appointment[]>({
+  const { data: appointments, isLoading: isLoadingAppointments } = useQuery<EnrichedAppointment[]>({
     queryKey: ["/api/providers", providerId, "appointments"],
     enabled: !!providerId,
   });
