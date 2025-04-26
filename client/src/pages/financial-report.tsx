@@ -71,7 +71,9 @@ export default function FinancialReport() {
       end: endOfMonth(month),
     });
     
-    const validStatus = ["CONFIRMED", "COMPLETED"].includes(appointment.status);
+    // Problema identificado: o status está em minúsculas no banco de dados, mas estamos procurando em maiúsculas
+    const validStatus = ["confirmed", "completed"].includes(appointment.status.toLowerCase());
+    console.log(`Status do agendamento: "${appointment.status}" - É válido? ${validStatus}`);
     
     const validService = (selectedService === "all" || appointment.serviceId === parseInt(selectedService));
     
@@ -93,9 +95,11 @@ export default function FinancialReport() {
   console.log("Agendamentos filtrados:", filteredAppointments);
   
   const totalRevenue = filteredAppointments?.reduce((total, appointment) => {
+    // Divisão por 100 para converter de centavos para reais (mostrando o valor sem centavos)
     const price = appointment.servicePrice || 0;
-    console.log(`Agendamento #${appointment.id}: adicionando R$ ${price} ao total`);
-    return total + price;
+    const priceInReais = price / 100;
+    console.log(`Agendamento #${appointment.id}: adicionando R$ ${priceInReais.toFixed(2)} ao total`);
+    return total + priceInReais;
   }, 0) || 0;
   
   console.log("Total calculado:", totalRevenue);
@@ -112,7 +116,7 @@ export default function FinancialReport() {
       };
     }
     groups[key].count += 1;
-    groups[key].revenue += appointment.servicePrice || 0;
+    groups[key].revenue += (appointment.servicePrice || 0) / 100;
     return groups;
   }, {} as Record<string, GroupType>);
 
@@ -253,12 +257,12 @@ export default function FinancialReport() {
                   <TableCell>{appointment.clientName}</TableCell>
                   <TableCell>{appointment.serviceName}</TableCell>
                   <TableCell>
-                    {appointment.status === "COMPLETED"
+                    {appointment.status.toLowerCase() === "completed"
                       ? "Concluído"
                       : "Confirmado"}
                   </TableCell>
                   <TableCell className="text-right">
-                    R$ {appointment.servicePrice?.toFixed(2)}
+                    R$ {(appointment.servicePrice / 100).toFixed(2)}
                   </TableCell>
                 </TableRow>
               ))}
