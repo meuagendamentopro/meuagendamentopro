@@ -322,74 +322,71 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   const findAppointmentForTime = (timeString: string) => {
     if (!appointments) return null;
     
+    // Split the time string to get hours and minutes
     const [hours, minutes] = timeString.split(':').map(Number);
     
-    // Solução Simplificada: o principal problema está no horário 20:30
-    // que está sendo salvo como 23:30 UTC no banco de dados
-    
-    // Primeiro procura por correspondência direta (horário do slot = horário UTC - 3)
-    let result = appointments.find(apt => {
+    // DEBUGGING: Log all appointments
+    console.log(`SLOTS: Buscando agendamentos para ${timeString}`);
+    appointments.forEach(apt => {
       const aptDate = new Date(apt.date);
-      
-      // Para horários normais: hora local = hora UTC - 3
-      // Ex: 10:00 Local = 13:00 UTC
-      const normalDisplayHour = (aptDate.getUTCHours() - 3 + 24) % 24;
-      
-      const directMatch = (
-        normalDisplayHour === hours && 
-        aptDate.getUTCMinutes() === minutes
-      );
-      
-      // Match especial para horários depois das 21h
-      const specialMatch = (
-        (hours >= 20 && hours <= 23) && // Se o slot é após 20h
-        ((hours + 3) % 24) === aptDate.getUTCHours() && // Converter para UTC (+3 horas)
-        minutes === aptDate.getUTCMinutes()
-      );
-      
-      // Verificação adicional especificamente para o horário 20:30 que está com problema
-      const is830pmSlot = hours === 20 && minutes === 30;
-      const is830pmAppointment = (
-        aptDate.getUTCHours() === 23 && 
-        aptDate.getUTCMinutes() === 30
-      );
-      
-      const specialCase = is830pmSlot && is830pmAppointment;
-      
-      return directMatch || specialMatch || specialCase;
+      console.log(`SLOTS: Agendamento ${apt.id}:`, {
+        hora_utc: `${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()}`,
+        hora_local: aptDate.toLocaleTimeString(),
+        data_local: aptDate.toLocaleDateString(),
+        data_completa: aptDate.toString()
+      });
     });
+
+    // ABORDAGEM DIRETA:
+    // Verificamos o problema específico: o horário das 20:30 está aparecendo como 17:30
     
-    // Se não encontrou, tenta uma abordagem mais ampla para pegar agendamentos mal-formados
-    if (!result) {
-      result = appointments.find(apt => {
-        const aptDate = new Date(apt.date);
-        const localDate = new Date(apt.date);
-        localDate.setHours(localDate.getHours() - 3); // Ajuste do fuso horário
-        
-        // Tenta com a data local ajustada
-        const matchesHour = localDate.getHours() === hours;
-        const matchesMinutes = localDate.getMinutes() === minutes;
-        
-        // Tenta com a data UTC
-        const matchesUTCHour = (
-          aptDate.getUTCHours() === hours || 
-          aptDate.getUTCHours() === ((hours + 3) % 24)
+    // 1. Solução para o horário 20:30 específico (problema relatado)
+    if (timeString === '20:30') {
+      // Procura qualquer agendamento que tenha 20:30 ou 23:30 UTC
+      return appointments.find(apt => {
+        const date = new Date(apt.date);
+        return (
+          // Verifica se o agendamento é às 20:30 local
+          (date.getHours() === 20 && date.getMinutes() === 30) ||
+          // Ou se é às 23:30 UTC (que seria 20:30 após ajuste)
+          (date.getUTCHours() === 23 && date.getUTCMinutes() === 30)
         );
-        const matchesUTCMinutes = aptDate.getUTCMinutes() === minutes;
-        
-        // Tenta várias combinações
-        return (matchesHour && matchesMinutes) || 
-               (matchesUTCHour && matchesUTCMinutes);
       });
     }
     
-    // Log simplificado
+    // 2. Se for o horário 17:30, verificar se não é o mesmo agendamento das 20:30
+    // que está sendo mostrado erroneamente em dois horários
+    if (timeString === '17:30') {
+      // Vamos verificar se esse agendamento também corresponde às 20:30
+      const possible20_30Appointment = appointments.find(apt => {
+        const date = new Date(apt.date);
+        return (date.getUTCHours() === 23 && date.getUTCMinutes() === 30);
+      });
+      
+      // Se encontramos um agendamento que corresponde às 20:30, não mostrar aqui
+      if (possible20_30Appointment) {
+        return null;
+      }
+    }
+    
+    // 3. Para os demais horários, usamos a abordagem normal
+    const result = appointments.find(apt => {
+      const aptDate = new Date(apt.date);
+      
+      // Ajuste de fuso horário: hora local = UTC - 3
+      const localHour = (aptDate.getUTCHours() - 3 + 24) % 24;
+      
+      // Checagem simples usando o horário ajustado
+      return localHour === hours && aptDate.getUTCMinutes() === minutes;
+    });
+    
+    // Log apenas se encontrou
     if (result) {
       const aptDate = new Date(result.date);
       console.log(`✓ Agendamento encontrado para ${timeString}:`, {
         id: result.id,
         hora_utc: `${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()}`,
-        hora_local: aptDate.toLocaleTimeString(),
+        hora_display: `${timeString}`,
         data: aptDate.toLocaleDateString()
       });
     }
