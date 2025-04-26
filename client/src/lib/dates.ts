@@ -104,24 +104,21 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
     }
     
-    // Usar UTC para garantir consistência no fuso horário e compensar para GMT-3 (Brasil)
-    // Verificamos se o horário cruza para o dia seguinte
-    let adjustedHour = hours + 3;  // Adicionamos 3 horas (fuso GMT-3)
-    if (adjustedHour >= 24) {
-      adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
-    }
+    // CORREÇÃO: Não vamos mais fazer o ajuste de fuso horário aqui, pois isso está causando
+    // problemas com os horários exibidos. O backend já lida com isso apropriadamente.
+    // Vamos criar a data no fuso horário local do usuário sem ajustes adicionais.
     
-    const result = new Date(Date.UTC(
+    const result = new Date(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
-      adjustedHour,
+      hours,
       minutes,
       0,
       0
-    ));
+    );
     
-    console.log(`Horário ajustado em combineDateAndTime: ${hours}:${minutes} -> ${adjustedHour}:${minutes} (dia ${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()})`);
+    console.log(`Data e hora combinadas: ${date.toLocaleDateString()} ${timeString} -> ${result.toLocaleString()}`);
     
     return result;
   } catch (error) {

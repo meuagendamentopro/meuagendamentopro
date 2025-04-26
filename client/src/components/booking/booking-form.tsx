@@ -64,68 +64,57 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       const service = services.find((s: Service) => s.id === serviceId);
       if (!service) return;
 
-      // Usar horários de trabalho do profissional, se disponíveis, ou padrão
-      // Refetch provider data to ensure we have the latest working hours
+      // Buscar os dados atualizados do provider para garantir que temos as configurações mais recentes
       const providerResponse = await fetch(`/api/providers/${providerId}`);
       const latestProvider = await providerResponse.json();
       
-      // Forçar o uso dos horários configurados pelo provedor, usando valores explícitos
-      // Vamos imprimir detalhes completos para troubleshooting
+      // Exibir os dados completos do profissional para verificação de campos
       console.log("Provider completo:", JSON.stringify(latestProvider, null, 2));
       
-      // Definir horários de início e fim 
-      let workingHoursStart = 1; // Valor padrão 1h
-      let workingHoursEnd = 23;  // Valor padrão 23h
+      // PROBLEMA IDENTIFICADO: Usando valores fixos! Vamos corrigir
+      // Horários padrão apenas se não estiverem configurados
+      let workingHoursStart = 8; // Valor padrão 8h
+      let workingHoursEnd = 18;  // Valor padrão 18h
       
-      // Usar os valores configurados se estiverem disponíveis 
+      // Verificar se a resposta tem os campos esperados com os valores corretos
       if (latestProvider && typeof latestProvider.workingHoursStart === 'number') {
         workingHoursStart = latestProvider.workingHoursStart;
-        console.log(`Usando workingHoursStart do latestProvider: ${workingHoursStart}`);
-      } else if (provider && typeof provider.workingHoursStart === 'number') {
-        workingHoursStart = provider.workingHoursStart;
-        console.log(`Usando workingHoursStart do provider: ${workingHoursStart}`);
+        console.log(`✓ Usando workingHoursStart do provider: ${workingHoursStart}`);
       } else {
-        console.log(`Nenhum horário de início encontrado, usando padrão: ${workingHoursStart}`);
+        console.warn(`⚠️ Horário de início não encontrado no provider, usando padrão: ${workingHoursStart}`);
       }
       
       if (latestProvider && typeof latestProvider.workingHoursEnd === 'number') {
         workingHoursEnd = latestProvider.workingHoursEnd;
-        console.log(`Usando workingHoursEnd do latestProvider: ${workingHoursEnd}`);
-      } else if (provider && typeof provider.workingHoursEnd === 'number') {
-        workingHoursEnd = provider.workingHoursEnd;
-        console.log(`Usando workingHoursEnd do provider: ${workingHoursEnd}`);
+        console.log(`✓ Usando workingHoursEnd do provider: ${workingHoursEnd}`);
       } else {
-        console.log(`Nenhum horário de término encontrado, usando padrão: ${workingHoursEnd}`);
+        console.warn(`⚠️ Horário de término não encontrado no provider, usando padrão: ${workingHoursEnd}`);
       }
           
       console.log(`Gerando horários entre ${workingHoursStart}h e ${workingHoursEnd}h para provider ${providerId}`);
       
-      // Generate all possible time slots based on provider settings
+      // Gerar todos os slots de horário com base nas configurações do provider
       const allTimeSlots = generateTimeSlots(workingHoursStart, workingHoursEnd, 30);
+      console.log("Slots gerados:", allTimeSlots);
+      
       const available: string[] = [];
 
-      // Check each time slot for availability
+      // Verificar disponibilidade de cada slot de horário
       for (const time of allTimeSlots) {
         const [hours, minutes] = time.split(":").map(Number);
-        // Usar Date.UTC e compensar o fuso horário Brasil (GMT-3)
-        // Verificamos se o horário cruza para o dia seguinte
-        let adjustedHour = hours + 3;  // +3 para compensar o fuso horário
-        if (adjustedHour >= 24) {
-          adjustedHour -= 24;  // Se passar de 24h, ajustamos para o formato correto
-        }
         
-        const slotDate = new Date(Date.UTC(
+        // Criar a data completa combinando a data selecionada com o horário do slot
+        // Obs: Não precisamos ajustar o fuso horário aqui, o backend já lida com isso
+        const slotDate = new Date(
           date.getFullYear(),
           date.getMonth(),
           date.getDate(),
-          adjustedHour,
+          hours,
           minutes,
           0
-        ));
+        );
         
-        console.log(`Horário slot: ${time} -> ajustado para ${adjustedHour}:${minutes} [data: ${date.toISOString().split('T')[0]}]`);
-
-        // Skip past time slots for today
+        // Pular horários que já passaram no dia atual
         const now = new Date();
         if (
           date.getDate() === now.getDate() &&
@@ -133,9 +122,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
           date.getFullYear() === now.getFullYear() &&
           slotDate < now
         ) {
+          console.log(`Pulando horário passado: ${time}`);
           continue;
         }
 
+        // Verificar disponibilidade no backend
         const res = await fetch(
           `/api/providers/${providerId}/availability?date=${slotDate.toISOString()}&serviceId=${serviceId}`
         );
@@ -146,9 +137,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         }
       }
 
+      console.log("Horários disponíveis:", available);
       setAvailableTimes(available);
 
-      // If no time selected or selected time is not available, select the first available time
+      // Se não houver horário selecionado ou o horário selecionado não estiver disponível, 
+      // selecionar o primeiro horário disponível
       if (available.length > 0 && (!selectedTime || !available.includes(selectedTime))) {
         setSelectedTime(available[0]);
       } else if (available.length === 0) {
