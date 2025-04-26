@@ -69,18 +69,34 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       const providerResponse = await fetch(`/api/providers/${providerId}`);
       const latestProvider = await providerResponse.json();
       
-      // Usar os horários configurados pelo provedor, sem fallback para valores padrão
-      const workingHoursStart = latestProvider?.workingHoursStart !== undefined 
-        ? latestProvider.workingHoursStart 
-        : provider?.workingHoursStart !== undefined
-          ? provider.workingHoursStart
-          : 1; // Valor padrão só se nenhum dos dois existir
-          
-      const workingHoursEnd = latestProvider?.workingHoursEnd !== undefined
-        ? latestProvider.workingHoursEnd
-        : provider?.workingHoursEnd !== undefined
-          ? provider.workingHoursEnd
-          : 23; // Valor padrão só se nenhum dos dois existir
+      // Forçar o uso dos horários configurados pelo provedor, usando valores explícitos
+      // Vamos imprimir detalhes completos para troubleshooting
+      console.log("Provider completo:", JSON.stringify(latestProvider, null, 2));
+      
+      // Definir horários de início e fim 
+      let workingHoursStart = 1; // Valor padrão 1h
+      let workingHoursEnd = 23;  // Valor padrão 23h
+      
+      // Usar os valores configurados se estiverem disponíveis 
+      if (latestProvider && typeof latestProvider.workingHoursStart === 'number') {
+        workingHoursStart = latestProvider.workingHoursStart;
+        console.log(`Usando workingHoursStart do latestProvider: ${workingHoursStart}`);
+      } else if (provider && typeof provider.workingHoursStart === 'number') {
+        workingHoursStart = provider.workingHoursStart;
+        console.log(`Usando workingHoursStart do provider: ${workingHoursStart}`);
+      } else {
+        console.log(`Nenhum horário de início encontrado, usando padrão: ${workingHoursStart}`);
+      }
+      
+      if (latestProvider && typeof latestProvider.workingHoursEnd === 'number') {
+        workingHoursEnd = latestProvider.workingHoursEnd;
+        console.log(`Usando workingHoursEnd do latestProvider: ${workingHoursEnd}`);
+      } else if (provider && typeof provider.workingHoursEnd === 'number') {
+        workingHoursEnd = provider.workingHoursEnd;
+        console.log(`Usando workingHoursEnd do provider: ${workingHoursEnd}`);
+      } else {
+        console.log(`Nenhum horário de término encontrado, usando padrão: ${workingHoursEnd}`);
+      }
           
       console.log(`Gerando horários entre ${workingHoursStart}h e ${workingHoursEnd}h para provider ${providerId}`);
       
