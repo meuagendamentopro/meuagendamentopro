@@ -126,7 +126,7 @@ async function setupDatabase() {
     // Criar usuário admin padrão se não existir
     await db.execute(`
       INSERT INTO users (name, username, password, role)
-      VALUES ('Admin', 'admin', '$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS', 'admin')
+      VALUES ('Admin', 'admin', '$2b$10$kVnI6AYON2AbRhfx.sXgMeWMAFXZS781ZYTjNTUAgGy.OzKpGtToy', 'admin')
       ON CONFLICT (username) DO NOTHING;
     `);
 
@@ -135,7 +135,7 @@ async function setupDatabase() {
     // Criar usuário de teste e prestador de serviço (se não existirem)
     await db.execute(`
       INSERT INTO users (name, username, password, role)
-      VALUES ('Link Beauty', 'link', '$2b$10$5QCy5vy6nMpxqjhPnljcPuuDn3S1.KlQ/vykHnP1MZx95Sy9/rHfS', 'provider')
+      VALUES ('Link Beauty', 'link', '$2b$10$kVnI6AYON2AbRhfx.sXgMeWMAFXZS781ZYTjNTUAgGy.OzKpGtToy', 'provider')
       ON CONFLICT (username) DO NOTHING
       RETURNING id;
     `);
