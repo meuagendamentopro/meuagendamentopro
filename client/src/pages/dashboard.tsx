@@ -322,17 +322,26 @@ const Dashboard: React.FC = () => {
                       <span className="font-medium">Seu link personalizado:</span> {myProvider?.bookingLink || "Não configurado"}
                     </p>
                   </div>
-                  <div className="mt-4 flex space-x-2">
-                    <Button size="sm" className="bg-[#25D366] hover:bg-[#20bd5a]" onClick={() => {
-                      const url = `https://wa.me/?text=${encodeURIComponent(`Faça seu agendamento online: ${bookingLinkData.fullUrl}`)}`;
-                      window.open(url, '_blank');
-                    }}>
+                  <div className="mt-4 flex justify-between">
+                    <Button 
+                      size="sm" 
+                      className="bg-[#25D366] hover:bg-[#20bd5a]" 
+                      onClick={() => {
+                        const url = `https://wa.me/?text=${encodeURIComponent(`Faça seu agendamento online: ${bookingLinkData.fullUrl}`)}`;
+                        window.open(url, '_blank');
+                      }}
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-message-circle mr-1"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
                       WhatsApp
                     </Button>
-                    <Button size="sm" variant="outline">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-qr-code mr-1"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
-                      QR Code
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={refreshData}
+                      disabled={refreshing}
+                    >
+                      <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                      {refreshing ? 'Atualizando...' : 'Atualizar dados'}
                     </Button>
                   </div>
                 </div>

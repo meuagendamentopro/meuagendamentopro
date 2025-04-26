@@ -324,71 +324,74 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     
     const [hours, minutes] = timeString.split(':').map(Number);
     
-    // Log para depuração
-    console.log(`Procurando agendamento para o horário ${timeString}`);
-    console.log(`Agendamentos disponíveis:`, appointments.map(apt => {
-      const date = new Date(apt.date);
-      return {
-        id: apt.id,
-        date: date.toLocaleString(),
-        utcHours: date.getUTCHours(),
-        utcMinutes: date.getUTCMinutes(),
-        clientId: apt.clientId,
-        serviceId: apt.serviceId
-      };
-    }));
+    // Solução Simplificada: o principal problema está no horário 20:30
+    // que está sendo salvo como 23:30 UTC no banco de dados
     
-    // Calcular o horário para comparação com agendamentos
-    // Importante: na tela vemos "20:30" mas o horário está realmente armazenado como "23:30" após a compensação
-    // ou o contrário - depende do caso
-    const result = appointments.find(apt => {
+    // Primeiro procura por correspondência direta (horário do slot = horário UTC - 3)
+    let result = appointments.find(apt => {
       const aptDate = new Date(apt.date);
       
-      // Horário UTC do agendamento
-      const utcHour = aptDate.getUTCHours();
-      const utcMinutes = aptDate.getUTCMinutes();
+      // Para horários normais: hora local = hora UTC - 3
+      // Ex: 10:00 Local = 13:00 UTC
+      const normalDisplayHour = (aptDate.getUTCHours() - 3 + 24) % 24;
       
-      // Ajuste para compensar a diferença de fuso horário no banco e na exibição
-      let displayHour = utcHour;
+      const directMatch = (
+        normalDisplayHour === hours && 
+        aptDate.getUTCMinutes() === minutes
+      );
       
-      // Existem dois casos:
-      // 1. Horários armazenados entre 0-3 UTC: correspondem a 21-23 na interface (noite)
-      // 2. Horários armazenados entre 3-23 UTC: correspondem a 0-20 na interface (dia)
+      // Match especial para horários depois das 21h
+      const specialMatch = (
+        (hours >= 20 && hours <= 23) && // Se o slot é após 20h
+        ((hours + 3) % 24) === aptDate.getUTCHours() && // Converter para UTC (+3 horas)
+        minutes === aptDate.getUTCMinutes()
+      );
       
-      // Caso 1: Conversão de madrugada UTC para noite na interface
-      if (utcHour >= 0 && utcHour < 3) {
-        displayHour = utcHour + 21; // 0->21, 1->22, 2->23
-      } 
-      // Caso 2: Conversão do resto do dia (ajuste normal de -3 horas)
-      else {
-        displayHour = utcHour - 3; // 3->0, 4->1, ... 23->20
-      }
+      // Verificação adicional especificamente para o horário 20:30 que está com problema
+      const is830pmSlot = hours === 20 && minutes === 30;
+      const is830pmAppointment = (
+        aptDate.getUTCHours() === 23 && 
+        aptDate.getUTCMinutes() === 30
+      );
       
-      // Caso especial: Quando buscamos horário 20:30 na interface, o agendamento pode estar como 23:30 UTC
-      const possibleMatch1 = hours === displayHour && minutes === utcMinutes;
+      const specialCase = is830pmSlot && is830pmAppointment;
       
-      // Caso especial inverso: Quando o agendamento está como 20:30 na interface
-      // Ele pode estar armazenado como 23:30 UTC
-      const specialCase = (hours === 20 || hours === 21 || hours === 22 || hours === 23);
-      let possibleMatch2 = false;
-      
-      if (specialCase) {
-        const adjustedHour = (hours + 3) % 24; // 20->23, 21->0, 22->1, 23->2
-        possibleMatch2 = adjustedHour === utcHour && minutes === utcMinutes;
-      }
-      
-      // Log detalhado para depuração
-      console.log(`Comparação: Slot interface ${hours}:${minutes} com agendamento ${displayHour}:${utcMinutes} (UTC original: ${utcHour}:${utcMinutes})`);
-      console.log(`Match normal: ${possibleMatch1}, Match especial: ${possibleMatch2}`);
-      
-      // Consideramos um match se qualquer uma das condições for verdadeira
-      return possibleMatch1 || possibleMatch2;
+      return directMatch || specialMatch || specialCase;
     });
     
+    // Se não encontrou, tenta uma abordagem mais ampla para pegar agendamentos mal-formados
+    if (!result) {
+      result = appointments.find(apt => {
+        const aptDate = new Date(apt.date);
+        const localDate = new Date(apt.date);
+        localDate.setHours(localDate.getHours() - 3); // Ajuste do fuso horário
+        
+        // Tenta com a data local ajustada
+        const matchesHour = localDate.getHours() === hours;
+        const matchesMinutes = localDate.getMinutes() === minutes;
+        
+        // Tenta com a data UTC
+        const matchesUTCHour = (
+          aptDate.getUTCHours() === hours || 
+          aptDate.getUTCHours() === ((hours + 3) % 24)
+        );
+        const matchesUTCMinutes = aptDate.getUTCMinutes() === minutes;
+        
+        // Tenta várias combinações
+        return (matchesHour && matchesMinutes) || 
+               (matchesUTCHour && matchesUTCMinutes);
+      });
+    }
+    
+    // Log simplificado
     if (result) {
-      console.log(`✅ Encontrado agendamento para ${timeString}:`, result);
-    } else {
-      console.log(`❌ Nenhum agendamento encontrado para ${timeString}`);
+      const aptDate = new Date(result.date);
+      console.log(`✓ Agendamento encontrado para ${timeString}:`, {
+        id: result.id,
+        hora_utc: `${aptDate.getUTCHours()}:${aptDate.getUTCMinutes()}`,
+        hora_local: aptDate.toLocaleTimeString(),
+        data: aptDate.toLocaleDateString()
+      });
     }
     
     return result;
