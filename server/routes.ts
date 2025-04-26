@@ -233,6 +233,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rota para limpar o banco de dados (apenas Admin)
+  app.post("/api/admin/clear-database", isAdmin, async (req: Request, res: Response) => {
+    try {
+      console.log("Iniciando limpeza do banco de dados...");
+      
+      // Limpar todas as notificações
+      await db.delete(notifications);
+      console.log("Notificações removidas com sucesso");
+      
+      // Limpar todos os agendamentos
+      await db.delete(appointments);
+      console.log("Agendamentos removidos com sucesso");
+      
+      // Limpar associações entre provedores e clientes
+      await db.delete(providerClients);
+      console.log("Associações entre provedores e clientes removidas com sucesso");
+      
+      // Limpar todos os clientes
+      await db.delete(clients);
+      console.log("Clientes removidos com sucesso");
+      
+      // Limpar todos os serviços
+      await db.delete(services);
+      console.log("Serviços removidos com sucesso");
+      
+      // Envia notificação em tempo real
+      broadcastUpdate('database_cleared', { message: 'Banco de dados limpo com sucesso' });
+      
+      res.status(200).json({ 
+        success: true, 
+        message: "Banco de dados limpo com sucesso. Todas as tabelas exceto usuários e provedores foram limpas." 
+      });
+    } catch (error) {
+      console.error("Erro ao limpar banco de dados:", error);
+      res.status(500).json({ error: "Falha ao limpar banco de dados" });
+    }
+  });
+  
   app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
       const { name, username, password, role } = req.body;
