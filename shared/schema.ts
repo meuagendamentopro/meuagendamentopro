@@ -121,6 +121,8 @@ export const insertProviderClientSchema = createInsertSchema(providerClients).pi
   clientId: true,
 });
 
+// O tipo ProviderClient está definido abaixo nas exportações de tipos
+
 // Appointment status enum
 export const AppointmentStatus = {
   PENDING: "pending",

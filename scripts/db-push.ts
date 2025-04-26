@@ -106,6 +106,15 @@ async function main() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
     `);
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS provider_clients (
+        id SERIAL PRIMARY KEY,
+        provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+        client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS notifications (

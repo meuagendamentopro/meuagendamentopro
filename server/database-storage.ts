@@ -4,6 +4,7 @@ import {
   providers, Provider, InsertProvider,
   services, Service, InsertService,
   clients, Client, InsertClient,
+  providerClients, ProviderClient,
   appointments, Appointment, InsertAppointment,
   AppointmentStatus,
   notifications, Notification, InsertNotification
@@ -163,6 +164,35 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clients.id, id))
       .returning();
     return updatedClient;
+  }
+
+  // Provider-Client association methods
+  async associateClientWithProvider(providerId: number, clientId: number): Promise<ProviderClient> {
+    const [association] = await db
+      .insert(providerClients)
+      .values({ providerId, clientId })
+      .returning();
+    return association;
+  }
+
+  async getProviderClients(providerId: number): Promise<ProviderClient[]> {
+    return await db
+      .select()
+      .from(providerClients)
+      .where(eq(providerClients.providerId, providerId));
+  }
+
+  async clientBelongsToProvider(providerId: number, clientId: number): Promise<boolean> {
+    const [association] = await db
+      .select()
+      .from(providerClients)
+      .where(
+        and(
+          eq(providerClients.providerId, providerId),
+          eq(providerClients.clientId, clientId)
+        )
+      );
+    return !!association;
   }
 
   // Appointment methods
