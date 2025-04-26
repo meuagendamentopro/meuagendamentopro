@@ -91,6 +91,7 @@ export class MemStorage implements IStorage {
     this.providers = new Map();
     this.services = new Map();
     this.clients = new Map();
+    this.providerClients = new Map();
     this.appointments = new Map();
     this.users = new Map();
     this.notifications = new Map();
@@ -98,6 +99,7 @@ export class MemStorage implements IStorage {
     this.providerId = 0;
     this.serviceId = 0;
     this.clientId = 0;
+    this.providerClientId = 0;
     this.appointmentId = 0;
     this.userId = 0;
     this.notificationId = 0;
@@ -299,17 +301,81 @@ export class MemStorage implements IStorage {
     return Array.from(this.clients.values());
   }
   
+  // Provider-Client association methods
+  async associateClientWithProvider(providerId: number, clientId: number): Promise<ProviderClient> {
+    // Verificar se o provider e o cliente existem
+    const provider = this.providers.get(providerId);
+    const client = this.clients.get(clientId);
+    
+    if (!provider) {
+      throw new Error(`Provider com ID ${providerId} não encontrado`);
+    }
+    
+    if (!client) {
+      throw new Error(`Cliente com ID ${clientId} não encontrado`);
+    }
+    
+    // Verificar se já existe uma associação
+    const existing = Array.from(this.providerClients.values()).find(
+      pc => pc.providerId === providerId && pc.clientId === clientId
+    );
+    
+    if (existing) {
+      return existing;
+    }
+    
+    // Criar nova associação
+    const id = ++this.providerClientId;
+    const association: ProviderClient = {
+      id,
+      providerId,
+      clientId,
+      createdAt: new Date()
+    };
+    
+    console.log(`Associando provider #${providerId} com cliente #${clientId}`);
+    this.providerClients.set(id, association);
+    return association;
+  }
+  
+  async getProviderClients(providerId: number): Promise<ProviderClient[]> {
+    return Array.from(this.providerClients.values())
+      .filter(pc => pc.providerId === providerId);
+  }
+  
+  async clientBelongsToProvider(providerId: number, clientId: number): Promise<boolean> {
+    // Verifica se existe uma associação direta na tabela de junção
+    const hasDirectAssociation = Array.from(this.providerClients.values())
+      .some(pc => pc.providerId === providerId && pc.clientId === clientId);
+      
+    if (hasDirectAssociation) {
+      return true;
+    }
+    
+    // Como verificação de compatibilidade, verifica também os agendamentos
+    // Isso será removido no futuro quando todas as associações forem migradas
+    const appointments = Array.from(this.appointments.values());
+    return appointments.some(a => a.providerId === providerId && a.clientId === clientId);
+  }
+  
   async getClientsByProvider(providerId: number): Promise<Client[]> {
-    // Filtra os clientes que têm agendamentos com este provider
+    // Obtém todos os IDs de clientes associados a este provider (via providerClients)
+    const providerClientRecords = await this.getProviderClients(providerId);
+    const clientIds = new Set(providerClientRecords.map(pc => pc.clientId));
+    
+    // Como fallback, também busca clientes através de agendamentos
     const appointments = Array.from(this.appointments.values())
       .filter(a => a.providerId === providerId);
-      
-    // Obter IDs únicos de clientes que têm agendamentos com este provider
-    const clientIds = new Set(appointments.map(a => a.clientId));
+    
+    // Adicionar os IDs dos clientes com agendamentos ao set
+    appointments.forEach(a => clientIds.add(a.clientId));
     
     // Retornar os clientes que correspondem a esses IDs
     return Array.from(this.clients.values())
-      .filter(client => clientIds.has(client.id));
+      .filter(client => 
+        clientIds.has(client.id) && 
+        (client.active === undefined || client.active === true)  // Filtra clientes inativos
+      );
   }
   
   async getClient(id: number): Promise<Client | undefined> {
@@ -326,7 +392,8 @@ export class MemStorage implements IStorage {
       ...client, 
       id,
       email: client.email || null,
-      notes: client.notes || null
+      notes: client.notes || null,
+      active: client.active !== undefined ? client.active : true
     };
     this.clients.set(id, newClient);
     return newClient;
@@ -445,6 +512,16 @@ export class MemStorage implements IStorage {
       status: appointment.status || AppointmentStatus.PENDING
     };
     this.appointments.set(id, newAppointment);
+    
+    // Automaticamente associar o cliente ao provedor ao criar um agendamento
+    // Isso garante que o cliente apareça na lista do provedor
+    try {
+      await this.associateClientWithProvider(appointment.providerId, appointment.clientId);
+      console.log(`Cliente #${appointment.clientId} associado ao provider #${appointment.providerId} via agendamento #${id}`);
+    } catch (error) {
+      console.error(`Erro ao associar cliente ao provider: ${error.message}`);
+    }
+    
     return newAppointment;
   }
   
