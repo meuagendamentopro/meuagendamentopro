@@ -58,6 +58,9 @@ const AppointmentItem: React.FC<AppointmentItemProps> = ({
   onEdit,
   onCancel
 }) => {
+  // Garantir que estamos usando o horário de término armazenado
+  const appointmentEndTime = appointment.endTime ? new Date(appointment.endTime) : 
+    new Date(new Date(appointment.date).getTime() + service.duration * 60000);
   let statusColor = "bg-primary-50 border-primary-500";
   let statusHover = "group-hover:bg-primary-100";
   let textColor = "text-primary-800";
@@ -89,7 +92,12 @@ const AppointmentItem: React.FC<AppointmentItemProps> = ({
       <div className="flex justify-between">
         <div>
           <p className={cn("font-medium", textColor)}>{service.name}</p>
-          <p className={cn("text-sm", nameColor)}>{client.name}</p>
+          <p className={cn("text-sm", nameColor)}>
+            {client.name} 
+            <span className="text-xs ml-1 text-gray-500">
+              ({formatTime(new Date(appointment.date))} - {formatTime(appointmentEndTime)})
+            </span>
+          </p>
         </div>
         <div className="flex space-x-2">
           <button 

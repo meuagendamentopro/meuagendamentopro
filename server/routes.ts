@@ -1325,8 +1325,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Serviço não encontrado" });
       }
       
-      // Calcula o horário de término
+      // Calcula o horário de término baseado na duração do serviço
       const endTime = new Date(appointmentDate.getTime() + service.duration * 60000);
+      console.log(`Horário calculado para o agendamento: ${appointmentDate.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`);
       
       // Verifica disponibilidade
       const isAvailable = await storage.checkAvailability(

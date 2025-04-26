@@ -204,6 +204,9 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                       </div>
                       <div className="text-sm text-gray-500">
                         {formatTime(appointmentDate)}
+                        {appointment.endTime && (
+                          <> - {formatTime(new Date(appointment.endTime))}</>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
