@@ -39,6 +39,7 @@ export const providers = pgTable("providers", {
   avatarUrl: text("avatar_url"),
   workingHoursStart: integer("working_hours_start").default(8), // Horário de início em horas (padrão: 8h)
   workingHoursEnd: integer("working_hours_end").default(18),    // Horário de término em horas (padrão: 18h) 
+  workingDays: text("working_days").default("1,2,3,4,5").notNull(), // Dias de trabalho (1=Segunda, 7=Domingo), padrão: segunda a sexta
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -67,6 +68,7 @@ export const insertProviderSchema = createInsertSchema(providers).pick({
   avatarUrl: true,
   workingHoursStart: true,
   workingHoursEnd: true,
+  workingDays: true,
 });
 
 // Service model
