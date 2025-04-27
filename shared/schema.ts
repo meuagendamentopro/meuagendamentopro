@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   role: text("role").default("provider").notNull(), // 'admin' ou 'provider'
   avatarUrl: text("avatar_url"),
+  isActive: boolean("is_active").default(true).notNull(), // Para bloquear acesso ao sistema
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -26,6 +27,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   role: true,
   avatarUrl: true,
+  isActive: true,
 });
 
 // Provider/Professional model (vinculado a um usuário)
