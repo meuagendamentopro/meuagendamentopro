@@ -177,7 +177,7 @@ const ClientsPage: React.FC = () => {
     try {
       const newBlockedState = !clientToBlock.isBlocked;
       await apiRequest("PATCH", `/api/clients/${clientToBlock.id}/block`, { 
-        isBlocked: newBlockedState 
+        blocked: newBlockedState 
       });
       
       toast({
