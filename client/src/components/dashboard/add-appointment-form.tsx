@@ -111,7 +111,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
   }, [initialDate, initialClientId, initialServiceId, initialNotes, form]);
 
   // Filter clients based on search term
-  const filteredClients = clients?.filter((client) => {
+  const filteredClients = clients?.filter((client: any) => {
     if (!searchTerm) return true;
     return (
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

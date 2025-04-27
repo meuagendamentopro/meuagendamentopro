@@ -1087,12 +1087,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Serviço não encontrado" });
       }
       
-      // Verifica disponibilidade
-      const isAvailable = await storage.checkAvailability(
-        data.providerId, 
-        data.date, 
-        service.duration
-      );
+      // Verifica se é o próprio usuário do sistema fazendo o agendamento
+      let isAvailable = false;
+      
+      // Se for agendamento pelo sistema, verificamos apenas conflitos de horário
+      // ignorando restrições de dias e horários de trabalho
+      if (req.isAuthenticated()) {
+        console.log(`Verificação para usuário do sistema: ${req.user.username}`);
+        
+        // Verificar se o usuário autenticado é o proprietário do provider ou um admin
+        const userProvider = await storage.getProviderByUserId(req.user.id);
+        const isAdmin = req.user.role === 'admin';
+        const isProviderOwner = userProvider && userProvider.id === data.providerId;
+        
+        if (isAdmin || isProviderOwner) {
+          console.log(`Usuário autorizado (${isAdmin ? 'admin' : 'proprietário do provider'}), verificando apenas conflitos de horário`);
+          
+          // Buscar apenas os agendamentos existentes para verificar conflitos
+          const appointments = await storage.getAppointmentsByDate(data.providerId, data.date);
+          
+          // Verificar se há conflito com algum agendamento existente
+          const hasConflict = appointments.some(appointment => {
+            if (appointment.status !== AppointmentStatus.CONFIRMED && 
+                appointment.status !== AppointmentStatus.PENDING) {
+              return false; // Ignora agendamentos cancelados ou concluídos
+            }
+            
+            const appointmentEndTime = appointment.endTime || 
+              new Date(appointment.date.getTime() + service.duration * 60000);
+            
+            // Verifica sobreposição
+            return !(endTime <= appointment.date || data.date >= appointmentEndTime);
+          });
+          
+          isAvailable = !hasConflict;
+          console.log(`Verificação de conflitos por usuário do sistema: ${hasConflict ? 'CONFLITO DETECTADO' : 'NENHUM CONFLITO'}`);
+        } else {
+          console.log(`Usuário não autorizado para agendamento privilegiado, usando verificação padrão`);
+          isAvailable = await storage.checkAvailability(data.providerId, data.date, service.duration);
+        }
+      } else {
+        // Cliente normal fazendo agendamento - usa todas as verificações
+        isAvailable = await storage.checkAvailability(data.providerId, data.date, service.duration);
+      }
       
       if (!isAvailable) {
         return res.status(409).json({ message: "Horário indisponível" });

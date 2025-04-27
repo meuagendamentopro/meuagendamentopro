@@ -102,7 +102,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       if (latestProvider && latestProvider.workingDays) {
         // Obter o dia da semana da data selecionada (1-7, onde 1 é segunda e 7 é domingo)
         const weekday = date.getDay() === 0 ? 7 : date.getDay();
-        const workingDays = latestProvider.workingDays.split(',').map(d => parseInt(d.trim()));
+        const workingDays = latestProvider.workingDays.split(',').map((d: string) => parseInt(d.trim()));
         
         console.log(`Verificando dia de trabalho: Dia selecionado ${weekday}, Dias configurados: ${workingDays.join(', ')}`);
         
