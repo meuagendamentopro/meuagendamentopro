@@ -186,7 +186,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       const myProvider = provider || await (await fetch('/api/my-provider')).json();
       
       const availabilityCheck = await fetch(
-        `/api/providers/${myProvider.id}/availability?date=${appointmentDate.toISOString()}&serviceId=${data.serviceId}`
+        `/api/providers/${myProvider.id}/availability?date=${appointmentDate.toISOString()}&serviceId=${data.serviceId}&bySystemUser=true`
       );
       
       const { available } = await availabilityCheck.json();
