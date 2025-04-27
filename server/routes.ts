@@ -12,7 +12,8 @@ import {
   clients,
   providerClients,
   appointments,
-  notifications
+  notifications,
+  InsertProvider
 } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, hashPassword } from "./auth";
@@ -462,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       // Validar os campos de horário de trabalho
-      const { workingHoursStart, workingHoursEnd } = req.body;
+      const { workingHoursStart, workingHoursEnd, workingDays } = req.body;
       
       if (workingHoursStart === undefined || workingHoursEnd === undefined) {
         return res.status(400).json({ 
@@ -492,11 +493,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Validação dos dias de trabalho (se fornecido)
+      if (workingDays !== undefined) {
+        if (typeof workingDays !== 'string') {
+          return res.status(400).json({
+            message: "Invalid working days format",
+            errors: ["workingDays must be a string of comma-separated numbers (1-7)"]
+          });
+        }
+        
+        // Verificar se o formato é válido (números de 1 a 7 separados por vírgula)
+        const daysArray = workingDays.split(',');
+        const isValidFormat = daysArray.every(day => {
+          const num = parseInt(day.trim());
+          return !isNaN(num) && num >= 1 && num <= 7;
+        });
+        
+        if (!isValidFormat) {
+          return res.status(400).json({
+            message: "Invalid working days values",
+            errors: ["Each day must be a number between 1 and 7 (1=Monday, 7=Sunday)"]
+          });
+        }
+      }
+      
       // Agora temos um método específico no storage para atualizar o provedor
-      const providerData = {
+      const providerData: Partial<InsertProvider> = {
         workingHoursStart,
         workingHoursEnd
       };
+      
+      // Adicionar workingDays ao update se fornecido
+      if (workingDays !== undefined) {
+        providerData.workingDays = workingDays;
+      }
       
       const updatedProvider = await storage.updateProvider(id, providerData);
       if (!updatedProvider) {

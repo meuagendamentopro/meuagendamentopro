@@ -25,12 +25,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import PageHeader from "@/components/layout/page-header";
-import { Clock } from "lucide-react";
+import { Clock, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Schema para validação do formulário
 const settingsFormSchema = z.object({
   workingHoursStart: z.coerce.number().int().min(0).max(23),
   workingHoursEnd: z.coerce.number().int().min(1).max(24),
+  workingDays: z.string(),
 }).refine(data => data.workingHoursEnd > data.workingHoursStart, {
   message: "O horário de término deve ser maior que o horário de início",
   path: ["workingHoursEnd"]
@@ -66,6 +68,7 @@ const SettingsPage: React.FC = () => {
       form.reset({
         workingHoursStart: provider.workingHoursStart || 8,
         workingHoursEnd: provider.workingHoursEnd || 18,
+        workingDays: provider.workingDays || "1,2,3,4,5",
       });
     }
   }, [provider, form]);
@@ -195,6 +198,65 @@ const SettingsPage: React.FC = () => {
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+              </div>
+              
+              <div>
+                <FormField
+                  control={form.control}
+                  name="workingDays"
+                  render={({ field }) => {
+                    // Converte a string de dias para array de números
+                    const selectedDays = field.value ? field.value.split(',').map(day => parseInt(day.trim())) : [];
+                    
+                    // Função auxiliar para atualizar os dias selecionados
+                    const updateSelectedDays = (day: number, checked: boolean) => {
+                      const newSelectedDays = checked
+                        ? [...selectedDays, day].sort((a, b) => a - b)
+                        : selectedDays.filter(d => d !== day);
+                      
+                      // Atualiza o valor do campo com a nova string de dias
+                      field.onChange(newSelectedDays.join(','));
+                    };
+                    
+                    return (
+                      <FormItem>
+                        <div className="mb-4">
+                          <FormLabel className="text-base">Dias de trabalho</FormLabel>
+                          <FormDescription>
+                            Selecione os dias da semana em que você trabalha
+                          </FormDescription>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
+                          {[
+                            { value: 1, label: "Segunda" },
+                            { value: 2, label: "Terça" },
+                            { value: 3, label: "Quarta" },
+                            { value: 4, label: "Quinta" },
+                            { value: 5, label: "Sexta" },
+                            { value: 6, label: "Sábado" },
+                            { value: 7, label: "Domingo" }
+                          ].map((day) => (
+                            <FormItem 
+                              key={day.value}
+                              className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={selectedDays.includes(day.value)}
+                                  onCheckedChange={(checked) => updateSelectedDays(day.value, checked as boolean)}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer">
+                                {day.label}
+                              </FormLabel>
+                            </FormItem>
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
 
