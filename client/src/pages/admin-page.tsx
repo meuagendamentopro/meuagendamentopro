@@ -59,6 +59,7 @@ interface User {
   name: string;
   username: string;
   role: string;
+  isActive: boolean;
   createdAt: string;
 }
 
@@ -89,6 +90,7 @@ export default function AdminPage() {
   // Estados para diálogos e ações
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isToggleActiveDialogOpen, setIsToggleActiveDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDeleteId, setUserToDeleteId] = useState<number | null>(null);
 
@@ -305,6 +307,49 @@ export default function AdminPage() {
       id: selectedUser.id, 
       userData: updateData 
     });
+  };
+  
+  // Mutação para alternar status ativo/inativo do usuário
+  const toggleUserActiveMutation = useMutation({
+    mutationFn: async (data: { id: number; active: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${data.id}/toggle-active`, { active: data.active });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao alterar status do usuário");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const action = data.user.isActive ? "ativado" : "bloqueado";
+      toast({
+        title: `Usuário ${action}`,
+        description: `O usuário foi ${action} com sucesso`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao alterar status do usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Handler para alternar status ativo/inativo do usuário
+  const handleToggleUserActive = (user: User) => {
+    // Mostrar uma confirmação dependendo da ação (bloquear ou ativar)
+    const action = user.isActive ? "bloquear" : "ativar";
+    const message = user.isActive 
+      ? `Este usuário perderá acesso ao sistema. Deseja continuar?`
+      : `Deseja reativar o acesso deste usuário?`;
+    
+    if (window.confirm(`Você está prestes a ${action} o usuário ${user.name}. ${message}`)) {
+      toggleUserActiveMutation.mutate({
+        id: user.id,
+        active: !user.isActive
+      });
+    }
   };
 
   return (
@@ -617,6 +662,7 @@ export default function AdminPage() {
                     <TableHead>Nome</TableHead>
                     <TableHead>Usuário</TableHead>
                     <TableHead>Tipo</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Data de Cadastro</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -632,6 +678,15 @@ export default function AdminPage() {
                           {user.role === "admin" ? "Administrador" : "Provedor de Serviço"}
                         </TableCell>
                         <TableCell>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            user.isActive 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-red-100 text-red-800"
+                          }`}>
+                            {user.isActive ? "Ativo" : "Bloqueado"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
                           {format(new Date(user.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                         </TableCell>
                         <TableCell className="text-right">
@@ -643,6 +698,19 @@ export default function AdminPage() {
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                               Editar
+                            </Button>
+                            <Button 
+                              variant={user.isActive ? "destructive" : "outline"} 
+                              size="sm"
+                              onClick={() => handleToggleUserActive(user)}
+                              disabled={user.id === 1} // Impedir bloqueio do admin principal
+                            >
+                              {user.isActive ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><circle cx="12" cy="12" r="10"></circle><path d="m4.9 4.9 14.2 14.2"></path></svg>
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path></svg>
+                              )}
+                              {user.isActive ? "Bloquear" : "Ativar"}
                             </Button>
                             <Button 
                               variant="destructive" 
@@ -659,7 +727,7 @@ export default function AdminPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4">
+                      <TableCell colSpan={7} className="text-center py-4">
                         Nenhum usuário encontrado
                       </TableCell>
                     </TableRow>
