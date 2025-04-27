@@ -60,11 +60,18 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         const user = await storage.getUserByUsername(username);
+        
+        // Verificar se o usuário existe e se a senha está correta
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Credenciais inválidas" });
-        } else {
-          return done(null, user);
         }
+        
+        // Verificar se o usuário está ativo
+        if (user.isActive === false) {
+          return done(null, false, { message: "Conta de usuário bloqueada" });
+        }
+        
+        return done(null, user);
       } catch (error) {
         return done(error);
       }
@@ -96,6 +103,12 @@ export function setupAuth(app: Express) {
       
       if (!user) {
         console.error(`Usuário não encontrado para o ID: ${userId}`);
+        return done(null, false);
+      }
+      
+      // Verificar se o usuário está ativo a cada requisição
+      if (user.isActive === false) {
+        console.log(`Acesso bloqueado para usuário inativo: ${userId}`);
         return done(null, false);
       }
       

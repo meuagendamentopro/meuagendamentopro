@@ -429,6 +429,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Erro ao excluir usuário" });
     }
   });
+  
+  // Rota para bloquear/desbloquear usuário (apenas Admin)
+  app.patch("/api/admin/users/:id/toggle-active", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID de usuário inválido" });
+      }
+      
+      // Impedir bloqueio do usuário admin principal (ID 1)
+      if (id === 1) {
+        return res.status(403).json({ error: "Não é permitido bloquear o usuário administrador principal" });
+      }
+      
+      // Verificar se o usuário existe
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      const { active } = req.body;
+      if (typeof active !== 'boolean') {
+        return res.status(400).json({ error: "O parâmetro 'active' é obrigatório e deve ser um booleano" });
+      }
+      
+      // Atualizar o usuário
+      const updatedUser = await storage.updateUser(id, { isActive: active });
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao atualizar o status do usuário" });
+      }
+      
+      const action = active ? "ativado" : "bloqueado";
+      
+      // Notificar via WebSocket
+      broadcastUpdate('user-updated', updatedUser);
+      
+      res.status(200).json({ 
+        success: true, 
+        message: `Usuário ${action} com sucesso`,
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar status do usuário:", error);
+      res.status(500).json({ error: "Falha ao atualizar status do usuário" });
+    }
+  });
 
   // Provider routes
   app.get("/api/providers", async (req: Request, res: Response) => {
