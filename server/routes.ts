@@ -1257,9 +1257,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const dateParam = req.query.date as string;
     const serviceIdParam = req.query.serviceId as string;
+    const bySystemUserParam = req.query.bySystemUser as string; // Novo parâmetro para indicar se é feito pelo próprio sistema
     
     console.log(`Data param: ${dateParam}`);
     console.log(`Service ID param: ${serviceIdParam}`);
+    console.log(`By System User param: ${bySystemUserParam}`);
     
     if (!dateParam || !serviceIdParam) {
       console.log(`❌ Data ou ID do serviço ausentes`);
@@ -1268,9 +1270,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const date = new Date(dateParam);
     const serviceId = parseInt(serviceIdParam);
+    const bySystemUser = bySystemUserParam === 'true';
     
     console.log(`Data convertida: ${date.toISOString()} (${date.toLocaleString()})`);
     console.log(`ID do serviço: ${serviceId}`);
+    console.log(`Agendamento pelo usuário do sistema: ${bySystemUser}`);
     
     if (isNaN(date.getTime()) || isNaN(serviceId)) {
       console.log(`❌ Data ou ID do serviço inválidos`);
@@ -1285,7 +1289,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     console.log(`✓ Serviço encontrado: ${service.name}, duração: ${service.duration} minutos`);
     
-    const isAvailable = await storage.checkAvailability(providerId, date, service.duration);
+    // Verificar se é o próprio usuário do sistema fazendo o agendamento
+    let isAvailable = false;
+    
+    // Se for agendamento pelo sistema, verificamos apenas conflitos de horário
+    // ignorando restrições de dias de trabalho
+    if (bySystemUser && req.isAuthenticated()) {
+      console.log(`Verificação para usuário do sistema: ${req.user.username}`);
+      
+      // Verificar se o usuário autenticado é o proprietário do provider ou um admin
+      const userProvider = await storage.getProviderByUserId(req.user.id);
+      const isAdmin = req.user.role === 'admin';
+      const isProviderOwner = userProvider && userProvider.id === providerId;
+      
+      if (isAdmin || isProviderOwner) {
+        console.log(`Usuário autorizado (${isAdmin ? 'admin' : 'proprietário do provider'}), verificando apenas conflitos de horário`);
+        
+        // Buscar apenas os agendamentos existentes para verificar conflitos
+        const appointments = await storage.getAppointmentsByDate(providerId, date);
+        
+        // Calcular horário de término
+        const endTime = new Date(date.getTime() + service.duration * 60000);
+        
+        // Verificar se há conflito com algum agendamento existente
+        const hasConflict = appointments.some(appointment => {
+          if (appointment.status !== AppointmentStatus.CONFIRMED && 
+              appointment.status !== AppointmentStatus.PENDING) {
+            return false; // Ignora agendamentos cancelados ou concluídos
+          }
+          
+          const appointmentEndTime = appointment.endTime || 
+            new Date(appointment.date.getTime() + service.duration * 60000);
+          
+          // Verifica sobreposição
+          return !(endTime <= appointment.date || date >= appointmentEndTime);
+        });
+        
+        isAvailable = !hasConflict;
+        console.log(`Verificação de conflitos: ${hasConflict ? 'CONFLITO DETECTADO' : 'NENHUM CONFLITO'}`);
+      } else {
+        console.log(`Usuário não autorizado para agendamento privilegiado, usando verificação padrão`);
+        isAvailable = await storage.checkAvailability(providerId, date, service.duration);
+      }
+    } else {
+      // Verificação padrão para clientes externos
+      isAvailable = await storage.checkAvailability(providerId, date, service.duration);
+    }
+    
     console.log(`✓ Resultado da verificação: ${isAvailable ? 'DISPONÍVEL' : 'INDISPONÍVEL'}`);
     
     // Adicionar detalhes no retorno para debug
