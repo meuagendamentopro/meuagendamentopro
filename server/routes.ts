@@ -15,6 +15,7 @@ import {
   notifications,
   InsertProvider
 } from "@shared/schema";
+import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword } from "./auth";
 import { WebSocketServer, WebSocket } from "ws";
@@ -780,7 +781,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Rota para excluir cliente (implementada como soft delete)
+  // Rota para bloquear/desbloquear cliente
+  app.patch("/api/clients/:id/block", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID do cliente inválido" });
+      }
+      
+      // Verifica se o cliente existe
+      const client = await storage.getClient(id);
+      if (!client) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      
+      // Verifica se o cliente pertence a este provider
+      const provider = (req as any).provider;
+      const clientBelongsToProvider = await storage.clientBelongsToProvider(provider.id, client.id);
+      
+      if (!clientBelongsToProvider) {
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para modificar este cliente" 
+        });
+      }
+      
+      const { blocked } = req.body;
+      if (typeof blocked !== 'boolean') {
+        return res.status(400).json({ message: "Parâmetro 'blocked' inválido" });
+      }
+      
+      // Atualiza o status de bloqueio do cliente
+      const updatedClient = await storage.updateClient(id, { isBlocked: blocked });
+      
+      const action = blocked ? "bloqueado" : "desbloqueado";
+      res.json({ 
+        success: true, 
+        message: `Cliente ${action} com sucesso`,
+        client: updatedClient
+      });
+      
+      // Enviar atualização via WebSocket
+      broadcastUpdate('client-updated', updatedClient);
+      
+    } catch (error) {
+      console.error('Erro ao bloquear/desbloquear cliente:', error);
+      res.status(500).json({ message: "Falha ao atualizar status do cliente" });
+    }
+  });
+
+  // Rota para excluir cliente permanentemente
   app.delete("/api/clients/:id", loadUserProvider, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -796,7 +846,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verifica se o cliente pertence a este provider
       const provider = (req as any).provider;
-      // Usando associação direta em vez de buscar todos os clientes
       const clientBelongsToProvider = await storage.clientBelongsToProvider(provider.id, client.id);
       
       if (!clientBelongsToProvider) {
@@ -806,35 +855,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Verificar se o cliente possui agendamentos
-      const appointments = await storage.getAppointments(provider.id);
-      const hasAppointments = appointments.some(a => a.clientId === id);
+      // Verifica se o cliente possui agendamentos futuros
+      const currentDate = new Date();
+      const futureAppointments = await db
+        .select()
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.clientId, id),
+            eq(appointments.providerId, provider.id),
+            gt(appointments.date, currentDate),
+            sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
+          )
+        );
       
-      if (hasAppointments) {
-        // Implementar soft delete - atualiza o cliente com flag desativado 
-        const updatedClient = await storage.updateClient(id, { 
-          notes: `[DESATIVADO] ${client.notes || ''}`,
-          // Se tivermos um campo 'active' no futuro, poderíamos usar aqui
-        });
-        
-        return res.json({ 
-          message: "Cliente marcado como desativado pois possui agendamentos", 
-          client: updatedClient 
+      if (futureAppointments.length > 0) {
+        return res.status(400).json({ 
+          message: "Não é possível excluir um cliente com agendamentos futuros", 
+          appointments: futureAppointments.length
         });
       }
       
-      // Se não tiver agendamentos, poderia implementar hard delete no futuro
-      // Por enquanto, apenas marca como desativado
-      const updatedClient = await storage.updateClient(id, { 
-        notes: `[DESATIVADO] ${client.notes || ''}`,
-      });
+      // Excluir todos os agendamentos anteriores do cliente com este provider
+      await db.delete(appointments)
+        .where(
+          and(
+            eq(appointments.clientId, id),
+            eq(appointments.providerId, provider.id)
+          )
+        );
       
-      res.json({ 
-        message: "Cliente desativado com sucesso",
-        client: updatedClient
-      });
+      // Remover a associação entre este provider e o cliente
+      await db.delete(providerClients)
+        .where(
+          and(
+            eq(providerClients.clientId, id),
+            eq(providerClients.providerId, provider.id)
+          )
+        );
+      
+      // Verificar se o cliente ainda está associado a outros providers
+      const otherAssociations = await db
+        .select()
+        .from(providerClients)
+        .where(eq(providerClients.clientId, id));
+      
+      // Se o cliente não está associado a nenhum outro provider, excluí-lo completamente
+      if (otherAssociations.length === 0) {
+        await db.delete(clients).where(eq(clients.id, id));
+        res.json({ success: true, message: "Cliente excluído permanentemente do sistema" });
+      } else {
+        res.json({ 
+          success: true, 
+          message: "Cliente removido da sua lista, mas mantido no sistema pois está associado a outros profissionais" 
+        });
+      }
+      
+      // Enviar atualização via WebSocket
+      broadcastUpdate('client-deleted', { clientId: id, providerId: provider.id });
+      
     } catch (error) {
-      console.error('Erro ao excluir cliente:', error);
+      console.error('Erro ao excluir cliente permanentemente:', error);
       res.status(500).json({ message: "Falha ao excluir cliente" });
     }
   });
@@ -1492,6 +1573,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           notes: bookingData.notes || ""
         });
       } else {
+        // Verifica se o cliente está bloqueado
+        if (client.isBlocked) {
+          return res.status(403).json({ 
+            message: "Cliente bloqueado", 
+            error: "Este cliente está impedido de realizar agendamentos"
+          });
+        }
+        
         // Se o cliente já existe mas enviou um nome diferente ou notas diferentes,
         // atualiza os dados do cliente para manter o cadastro atualizado
         if (client.name !== bookingData.name || 
