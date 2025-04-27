@@ -169,7 +169,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       const appointmentDate = combineDateAndTime(data.date, data.time);
       
       // Get service to calculate end time
-      const service = services?.find((s) => s.id === data.serviceId);
+      const service = services?.find((s: any) => s.id === data.serviceId);
       if (!service) {
         toast({
           title: "Erro",
@@ -338,7 +338,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                             <SelectItem value="0" disabled>
                               Selecione um cliente
                             </SelectItem>
-                            {filteredClients?.map((client) => (
+                            {filteredClients?.map((client: any) => (
                               <SelectItem key={client.id} value={client.id.toString()}>
                                 {client.name} - {client.phone}
                               </SelectItem>

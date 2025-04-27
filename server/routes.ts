@@ -1106,6 +1106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Buscar apenas os agendamentos existentes para verificar conflitos
           const appointments = await storage.getAppointmentsByDate(data.providerId, data.date);
           
+          // Calcular horário de término para comparação
+          const proposedEndTime = new Date(data.date.getTime() + service.duration * 60000);
+          
           // Verificar se há conflito com algum agendamento existente
           const hasConflict = appointments.some(appointment => {
             if (appointment.status !== AppointmentStatus.CONFIRMED && 
@@ -1117,7 +1120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               new Date(appointment.date.getTime() + service.duration * 60000);
             
             // Verifica sobreposição
-            return !(endTime <= appointment.date || data.date >= appointmentEndTime);
+            return !(proposedEndTime <= appointment.date || data.date >= appointmentEndTime);
           });
           
           isAvailable = !hasConflict;
@@ -1345,8 +1348,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Buscar apenas os agendamentos existentes para verificar conflitos
         const appointments = await storage.getAppointmentsByDate(providerId, date);
         
-        // Calcular horário de término
-        const endTime = new Date(date.getTime() + service.duration * 60000);
+        // Calcular horário de término para comparação
+        const proposedEndTime = new Date(date.getTime() + service.duration * 60000);
         
         // Verificar se há conflito com algum agendamento existente
         const hasConflict = appointments.some(appointment => {
@@ -1359,7 +1362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             new Date(appointment.date.getTime() + service.duration * 60000);
           
           // Verifica sobreposição
-          return !(endTime <= appointment.date || date >= appointmentEndTime);
+          return !(proposedEndTime <= appointment.date || date >= appointmentEndTime);
         });
         
         isAvailable = !hasConflict;
