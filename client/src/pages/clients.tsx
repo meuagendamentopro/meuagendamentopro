@@ -22,7 +22,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, UserPlus, User, Phone, Mail, FileText } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { 
+  Search, 
+  UserPlus, 
+  User, 
+  Phone, 
+  Mail, 
+  FileText, 
+  MoreVertical, 
+  Shield, 
+  ShieldOff, 
+  Trash, 
+  Edit2, 
+  AlertTriangle,
+  Ban,
+} from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { Client } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +56,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
+import { Badge } from "@/components/ui/badge";
 
 // Client form schema
 const clientFormSchema = z.object({
@@ -50,8 +72,10 @@ const ClientsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [clientToBlock, setClientToBlock] = useState<Client | null>(null);
   const { toast } = useToast();
 
   // Fetch clients
@@ -140,13 +164,48 @@ const ClientsPage: React.FC = () => {
     }
   };
 
-  // Handle client deletion
+  // Handle client block/unblock
+  const handleToggleBlock = (client: Client) => {
+    setClientToBlock(client);
+    setIsBlockDialogOpen(true);
+  };
+
+  // Confirm and process block/unblock
+  const confirmToggleBlock = async () => {
+    if (!clientToBlock) return;
+    
+    try {
+      const newBlockedState = !clientToBlock.isBlocked;
+      await apiRequest("PATCH", `/api/clients/${clientToBlock.id}/block`, { 
+        isBlocked: newBlockedState 
+      });
+      
+      toast({
+        title: newBlockedState ? "Cliente bloqueado" : "Cliente desbloqueado",
+        description: newBlockedState 
+          ? "O cliente foi bloqueado e não poderá realizar novos agendamentos." 
+          : "O cliente foi desbloqueado e já pode realizar agendamentos.",
+      });
+      
+      // Atualizar a lista de clientes
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setIsBlockDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o status do cliente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle client permanent deletion
   const handleDeleteClient = (client: Client) => {
     setClientToDelete(client);
     setIsDeleteDialogOpen(true);
   };
   
-  // Confirm and process client deletion
+  // Confirm and process permanent deletion
   const confirmDelete = async () => {
     if (!clientToDelete) return;
     
@@ -154,8 +213,8 @@ const ClientsPage: React.FC = () => {
       await apiRequest("DELETE", `/api/clients/${clientToDelete.id}`);
       
       toast({
-        title: "Cliente desativado",
-        description: "O cliente foi desativado com sucesso.",
+        title: "Cliente excluído",
+        description: "O cliente foi excluído permanentemente do sistema.",
       });
       
       // Atualizar a lista de clientes
@@ -164,7 +223,7 @@ const ClientsPage: React.FC = () => {
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível desativar o cliente.",
+        description: "Não foi possível excluir o cliente.",
         variant: "destructive",
       });
     }
@@ -240,7 +299,15 @@ const ClientsPage: React.FC = () => {
                           <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center mr-3">
                             <span className="font-medium text-gray-600">{getInitials(client.name)}</span>
                           </div>
-                          <span className="font-medium">{client.name}</span>
+                          <div>
+                            <span className="font-medium">{client.name}</span>
+                            {client.isBlocked && (
+                              <Badge variant="destructive" className="ml-2">
+                                <Ban className="h-3 w-3 mr-1" />
+                                Bloqueado
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>{formatPhoneNumber(client.phone)}</TableCell>
@@ -251,23 +318,43 @@ const ClientsPage: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditClient(client)}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteClient(client)}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditClient(client)}>
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => handleToggleBlock(client)}>
+                              {client.isBlocked ? (
+                                <>
+                                  <ShieldOff className="h-4 w-4 mr-2" />
+                                  Desbloquear cliente
+                                </>
+                              ) : (
+                                <>
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  Bloquear cliente
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteClient(client)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash className="h-4 w-4 mr-2" />
+                              Excluir permanentemente
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -382,17 +469,70 @@ const ClientsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation dialog */}
+      {/* Block/Unblock confirmation dialog */}
+      <AlertDialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {clientToBlock && clientToBlock.isBlocked ? "Desbloquear cliente" : "Bloquear cliente"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {clientToBlock && (
+                clientToBlock.isBlocked ? (
+                  <>
+                    Tem certeza que deseja desbloquear <strong>{clientToBlock.name}</strong>?
+                    <br /><br />
+                    O cliente poderá realizar novos agendamentos após o desbloqueio.
+                  </>
+                ) : (
+                  <>
+                    Tem certeza que deseja bloquear <strong>{clientToBlock.name}</strong>?
+                    <br /><br />
+                    O cliente não poderá realizar novos agendamentos enquanto estiver bloqueado.
+                    Agendamentos existentes não serão afetados.
+                  </>
+                )
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmToggleBlock} 
+              className={clientToBlock?.isBlocked ? 
+                "bg-primary text-primary-foreground hover:bg-primary/90" : 
+                "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
+            >
+              {clientToBlock?.isBlocked ? "Desbloquear" : "Bloquear"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    
+      {/* Permanent Delete confirmation dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desativar cliente</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center text-destructive">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Excluir permanentemente
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {clientToDelete && (
                 <>
-                  Tem certeza que deseja desativar o cliente <strong>{clientToDelete.name}</strong>?
-                  <br /><br />
-                  Se o cliente tiver agendamentos, será apenas marcado como desativado.
+                  <p className="font-semibold mb-2">
+                    Você está prestes a excluir o cliente <strong>{clientToDelete.name}</strong> permanentemente.
+                  </p>
+                  
+                  <p className="mb-2">
+                    Esta ação <strong>não pode ser desfeita</strong> e removerá todos os dados deste cliente do sistema.
+                  </p>
+                  
+                  <p>
+                    Se você só quer impedir este cliente de fazer agendamentos, 
+                    considere usar a opção <strong>Bloquear cliente</strong> em vez de excluir.
+                  </p>
                 </>
               )}
             </AlertDialogDescription>
@@ -400,7 +540,7 @@ const ClientsPage: React.FC = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Desativar cliente
+              Excluir permanentemente
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
