@@ -59,6 +59,7 @@ const SettingsPage: React.FC = () => {
     defaultValues: {
       workingHoursStart: 8,
       workingHoursEnd: 18,
+      workingDays: "1,2,3,4,5",
     },
   });
 
@@ -86,7 +87,7 @@ const SettingsPage: React.FC = () => {
     onSuccess: () => {
       toast({
         title: "Configurações atualizadas",
-        description: "Seus horários de trabalho foram atualizados com sucesso.",
+        description: "Seus horários e dias de trabalho foram atualizados com sucesso.",
       });
       setIsSubmitting(false);
     },

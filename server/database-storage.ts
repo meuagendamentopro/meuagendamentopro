@@ -362,6 +362,25 @@ export class DatabaseStorage implements IStorage {
     const workingHoursStart = provider.workingHoursStart ?? 8;  // Padrão: 8:00
     const workingHoursEnd = provider.workingHoursEnd ?? 18;     // Padrão: 18:00
     
+    // Primeiro, verificar se o dia da semana está disponível
+    // Obter o dia da semana da data solicitada (1 = Segunda, ..., 7 = Domingo)
+    const weekday = date.getDay() === 0 ? 7 : date.getDay(); // Convertendo 0 (domingo) para 7
+    
+    // Verificar se o provider tem dias de trabalho configurados
+    if (provider.workingDays) {
+      const workingDays = provider.workingDays.split(',').map(d => parseInt(d.trim()));
+      console.log(`Verificando dias de trabalho: Solicitado ${weekday}, Configurados ${workingDays.join(', ')}`);
+      
+      if (!workingDays.includes(weekday)) {
+        console.log(`Dia da semana ${weekday} não está nos dias de trabalho configurados`);
+        return false;
+      } else {
+        console.log(`Dia da semana ${weekday} está disponível para trabalho`);
+      }
+    } else {
+      console.log('Provider não tem dias de trabalho configurados, assumindo todos os dias disponíveis');
+    }
+    
     // Extrair a hora do agendamento solicitado (hora local)
     const requestHour = date.getHours();
     const requestEndHour = requestEndTime.getHours();

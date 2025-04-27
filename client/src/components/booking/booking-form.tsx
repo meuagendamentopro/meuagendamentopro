@@ -98,6 +98,30 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         console.warn(`⚠️ Horário de término não encontrado no provider, usando padrão: ${workingHoursEnd}`);
       }
       
+      // Verificar dias de trabalho
+      if (latestProvider && latestProvider.workingDays) {
+        // Obter o dia da semana da data selecionada (1-7, onde 1 é segunda e 7 é domingo)
+        const weekday = date.getDay() === 0 ? 7 : date.getDay();
+        const workingDays = latestProvider.workingDays.split(',').map(d => parseInt(d.trim()));
+        
+        console.log(`Verificando dia de trabalho: Dia selecionado ${weekday}, Dias configurados: ${workingDays.join(', ')}`);
+        
+        if (!workingDays.includes(weekday)) {
+          console.log(`O dia selecionado (${weekday}) não é um dia de trabalho`);
+          setAvailableTimes([]);
+          setLoadingTimes(false);
+          
+          // Mostrar feedback para o usuário
+          toast({
+            title: "Dia não disponível",
+            description: "O profissional não atende no dia selecionado. Por favor, escolha outro dia.",
+            variant: "destructive",
+          });
+          
+          return;
+        }
+      }
+      
       // Imprimir dados do provider para debugging
       console.log("▶️ Configurações de horário (provider):");
       console.log(`   - ID: ${providerId}`);
