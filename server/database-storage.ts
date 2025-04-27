@@ -208,12 +208,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientByPhone(phone: string): Promise<Client | undefined> {
-    const [client] = await db.select().from(clients).where(eq(clients.phone, phone));
+    // Normaliza o número de telefone (remove todos os caracteres não numéricos)
+    const normalizedPhone = phone.replace(/\D/g, '');
+    
+    // Busca todos os clientes
+    const allClients = await db.select().from(clients);
+    
+    // Encontra o cliente cujo número normalizado corresponde ao número buscado
+    const client = allClients.find(client => {
+      const clientNormalizedPhone = client.phone.replace(/\D/g, '');
+      return clientNormalizedPhone === normalizedPhone;
+    });
+    
     return client;
   }
 
   async createClient(clientData: InsertClient): Promise<Client> {
-    const [client] = await db.insert(clients).values(clientData).returning();
+    // Verifica se já existe um cliente com esse telefone antes de criar
+    const existingClient = await this.getClientByPhone(clientData.phone);
+    if (existingClient) {
+      console.log(`Cliente já existe com o telefone ${clientData.phone}, retornando o cliente existente.`);
+      return existingClient;
+    }
+    
+    // Normaliza o número de telefone para um formato padrão: (XX) XXXXX-XXXX
+    let normalizedPhone = clientData.phone.replace(/\D/g, '');
+    if (normalizedPhone.length === 11) {
+      // Para celulares brasileiros (11 dígitos)
+      normalizedPhone = `(${normalizedPhone.substring(0, 2)}) ${normalizedPhone.substring(2, 7)}-${normalizedPhone.substring(7)}`;
+    } else if (normalizedPhone.length === 10) {
+      // Para telefones fixos (10 dígitos)
+      normalizedPhone = `(${normalizedPhone.substring(0, 2)}) ${normalizedPhone.substring(2, 6)}-${normalizedPhone.substring(6)}`;
+    }
+    
+    // Cria o cliente com o telefone normalizado
+    const [client] = await db.insert(clients).values({
+      ...clientData,
+      phone: normalizedPhone
+    }).returning();
+    
     return client;
   }
 
