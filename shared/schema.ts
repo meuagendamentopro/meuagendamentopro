@@ -99,6 +99,7 @@ export const clients = pgTable("clients", {
   email: text("email"),
   notes: text("notes"),
   active: boolean("active").default(true).notNull(), // Para soft delete
+  isBlocked: boolean("is_blocked").default(false).notNull(), // Para bloquear agendamentos
 });
 
 export const insertClientSchema = createInsertSchema(clients).pick({
@@ -107,6 +108,7 @@ export const insertClientSchema = createInsertSchema(clients).pick({
   email: true,
   notes: true,
   active: true,
+  isBlocked: true,
 });
 
 // Tabela de associação entre providers e clients

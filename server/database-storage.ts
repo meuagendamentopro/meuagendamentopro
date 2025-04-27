@@ -10,7 +10,7 @@ import {
   notifications, Notification, InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { and, eq, gte, lte, sql, inArray } from "drizzle-orm";
+import { and, eq, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 import { pool } from "./db";
@@ -56,21 +56,66 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: number): Promise<boolean> {
     try {
-      // Verificar se é um provider e deletar primeiro
+      // Verificar se é um provider e deletar dados relacionados
       const provider = await this.getProviderByUserId(id);
       if (provider) {
+        // Buscar os IDs dos clientes exclusivos deste provider
+        const providerClientAssociations = await db
+          .select()
+          .from(providerClients)
+          .where(eq(providerClients.providerId, provider.id));
+        
+        const clientIds = providerClientAssociations.map(pc => pc.clientId);
+        
+        // Deletar todas as notificações relacionadas ao provider
+        await db.delete(notifications)
+          .where(eq(notifications.userId, id));
+        
+        // Deletar todos os agendamentos do provider
+        await db.delete(appointments)
+          .where(eq(appointments.providerId, provider.id));
+        
         // Deletar todos os serviços do provider
-        await db.delete(services).where(eq(services.providerId, provider.id));
+        await db.delete(services)
+          .where(eq(services.providerId, provider.id));
         
         // Deletar todas as associações provider-client
-        await db.delete(providerClients).where(eq(providerClients.providerId, provider.id));
+        await db.delete(providerClients)
+          .where(eq(providerClients.providerId, provider.id));
+        
+        // Verificar se há clientes que não estão associados a nenhum outro provider
+        // e excluí-los se forem exclusivos deste provider
+        for (const clientId of clientIds) {
+          const otherAssociations = await db
+            .select()
+            .from(providerClients)
+            .where(
+              and(
+                eq(providerClients.clientId, clientId),
+                ne(providerClients.providerId, provider.id)
+              )
+            );
+          
+          // Se o cliente não está associado a nenhum outro provider, excluí-lo
+          if (otherAssociations.length === 0) {
+            // Deletar agendamentos relacionados ao cliente
+            await db.delete(appointments)
+              .where(eq(appointments.clientId, clientId));
+            
+            // Deletar o cliente
+            await db.delete(clients)
+              .where(eq(clients.id, clientId));
+          }
+        }
         
         // Deletar o provider
-        await db.delete(providers).where(eq(providers.id, provider.id));
+        await db.delete(providers)
+          .where(eq(providers.id, provider.id));
       }
       
       // Finalmente, deletar o usuário
-      await db.delete(users).where(eq(users.id, id));
+      await db.delete(users)
+        .where(eq(users.id, id));
       
       return true;
     } catch (error) {
