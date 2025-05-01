@@ -413,18 +413,18 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
   return (
     <>
       <Card>
-        <CardHeader className="px-6 pb-4 pt-6 flex flex-row items-center justify-between">
+        <CardHeader className="px-6 pb-4 pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
           <div>
             <CardTitle className="text-lg">Agendamentos do dia</CardTitle>
             <p className="mt-1 text-sm text-gray-500">
               {format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-1" /> Filtrar Horários
+                <Button variant="outline" size="sm" className="flex-shrink-0">
+                  <Filter className="h-4 w-4 mr-1" /> Filtrar
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80">

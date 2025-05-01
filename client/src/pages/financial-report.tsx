@@ -138,7 +138,7 @@ export default function FinancialReport() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Relatório Financeiro</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Filtros */}
         <Card className="col-span-1">
           <CardHeader>
@@ -149,22 +149,24 @@ export default function FinancialReport() {
             {/* Calendário para selecionar o mês */}
             <div>
               <label className="block text-sm font-medium mb-2">Data</label>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => setSelectedDate(date || new Date())}
-                classNames={{
-                  caption_label: "text-sm font-medium",
-                  nav_button_previous: "absolute left-1",
-                  nav_button_next: "absolute right-1",
-                  table: "w-full border-collapse",
-                  head_cell: "text-xs font-medium text-center",
-                  cell: "text-center text-sm p-0 relative",
-                  day: "h-9 w-9 p-0 font-normal",
-                  day_selected: "bg-primary text-white hover:bg-primary",
-                }}
-                locale={ptBR}
-              />
+              <div className="flex justify-center sm:justify-start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => setSelectedDate(date || new Date())}
+                  classNames={{
+                    caption_label: "text-sm font-medium",
+                    nav_button_previous: "absolute left-1",
+                    nav_button_next: "absolute right-1",
+                    table: "w-full border-collapse",
+                    head_cell: "text-xs font-medium text-center",
+                    cell: "text-center text-sm p-0 relative",
+                    day: "h-9 w-9 p-0 font-normal",
+                    day_selected: "bg-primary text-white hover:bg-primary",
+                  }}
+                  locale={ptBR}
+                />
+              </div>
             </div>
 
             {/* Select para filtrar por serviço */}
@@ -191,7 +193,7 @@ export default function FinancialReport() {
         </Card>
 
         {/* Resumo Financeiro */}
-        <Card className="col-span-1 md:col-span-2">
+        <Card className="col-span-1 lg:col-span-2">
           <CardHeader>
             <CardTitle>Resumo Financeiro</CardTitle>
             <CardDescription>
@@ -211,7 +213,7 @@ export default function FinancialReport() {
 
             <div className="space-y-4">
               <h3 className="font-semibold">Receita por Serviço</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {services && serviceGroups
                   ? Object.values(serviceGroups).map((group, index) => (
                       <div
@@ -245,46 +247,50 @@ export default function FinancialReport() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableCaption>
-              {filteredAppointments?.length
-                ? `Total de ${filteredAppointments.length} atendimentos`
-                : "Nenhum atendimento encontrado no período"}
-            </TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Serviço</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAppointments?.map((appointment) => (
-                <TableRow key={appointment.id}>
-                  <TableCell>
-                    {format(
-                      parseISO(typeof appointment.date === 'string' 
-                        ? appointment.date 
-                        : appointment.date.toISOString()), 
-                      "dd/MM/yyyy HH:mm"
-                    )}
-                  </TableCell>
-                  <TableCell>{appointment.clientName}</TableCell>
-                  <TableCell>{appointment.serviceName}</TableCell>
-                  <TableCell>
-                    {appointment.status.toLowerCase() === "completed"
-                      ? "Concluído"
-                      : "Confirmado"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    R$ {(appointment.servicePrice / 100).toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto -mx-6">  {/* Negative margin to allow overflow */}
+            <div className="inline-block min-w-full align-middle px-6"> {/* Add padding back */}
+              <Table>
+                <TableCaption>
+                  {filteredAppointments?.length
+                    ? `Total de ${filteredAppointments.length} atendimentos`
+                    : "Nenhum atendimento encontrado no período"}
+                </TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Data</TableHead>
+                    <TableHead className="whitespace-nowrap">Cliente</TableHead>
+                    <TableHead className="whitespace-nowrap">Serviço</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAppointments?.map((appointment) => (
+                    <TableRow key={appointment.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {format(
+                          parseISO(typeof appointment.date === 'string' 
+                            ? appointment.date 
+                            : appointment.date.toISOString()), 
+                          "dd/MM/yyyy HH:mm"
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{appointment.clientName}</TableCell>
+                      <TableCell className="whitespace-nowrap">{appointment.serviceName}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {appointment.status.toLowerCase() === "completed"
+                          ? "Concluído"
+                          : "Confirmado"}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        R$ {(appointment.servicePrice / 100).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
