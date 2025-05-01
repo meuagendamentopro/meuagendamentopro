@@ -22,12 +22,20 @@ Escolha a opção adequada para seu sistema operacional:
 
 1. Execute o arquivo `setup-local.bat` como administrador
 2. Após a configuração, use `start-local.bat` para iniciar o sistema
+3. Para parar o sistema, use `stop-local.bat`
 
 ### Linux/Mac
 
-1. Dê permissão de execução ao script: `chmod +x setup-local.sh`
-2. Execute o script: `./setup-local.sh`
+1. Dê permissão de execução aos scripts: 
+   ```
+   chmod +x setup-local.sh
+   chmod +x start-local.sh
+   chmod +x stop-local.sh
+   ```
+
+2. Execute o script de configuração: `./setup-local.sh`
 3. Após a configuração, use `./start-local.sh` para iniciar o sistema
+4. Para parar o sistema, use `./stop-local.sh`
 
 ## Configuração Manual
 
@@ -92,9 +100,32 @@ Após iniciar o servidor, acesse:
 - Como alternativa, você pode executar os comandos diretamente usando o caminho completo:
   - `"C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -c "CREATE DATABASE agendamento_local;"`
 
+### Problemas ao iniciar ou parar o sistema
+
+#### Windows
+- Se o script `start-local.bat` não conseguir iniciar o servidor:
+  - Verifique se o Node.js está instalado e no PATH do sistema
+  - Verifique se o PostgreSQL está em execução e acessível
+  - Tente executar manualmente: `npm install` seguido de `npm run dev`
+
+- Se o script `stop-local.bat` não conseguir parar o servidor:
+  - Encerre o processo pelo Gerenciador de Tarefas (Task Manager)
+  - Procure por processos chamados `node.exe` ou `npm.cmd`
+
+#### Linux/Mac
+- Se o script `start-local.sh` não conseguir iniciar o servidor:
+  - Verifique as permissões de execução: `chmod +x start-local.sh`
+  - Tente manualmente: `npm install` seguido de `npm run dev`
+
+- Se o script `stop-local.sh` não conseguir parar o servidor:
+  - Encontre o processo manualmente: `ps aux | grep node`
+  - Encerre o processo: `kill -9 [PID]`
+
 ### Outros problemas
 
 - Verifique os logs do servidor para identificar erros específicos
 - Se ocorrer erro de conexão recusada (connection refused), verifique se a porta 5432 está disponível
 - Certifique-se de que o arquivo .env está na raiz do projeto
+- Se o banco de dados estiver inacessível, verifique se o serviço do PostgreSQL está em execução
+- O sistema utiliza a porta 5000 por padrão, certifique-se de que ela está disponível
 - Consulte a documentação do PostgreSQL ou Node.js conforme necessário
