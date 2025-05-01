@@ -86,11 +86,11 @@ Após iniciar o servidor, acesse:
 ### Problema com a ferramenta psql não encontrada
 
 - No Windows, verifique se o diretório de instalação do PostgreSQL está no PATH do sistema
-  - Locais comuns: `C:\Program Files\PostgreSQL\14\bin` (onde 14 é a versão)
+  - Locais comuns: `C:\Program Files\PostgreSQL\17\bin` (onde 17 é a versão, o script suporta versões 9-17)
   - Adicionar ao PATH: Painel de Controle > Sistema > Configurações avançadas do sistema > Variáveis de ambiente
 
 - Como alternativa, você pode executar os comandos diretamente usando o caminho completo:
-  - `"C:\Program Files\PostgreSQL\14\bin\psql.exe" -U postgres -c "CREATE DATABASE agendamento_local;"`
+  - `"C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -c "CREATE DATABASE agendamento_local;"`
 
 ### Outros problemas
 

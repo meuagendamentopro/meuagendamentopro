@@ -18,8 +18,8 @@ if %ERRORLEVEL% EQU 0 (
 :: Procurar em locais comuns de instalação do PostgreSQL
 echo Procurando PostgreSQL em locais comuns...
 
-:: Procurar versões de 9 a 16 (cobrindo versões comuns)
-for %%v in (16 15 14 13 12 11 10 9) do (
+:: Procurar versões de 9 a 17 (cobrindo versões comuns)
+for %%v in (17 16 15 14 13 12 11 10 9) do (
     if exist "C:\Program Files\PostgreSQL\%%v\bin\psql.exe" (
         echo PostgreSQL %%v encontrado em C:\Program Files\PostgreSQL\%%v\bin
         set "PGBIN=C:\Program Files\PostgreSQL\%%v\bin\psql.exe"
