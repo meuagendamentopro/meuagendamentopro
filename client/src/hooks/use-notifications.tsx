@@ -3,6 +3,7 @@ import React, { useEffect } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { playNotificationSound } from "@/lib/notification-sound";
 
 export interface Notification {
   id: number;
@@ -76,6 +77,9 @@ export function useNotifications() {
         // Quando um novo agendamento é criado, recarregar as notificações não lidas
         refetchUnread();
         
+        // Tocar som de notificação
+        playNotificationSound();
+        
         toast({
           title: 'Nova notificação',
           description: 'Você recebeu um novo agendamento',
@@ -100,6 +104,9 @@ export function useNotifications() {
           
           // Forçar refetch imediato sem esperar o cache
           refetchUnread();
+          
+          // Tocar som de notificação
+          playNotificationSound();
           
           // Mostrar toast
           toast({
