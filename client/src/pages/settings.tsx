@@ -34,6 +34,7 @@ const settingsFormSchema = z.object({
   workingHoursStart: z.coerce.number().int().min(0).max(23),
   workingHoursEnd: z.coerce.number().int().min(1).max(24),
   workingDays: z.string(),
+  phone: z.string().optional(),
 }).refine(data => data.workingHoursEnd > data.workingHoursStart, {
   message: "O horário de término deve ser maior que o horário de início",
   path: ["workingHoursEnd"]
@@ -71,6 +72,7 @@ const SettingsPage: React.FC = () => {
         workingHoursStart: provider.workingHoursStart || 8,
         workingHoursEnd: provider.workingHoursEnd || 18,
         workingDays: provider.workingDays || "1,2,3,4,5",
+        phone: provider.phone || "",
       });
     }
   }, [provider, form]);
@@ -88,7 +90,7 @@ const SettingsPage: React.FC = () => {
     onSuccess: () => {
       toast({
         title: "Configurações atualizadas",
-        description: "Seus horários e dias de trabalho foram atualizados com sucesso.",
+        description: "Suas configurações foram atualizadas com sucesso.",
       });
       setIsSubmitting(false);
     },
@@ -255,6 +257,67 @@ const SettingsPage: React.FC = () => {
                             </FormItem>
                           ))}
                         </div>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+              </div>
+
+              <div className="mt-8">
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium">Informações de Contato</h3>
+                  <p className="text-sm text-gray-500">
+                    Configure suas informações de contato para clientes
+                  </p>
+                </div>
+
+                <Separator className="mb-6" />
+
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => {
+                    // Formatar o número de telefone
+                    const formatPhone = (value: string) => {
+                      // Remove tudo que não for número
+                      const numbers = value.replace(/\D/g, '');
+                      
+                      // Aplica formatação de acordo com o tamanho
+                      if (numbers.length <= 2) {
+                        return numbers;
+                      }
+                      if (numbers.length <= 6) {
+                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+                      }
+                      if (numbers.length <= 10) {
+                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+                      }
+                      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+                    };
+
+                    return (
+                      <FormItem>
+                        <FormLabel>WhatsApp</FormLabel>
+                        <div className="flex items-center">
+                          <FormControl>
+                            <div className="relative flex items-center">
+                              <Phone className="h-4 w-4 absolute left-3 text-gray-400" />
+                              <Input 
+                                placeholder="(99) 99999-9999"
+                                className="pl-10"
+                                value={formatPhone(field.value || '')}
+                                onChange={(e) => {
+                                  field.onChange(e.target.value);
+                                }}
+                              />
+                            </div>
+                          </FormControl>
+                        </div>
+                        <FormDescription>
+                          Número de WhatsApp para contato com clientes. Este número será usado para que os clientes
+                          possam entrar em contato caso precisem remarcar ou cancelar agendamentos.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     );
