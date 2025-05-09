@@ -7,7 +7,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogDescription,
-  DialogFooter
+  DialogFooter,
+  DialogTrigger
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,9 +18,10 @@ import { Loader2 } from 'lucide-react';
 
 interface WhatsAppPopupProps {
   triggerManually?: boolean;
+  children?: React.ReactNode;
 }
 
-const WhatsAppPopup = ({ triggerManually = false }: WhatsAppPopupProps) => {
+const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps) => {
   const [open, setOpen] = useState(false);
   const [whatsapp, setWhatsapp] = useState('');
   const [saving, setSaving] = useState(false);
@@ -121,6 +123,7 @@ const WhatsAppPopup = ({ triggerManually = false }: WhatsAppPopupProps) => {
 
   return (
     <Dialog open={triggerManually ? undefined : open} onOpenChange={setOpen}>
+      {triggerManually && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <div className="flex items-center mb-2">

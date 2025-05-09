@@ -300,8 +300,8 @@ const SettingsPage: React.FC = () => {
                     return (
                       <FormItem>
                         <FormLabel>WhatsApp</FormLabel>
-                        <div className="flex items-center">
-                          <FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormControl className="flex-1">
                             <div className="relative flex items-center">
                               <Phone className="h-4 w-4 absolute left-3 text-gray-400" />
                               <Input 
@@ -314,6 +314,17 @@ const SettingsPage: React.FC = () => {
                               />
                             </div>
                           </FormControl>
+                          <WhatsAppPopup triggerManually>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              className="flex items-center gap-1"
+                              title="Configurar WhatsApp"
+                            >
+                              <Smartphone className="h-4 w-4" />
+                              <span className="hidden md:inline">Configurar WhatsApp</span>
+                            </Button>
+                          </WhatsAppPopup>
                         </div>
                         <FormDescription>
                           Número de WhatsApp para contato com clientes. Este número será usado para que os clientes
