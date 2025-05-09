@@ -53,13 +53,32 @@ export function useNotifications() {
   // Usar WebSocket para atualizar notificações em tempo real
   const { connected } = useWebSocket({
     onMessage: (data) => {
+      console.log('WebSocket message recebida no hook de notificações:', data);
+      
+      // Se for um novo agendamento criado
       if (data.type === 'appointment_created') {
+        console.log('Novo agendamento detectado, atualizando notificações');
         // Quando um novo agendamento é criado, recarregar as notificações não lidas
         refetchUnread();
         
         toast({
           title: 'Nova notificação',
           description: 'Você recebeu um novo agendamento',
+          variant: 'default',
+        });
+      }
+      
+      // Se for uma nova notificação
+      if (data.type === 'notification_created') {
+        console.log('Nova notificação detectada:', data);
+        
+        // Atualizar as notificações
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread'] });
+        
+        toast({
+          title: 'Nova notificação',
+          description: data.notification.message || 'Você tem uma nova notificação',
           variant: 'default',
         });
       }

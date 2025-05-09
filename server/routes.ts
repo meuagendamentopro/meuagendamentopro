@@ -160,11 +160,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let sentCount = 0;
     let errorCount = 0;
     
+    console.log(`Broadcastando atualização de tipo ${type} para ${connectedClients.size} clientes:`, 
+      type === 'notification_created' ? 
+        { notificationId: data.notification?.id, userId: data.userId } : 
+        { data: typeof data === 'object' ? 'objeto' : data });
+    
     connectedClients.forEach((client, ws) => {
       if (ws.readyState === WebSocket.OPEN) {
         try {
-          ws.send(message);
-          sentCount++;
+          // Se for uma notificação, apenas enviar para o destinatário
+          if (type === 'notification_created') {
+            if (client.userId === data.userId) {
+              console.log(`Enviando notificação para usuário específico ${client.userId}`);
+              ws.send(message);
+              sentCount++;
+            }
+          } else {
+            // Para outros tipos, enviar para todos
+            ws.send(message);
+            sentCount++;
+          }
         } catch (error) {
           console.error('Erro ao enviar mensagem WebSocket:', error);
           errorCount++;
