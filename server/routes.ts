@@ -1677,11 +1677,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const provider = await storage.getProvider(service.providerId);
       if (provider && provider.userId) {
         try {
+          // Formatar a data para o padrão DD/MM/YYYY
+          const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          const formattedDate = dateFormatter.format(appointmentDate);
+          
           // Criar notificação e obter a notificação criada
           const notification = await storage.createNotification({
             userId: provider.userId,
             title: "Novo agendamento",
-            message: `${client.name} agendou ${service.name} para ${appointmentDate.toLocaleString('pt-BR')}`,
+            message: `${client.name} agendou ${service.name} para ${formattedDate}`,
             type: 'appointment',
             appointmentId: appointment.id
           });
