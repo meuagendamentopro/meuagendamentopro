@@ -29,7 +29,8 @@ export function useNotifications() {
       console.log('Notificações recebidas:', data);
       return data;
     },
-    staleTime: 30000, // 30 segundos
+    staleTime: 15000, // 15 segundos para mais responsividade
+    refetchInterval: 30000, // Re-buscar a cada 30 segundos
   });
   
   // Buscar notificações não lidas
@@ -47,7 +48,9 @@ export function useNotifications() {
       console.log('Notificações não lidas recebidas:', data);
       return data;
     },
-    staleTime: 30000, // 30 segundos
+    staleTime: 15000, // 15 segundos para mais responsividade
+    refetchInterval: 20000, // Re-buscar a cada 20 segundos
+    refetchOnWindowFocus: true, // Recarregar quando a janela receber foco
   });
 
   // Usar WebSocket para atualizar notificações em tempo real

@@ -212,7 +212,37 @@ function createSingletonWebSocket(userId?: number) {
         } as const;
 
         // Processa atualizações específicas
-        if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
+        if (data.type === 'notification_created') {
+          console.log(`Recebida notificação via WebSocket:`, data);
+          
+          // Extrair dados da notificação com tratamento de erros
+          const notificationData = data.data || data;
+          const notification = notificationData.notification;
+          const notificationUserId = notificationData.userId;
+          
+          console.log(`Notificação recebida para usuário ${notificationUserId}, usuário atual: ${userId}`);
+          
+          // Atualizar imediatamente as notificações se for para o usuário atual
+          if (userId && userId === notificationUserId) {
+            console.log(`Atualizando notificações para usuário ${userId}`);
+            // Força atualização imediata
+            queryClient.invalidateQueries({
+              queryKey: ['/api/notifications'],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ['/api/notifications/unread'],
+            });
+            
+            // Mostra o toast imediatamente
+            if (window.__TOAST_TRIGGER && notification) {
+              window.__TOAST_TRIGGER({
+                title: notification.title || 'Nova notificação',
+                description: notification.message || 'Você tem uma nova notificação',
+              });
+            }
+          }
+        }
+        else if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
           console.log(`Atualizando dados após ${data.type}`);
           
           // Refetch para atualizar a lista de agendamentos
@@ -263,33 +293,7 @@ function createSingletonWebSocket(userId?: number) {
           }
         }
         
-        // Se for uma nova notificação
-        if (data.type === 'notification_created') {
-          console.log(`Recebida notificação: ${JSON.stringify(data)}`);
-          
-          // Verifica se a notificação é para o usuário atual
-          if (userId && data.userId === userId) {
-            console.log('Atualizando notificações após nova notificação');
-            
-            // Atualiza as notificações não lidas e todas as notificações
-            queryClient.refetchQueries({
-              queryKey: ['/api/notifications'],
-              ...queryOptions
-            });
-            queryClient.refetchQueries({
-              queryKey: ['/api/notifications/unread'],
-              ...queryOptions
-            });
-            
-            // Mostra toast para o usuário
-            if (window.__TOAST_TRIGGER) {
-              window.__TOAST_TRIGGER({
-                title: 'Nova notificação',
-                description: data.notification.message || 'Você tem uma nova notificação',
-              });
-            }
-          }
-        }
+        // Código de notificação já tratado acima
           
         // Força uma atualização da página do dashboard quando um novo agendamento é criado
         if (data.type === 'appointment_created') {
