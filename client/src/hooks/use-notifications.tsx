@@ -19,6 +19,29 @@ export interface Notification {
 export function useNotifications() {
   const { toast } = useToast();
   
+  // Referência para controlar a reprodução do som (evitar duplicação)
+  const lastSoundPlayed = React.useRef<string | null>(null);
+  const lastSoundTime = React.useRef<number>(0);
+  
+  // Função para tocar o som apenas uma vez por notificação
+  const playSound = (notificationId: string | number) => {
+    const id = notificationId.toString();
+    const now = Date.now();
+    
+    // Verificar se já tocamos o som para esta notificação ou na últimos 3 segundos
+    if (lastSoundPlayed.current === id || (now - lastSoundTime.current) < 3000) {
+      console.log('Som já tocado para esta notificação ou tocado recentemente');
+      return;
+    }
+    
+    // Tocar o som
+    playNotificationSound();
+    
+    // Atualizar controles para evitar repetição
+    lastSoundPlayed.current = id;
+    lastSoundTime.current = now;
+  };
+  
   // Atualizar com uma referência do useEffect para garantir que as atualizações ocorram
   useEffect(() => {
     const checkForUpdates = () => {
@@ -77,8 +100,9 @@ export function useNotifications() {
         // Quando um novo agendamento é criado, recarregar as notificações não lidas
         refetchUnread();
         
-        // Tocar som de notificação
-        playNotificationSound();
+        // Tocar som de notificação uma vez só (usando o ID do agendamento)
+        const appointmentId = data.data?.appointment?.id || 'appointment_' + Date.now();
+        playSound(appointmentId);
         
         toast({
           title: 'Nova notificação',
@@ -105,8 +129,8 @@ export function useNotifications() {
           // Forçar refetch imediato sem esperar o cache
           refetchUnread();
           
-          // Tocar som de notificação
-          playNotificationSound();
+          // Tocar som de notificação uma vez só (usando o ID da notificação)
+          playSound(notification.id);
           
           // Mostrar toast
           toast({

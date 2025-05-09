@@ -13,10 +13,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, addMonths, subMonths, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Appointment as BaseAppointment, Service, Provider } from "@shared/schema";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 // Extend the base appointment type with the properties added by our API
 interface EnrichedAppointment extends BaseAppointment {
@@ -26,8 +30,14 @@ interface EnrichedAppointment extends BaseAppointment {
 }
 
 export default function FinancialReport() {
-  // Usaremos selectedDate para controlar o dia específico selecionado
+  // Estados para diferentes tipos de visualizações
+  const [viewType, setViewType] = useState<"day" | "month" | "period">("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: addMonths(new Date(), 1)
+  });
   const [selectedService, setSelectedService] = useState<string>("all");
 
   // Obter o provider atual 
@@ -59,7 +69,7 @@ export default function FinancialReport() {
     );
   }
 
-  // Filtrar os agendamentos por mês e APENAS status confirmado/concluído
+  // Filtrar os agendamentos com base no tipo de visualização selecionado
   const filteredAppointments = appointments?.filter((appointment) => {
     // Garantir que a data seja uma string antes de passar para parseISO
     const dateStr = typeof appointment.date === 'string' 
@@ -67,40 +77,48 @@ export default function FinancialReport() {
       : appointment.date.toISOString();
     const appointmentDate = parseISO(dateStr);
     
-    // Verificar se estamos filtrando por dia específico ou por mês inteiro
-    // Se o usuário selecionar um dia específico no calendário, filtrar apenas esse dia
-    const isSameDay = format(appointmentDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
-    
-    console.log(`Data do agendamento: ${format(appointmentDate, 'dd/MM/yyyy')}, Data selecionada: ${format(selectedDate, 'dd/MM/yyyy')}, É o mesmo dia? ${isSameDay}`);
-    
-    // Verificamos se a data está dentro do mês selecionado
-    const inInterval = isWithinInterval(appointmentDate, {
-      start: startOfMonth(selectedDate),
-      end: endOfMonth(selectedDate),
-    });
-    
     // MUITO IMPORTANTE: Incluir APENAS os agendamentos com status "confirmed" ou "completed"
     // Os agendamentos com status "pending" não devem ser contabilizados financeiramente
     // pois eles ainda podem ser cancelados
     const validStatus = ["confirmed", "completed"].includes(appointment.status.toLowerCase());
-    console.log(`Status do agendamento: "${appointment.status}" - É válido? ${validStatus}`);
     
+    // Filtro de serviço
     const validService = (selectedService === "all" || appointment.serviceId === parseInt(selectedService));
+    
+    // Verificar o tipo de filtro de data selecionado
+    let validDate = false;
+    
+    if (viewType === "day") {
+      // Filtragem por dia específico
+      validDate = format(appointmentDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+      console.log(`Verificando horário: ${appointmentDate.toLocaleString()} - Hora atual: ${selectedDate.toLocaleString()} - É mesmo dia? ${validDate} - É passado? ${appointmentDate < new Date()}`);
+    } 
+    else if (viewType === "month") {
+      // Filtragem por mês
+      validDate = isWithinInterval(appointmentDate, {
+        start: startOfMonth(selectedMonth),
+        end: endOfMonth(selectedMonth),
+      });
+    } 
+    else if (viewType === "period") {
+      // Filtragem por período personalizado
+      if (dateRange?.from && dateRange?.to) {
+        validDate = isWithinInterval(appointmentDate, {
+          start: dateRange.from,
+          end: dateRange.to,
+        });
+      }
+    }
     
     console.log(`Analisando agendamento #${appointment.id}:`, {
       data: format(appointmentDate, 'dd/MM/yyyy'),
-      noIntervalo: inInterval,
+      tipoVisualizacao: viewType,
       status: appointment.status,
       statusValido: validStatus,
+      dataValida: validDate,
       servicoSelecionado: selectedService,
-      idServico: appointment.serviceId,
       servicoValido: validService,
-      preco: appointment.servicePrice
     });
-    
-    // Se uma data específica foi selecionada no calendário, filtramos pelo dia específico
-    // Caso contrário, mostramos todos os agendamentos do mês
-    const validDate = isSameDay;
     
     return validDate && validStatus && validService;
   });
@@ -146,27 +164,123 @@ export default function FinancialReport() {
             <CardDescription>Selecione o período e serviço</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Calendário para selecionar o mês */}
+            {/* Tipo de visualização */}
             <div>
-              <label className="block text-sm font-medium mb-2">Data</label>
-              <div className="flex justify-center sm:justify-start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => setSelectedDate(date || new Date())}
-                  classNames={{
-                    caption_label: "text-sm font-medium",
-                    nav_button_previous: "absolute left-1",
-                    nav_button_next: "absolute right-1",
-                    table: "w-full border-collapse",
-                    head_cell: "text-xs font-medium text-center",
-                    cell: "text-center text-sm p-0 relative",
-                    day: "h-9 w-9 p-0 font-normal",
-                    day_selected: "bg-primary text-white hover:bg-primary",
-                  }}
-                  locale={ptBR}
-                />
-              </div>
+              <label className="block text-sm font-medium mb-2">Tipo de Visualização</label>
+              <Tabs 
+                defaultValue="day" 
+                value={viewType}
+                onValueChange={(value) => setViewType(value as "day" | "month" | "period")}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="day">Dia</TabsTrigger>
+                  <TabsTrigger value="month">Mês</TabsTrigger>
+                  <TabsTrigger value="period">Período</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="day" className="pt-4">
+                  <div className="flex justify-center sm:justify-start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => setSelectedDate(date || new Date())}
+                      classNames={{
+                        caption_label: "text-sm font-medium",
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse",
+                        head_cell: "text-xs font-medium text-center",
+                        cell: "text-center text-sm p-0 relative",
+                        day: "h-9 w-9 p-0 font-normal",
+                        day_selected: "bg-primary text-white hover:bg-primary",
+                      }}
+                      locale={ptBR}
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="month" className="pt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
+                    >
+                      Mês anterior
+                    </Button>
+                    <span className="text-sm font-medium flex-1 text-center">
+                      {format(selectedMonth, "MMMM yyyy", { locale: ptBR })}
+                    </span>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+                    >
+                      Próximo mês
+                    </Button>
+                  </div>
+                  <div className="flex justify-center sm:justify-start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedMonth}
+                      onSelect={(date) => setSelectedMonth(date || new Date())}
+                      classNames={{
+                        caption_label: "text-sm font-medium",
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse",
+                        head_cell: "text-xs font-medium text-center",
+                        cell: "text-center text-sm p-0 relative",
+                        day: "h-9 w-9 p-0 font-normal",
+                        day_selected: "bg-primary text-white hover:bg-primary",
+                      }}
+                      locale={ptBR}
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="period" className="pt-4">
+                  <div className="grid gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date"
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dateRange && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            dateRange.to ? (
+                              <>
+                                {format(dateRange.from, "dd/MM/yyyy")} - {format(dateRange.to, "dd/MM/yyyy")}
+                              </>
+                            ) : (
+                              format(dateRange.from, "dd/MM/yyyy")
+                            )
+                          ) : (
+                            <span>Selecione um período</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={dateRange?.from}
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          numberOfMonths={2}
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
             {/* Select para filtrar por serviço */}
@@ -197,7 +311,21 @@ export default function FinancialReport() {
           <CardHeader>
             <CardTitle>Resumo Financeiro</CardTitle>
             <CardDescription>
-              {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {viewType === "day" && (
+                format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+              )}
+              {viewType === "month" && (
+                format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })
+              )}
+              {viewType === "period" && dateRange?.from && (
+                <>
+                  {dateRange.to ? (
+                    <>De {format(dateRange.from, "dd/MM/yyyy")} até {format(dateRange.to, "dd/MM/yyyy")}</>
+                  ) : (
+                    format(dateRange.from, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                  )}
+                </>
+              )}
               <div className="mt-2 text-xs text-amber-600 font-medium">
                 * Apenas agendamentos confirmados ou concluídos são contabilizados
               </div>

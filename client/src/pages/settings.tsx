@@ -365,6 +365,8 @@ const SettingsPage: React.FC = () => {
             <div>
               <Button 
                 onClick={() => {
+                  // Importar a função diretamente para o teste
+                  const { playNotificationSound } = require('@/lib/notification-sound');
                   playNotificationSound();
                   toast({
                     title: "Som de notificação",
