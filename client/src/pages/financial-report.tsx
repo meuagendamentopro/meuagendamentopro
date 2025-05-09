@@ -371,7 +371,15 @@ export default function FinancialReport() {
         <CardHeader>
           <CardTitle>Detalhes dos Atendimentos</CardTitle>
           <CardDescription>
-            Lista de todos os atendimentos do período selecionado
+            {viewType === "day" && (
+              <>Atendimentos do dia {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}</>
+            )}
+            {viewType === "month" && (
+              <>Atendimentos do mês de {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}</>
+            )}
+            {viewType === "period" && dateRange?.from && dateRange?.to && (
+              <>Atendimentos de {format(dateRange.from, "dd/MM/yyyy")} até {format(dateRange.to, "dd/MM/yyyy")}</>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
