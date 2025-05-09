@@ -22,11 +22,14 @@ export function useNotifications() {
   const { data: allNotifications = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
     queryFn: async () => {
+      console.log('Buscando todas as notificações');
       const res = await fetch('/api/notifications');
       if (!res.ok) throw new Error('Falha ao buscar notificações');
-      return res.json();
+      const data = await res.json();
+      console.log('Notificações recebidas:', data);
+      return data;
     },
-    staleTime: 60000, // 1 minuto
+    staleTime: 30000, // 30 segundos
   });
   
   // Buscar notificações não lidas
@@ -37,11 +40,14 @@ export function useNotifications() {
   } = useQuery<Notification[]>({
     queryKey: ['/api/notifications/unread'],
     queryFn: async () => {
+      console.log('Buscando notificações não lidas');
       const res = await fetch('/api/notifications/unread');
       if (!res.ok) throw new Error('Falha ao buscar notificações não lidas');
-      return res.json();
+      const data = await res.json();
+      console.log('Notificações não lidas recebidas:', data);
+      return data;
     },
-    staleTime: 60000, // 1 minuto
+    staleTime: 30000, // 30 segundos
   });
 
   // Usar WebSocket para atualizar notificações em tempo real

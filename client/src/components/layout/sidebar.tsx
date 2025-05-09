@@ -127,9 +127,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
             {/* Notificações com contador */}
             <Popover>
               <PopoverTrigger asChild>
-                <div
+                <button
+                  type="button"
                   className={cn(
-                    "group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer",
+                    "group flex items-center px-2 py-2 text-sm font-medium rounded-md cursor-pointer w-full text-left",
                     location === "/notifications"
                       ? "bg-gray-100 text-gray-900"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -152,7 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggle }) => {
                     )}
                   </div>
                   {!collapsed && <span>Notificações</span>}
-                </div>
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-80 p-0" align="start">
                 <div className="flex items-center justify-between p-4 border-b">

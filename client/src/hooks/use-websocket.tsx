@@ -206,14 +206,14 @@ function createSingletonWebSocket(userId?: number) {
       try {
         const data = JSON.parse(event.data);
         
+        // Força atualização imediata sem esperar pelo stale time
+        const queryOptions = { 
+          exact: false
+        } as const;
+
         // Processa atualizações específicas
         if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
           console.log(`Atualizando dados após ${data.type}`);
-          
-          // Força atualização imediata sem esperar pelo stale time
-          const queryOptions = { 
-            exact: false
-          } as const;
           
           // Refetch para atualizar a lista de agendamentos
           queryClient.refetchQueries({
@@ -251,44 +251,77 @@ function createSingletonWebSocket(userId?: number) {
           
           // Refetch para as notificações do usuário
           if (userId) {
+            // Atualiza as notificações não lidas e todas as notificações
             queryClient.refetchQueries({
-              queryKey: ['/api/users', userId, 'notifications'],
+              queryKey: ['/api/notifications'],
+              ...queryOptions
+            });
+            queryClient.refetchQueries({
+              queryKey: ['/api/notifications/unread'],
               ...queryOptions
             });
           }
+        }
+        
+        // Se for uma nova notificação
+        if (data.type === 'notification_created') {
+          console.log(`Recebida notificação: ${JSON.stringify(data)}`);
           
-          // Força uma atualização da página do dashboard quando um novo agendamento é criado
-          if (data.type === 'appointment_created') {
-            // Verifica se estamos na página de dashboard
-            const currentPath = window.location.pathname;
-            if (currentPath === '/' || currentPath.includes('/dashboard')) {
-              console.log('Detectado novo agendamento, atualizando a página do dashboard...');
-              
-              // Mostra uma notificação toast antes de atualizar
-              try {
-                // Se o toast já estiver disponível no escopo global, usamos ele
-                if (window.__TOAST_TRIGGER) {
-                  window.__TOAST_TRIGGER({
-                    title: 'Novo agendamento recebido!',
-                    description: 'Atualizando dados da agenda...',
-                  });
-                }
-              } catch (e) {
-                console.error('Erro ao mostrar toast:', e);
-              }
-              
-              // Aguarda 1 segundo para que o toast seja exibido antes de atualizar
-              setTimeout(() => {
-                // Recarrega apenas os dados da agenda ao invés da página toda
-                // Isso mantém o estado atual da interface mas atualiza os dados
-                queryClient.refetchQueries({ queryKey: ['/api/my-appointments'] });
-                
-                // Atualiza a interface para refletir as mudanças
-                window.dispatchEvent(new CustomEvent('appointment-created', { 
-                  detail: data.data 
-                }));
-              }, 1000);
+          // Verifica se a notificação é para o usuário atual
+          if (userId && data.userId === userId) {
+            console.log('Atualizando notificações após nova notificação');
+            
+            // Atualiza as notificações não lidas e todas as notificações
+            queryClient.refetchQueries({
+              queryKey: ['/api/notifications'],
+              ...queryOptions
+            });
+            queryClient.refetchQueries({
+              queryKey: ['/api/notifications/unread'],
+              ...queryOptions
+            });
+            
+            // Mostra toast para o usuário
+            if (window.__TOAST_TRIGGER) {
+              window.__TOAST_TRIGGER({
+                title: 'Nova notificação',
+                description: data.notification.message || 'Você tem uma nova notificação',
+              });
             }
+          }
+        }
+          
+        // Força uma atualização da página do dashboard quando um novo agendamento é criado
+        if (data.type === 'appointment_created') {
+          // Verifica se estamos na página de dashboard
+          const currentPath = window.location.pathname;
+          if (currentPath === '/' || currentPath.includes('/dashboard')) {
+            console.log('Detectado novo agendamento, atualizando a página do dashboard...');
+            
+            // Mostra uma notificação toast antes de atualizar
+            try {
+              // Se o toast já estiver disponível no escopo global, usamos ele
+              if (window.__TOAST_TRIGGER) {
+                window.__TOAST_TRIGGER({
+                  title: 'Novo agendamento recebido!',
+                  description: 'Atualizando dados da agenda...',
+                });
+              }
+            } catch (e) {
+              console.error('Erro ao mostrar toast:', e);
+            }
+            
+            // Aguarda 1 segundo para que o toast seja exibido antes de atualizar
+            setTimeout(() => {
+              // Recarrega apenas os dados da agenda ao invés da página toda
+              // Isso mantém o estado atual da interface mas atualiza os dados
+              queryClient.refetchQueries({ queryKey: ['/api/my-appointments'] });
+              
+              // Atualiza a interface para refletir as mudanças
+              window.dispatchEvent(new CustomEvent('appointment-created', { 
+                detail: data.data 
+              }));
+            }, 1000);
           }
         }
         

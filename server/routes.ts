@@ -1677,14 +1677,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const provider = await storage.getProvider(service.providerId);
       if (provider && provider.userId) {
         try {
-          await storage.createNotification({
+          // Criar notificação e obter a notificação criada
+          const notification = await storage.createNotification({
             userId: provider.userId,
             title: "Novo agendamento",
             message: `${client.name} agendou ${service.name} para ${appointmentDate.toLocaleString('pt-BR')}`,
             type: 'appointment',
             appointmentId: appointment.id
           });
-          console.log(`Notificação criada para o usuário ${provider.userId}`);
+          console.log(`Notificação criada para o usuário ${provider.userId}`, notification);
+          
+          // Também enviar atualização em tempo real sobre a nova notificação
+          broadcastUpdate('notification_created', { notification, userId: provider.userId });
         } catch (error) {
           console.error("Erro ao criar notificação:", error);
         }
