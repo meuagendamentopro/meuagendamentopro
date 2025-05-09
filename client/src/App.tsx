@@ -18,6 +18,16 @@ import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
 import WhatsAppPopup from "@/components/whatsapp-popup";
+import { useNotifications } from "@/hooks/use-notifications";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger 
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { useAuth } from "@/hooks/use-auth";
@@ -27,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 function MainLayout({ children }: { children: React.ReactNode }) {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  const { unreadNotifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   
   // Integra o WebSocket para atualizações em tempo real
   const { connected, error } = useWebSocket({
@@ -96,13 +107,77 @@ function MainLayout({ children }: { children: React.ReactNode }) {
             </div>
             
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
-              <button 
-                type="button" 
-                className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                <span className="sr-only">Ver notificações</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-              </button>
+              {/* Popover para notificações */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <span className="sr-only">Ver notificações</span>
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="20" 
+                      height="20" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                    </svg>
+                    
+                    {/* Contador de notificações */}
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-red-500 rounded-full">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 max-w-sm p-0" align="end">
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium">Notificações</h3>
+                      {unreadCount > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={markAllAsRead}
+                          className="text-xs"
+                        >
+                          Marcar todas como lidas
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[300px]">
+                    {unreadNotifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        Não há notificações não lidas
+                      </div>
+                    ) : (
+                      <div>
+                        {unreadNotifications.map((notification) => (
+                          <div 
+                            key={notification.id}
+                            className="p-3 border-b border-gray-100 hover:bg-gray-50"
+                            onClick={() => markAsRead(notification.id)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-sm font-medium">{notification.title}</h4>
+                              <span className="text-xs text-gray-500">
+                                {format(new Date(notification.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
 
               {user && (
                 <div className="flex items-center space-x-2">
