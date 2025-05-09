@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -17,6 +17,18 @@ export interface Notification {
 
 export function useNotifications() {
   const { toast } = useToast();
+  
+  // Atualizar com uma referência do useEffect para garantir que as atualizações ocorram
+  useEffect(() => {
+    const checkForUpdates = () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread'] });
+    };
+    
+    // Verificar uma vez a cada 15 segundos
+    const interval = setInterval(checkForUpdates, 15000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // Buscar todas as notificações
   const { data: allNotifications = [] } = useQuery<Notification[]>({
@@ -73,17 +85,31 @@ export function useNotifications() {
       
       // Se for uma nova notificação
       if (data.type === 'notification_created') {
-        console.log('Nova notificação detectada:', data);
+        console.log('Nova notificação detectada via WebSocket:', data);
         
-        // Atualizar as notificações
-        queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread'] });
+        // Extrair dados da notificação com tratamento de erros
+        const notificationData = data.data || data;
+        const notification = notificationData.notification;
         
-        toast({
-          title: 'Nova notificação',
-          description: data.notification.message || 'Você tem uma nova notificação',
-          variant: 'default',
-        });
+        if (notification) {
+          console.log('Notificação recebida:', notification);
+          
+          // Forçar atualização imediata das queries
+          queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread'] });
+          
+          // Forçar refetch imediato sem esperar o cache
+          refetchUnread();
+          
+          // Mostrar toast
+          toast({
+            title: notification.title || 'Nova notificação',
+            description: notification.message || 'Você tem uma nova notificação',
+            variant: 'default',
+          });
+        } else {
+          console.error('Notificação recebida via WebSocket sem dados de notificação:', data);
+        }
       }
     },
   });
