@@ -347,6 +347,44 @@ const SettingsPage: React.FC = () => {
           </Form>
         </CardContent>
       </Card>
+
+      {/* Seção de notificações com botão de teste */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Som de Notificação</CardTitle>
+          <CardDescription>
+            Configure e teste o som de notificação para novos agendamentos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-500">
+              Quando um novo agendamento for recebido, você ouvirá um som de notificação. 
+              Clique no botão abaixo para testar o som.
+            </p>
+            <div>
+              <Button 
+                onClick={() => {
+                  playNotificationSound();
+                  toast({
+                    title: "Som de notificação",
+                    description: "O som de notificação foi reproduzido com sucesso",
+                  });
+                }}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+                Testar som de notificação
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
