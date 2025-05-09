@@ -288,12 +288,32 @@ const Dashboard: React.FC = () => {
           icon={Users} 
           color="warning"
         />
-        <StatCard 
-          title="Faturamento (mês)" 
-          value={formatCurrency(stats.monthlyRevenue)} 
-          icon={DollarSign} 
-          color="gray"
-        />
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="bg-gray-100 flex-shrink-0 rounded-full p-3">
+                <DollarSign className="text-gray-600 h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">
+                    Faturamento
+                  </dt>
+                  <dd className="flex flex-col">
+                    <div className="text-lg font-medium text-gray-900">
+                      {formatCurrency(stats.dailyRevenue)}
+                      <span className="text-xs text-gray-500 ml-1">(hoje)</span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {formatCurrency(stats.monthlyRevenue)}
+                      <span className="text-xs ml-1">(mês)</span>
+                    </div>
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       {/* Main Content */}
