@@ -22,6 +22,7 @@ const Dashboard: React.FC = () => {
     todayAppointments: 0,
     completedThisWeek: 0,
     newClientsThisMonth: 0,
+    dailyRevenue: 0,
     monthlyRevenue: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
@@ -147,14 +148,32 @@ const Dashboard: React.FC = () => {
       // For demo purposes, we'll just count all clients since we don't have created dates
       const clientsThisMonth = clients.length;
       
-      // Calculate monthly revenue (completed appointments * service price)
-      let revenue = 0;
+      // Calculate daily and monthly revenue (completed appointments * service price)
+      let monthlyRevenue = 0;
+      let dailyRevenue = 0;
+      
       appointments.forEach((appt: Appointment) => {
         const apptDate = new Date(appt.date);
-        if (apptDate >= firstDayOfMonth && appt.status === AppointmentStatus.COMPLETED) {
+        const apptDay = new Date(apptDate);
+        apptDay.setHours(0, 0, 0, 0);
+        
+        // Verificar se o status é completed ou confirmed
+        const validStatus = appt.status === AppointmentStatus.COMPLETED || 
+                           appt.status === AppointmentStatus.CONFIRMED;
+        
+        if (validStatus) {
           const service = services.find((s: any) => s.id === appt.serviceId);
+          
           if (service) {
-            revenue += service.price;
+            // Se o agendamento é do mês atual
+            if (apptDate >= firstDayOfMonth) {
+              monthlyRevenue += service.price;
+            }
+            
+            // Se o agendamento é de hoje
+            if (apptDay.getTime() === today.getTime()) {
+              dailyRevenue += service.price;
+            }
           }
         }
       });
@@ -163,7 +182,8 @@ const Dashboard: React.FC = () => {
         todayAppointments: todayAppts,
         completedThisWeek: completedWeek,
         newClientsThisMonth: clientsThisMonth,
-        monthlyRevenue: revenue,
+        dailyRevenue: dailyRevenue,
+        monthlyRevenue: monthlyRevenue,
       });
     }
   }, [appointments, clients, services]);
