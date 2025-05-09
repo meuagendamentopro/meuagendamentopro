@@ -25,9 +25,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import PageHeader from "@/components/layout/page-header";
-import { Clock, Calendar, Phone } from "lucide-react";
+import { Clock, Calendar, Phone, Smartphone } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import WhatsAppPopup from "@/components/whatsapp-popup";
 
 // Schema para validação do formulário
 const settingsFormSchema = z.object({

@@ -13,14 +13,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
-const WhatsAppPopup = () => {
+interface WhatsAppPopupProps {
+  triggerManually?: boolean;
+}
+
+const WhatsAppPopup = ({ triggerManually = false }: WhatsAppPopupProps) => {
   const [open, setOpen] = useState(false);
   const [whatsapp, setWhatsapp] = useState('');
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   // Buscar dados do provider
-  const { data: provider } = useQuery({
+  const { data: provider, isLoading: isLoadingProvider } = useQuery({
     queryKey: ['/api/my-provider'],
     queryFn: async () => {
       const res = await fetch('/api/my-provider');
@@ -32,8 +38,16 @@ const WhatsAppPopup = () => {
   // Mutation para atualizar o número de WhatsApp
   const updateWhatsAppMutation = useMutation({
     mutationFn: async (phone: string) => {
+      if (!provider || !provider.id) {
+        throw new Error('Dados do provedor não disponíveis');
+      }
+      
+      // Enviar apenas os campos necessários para não interferir com outros campos do objeto provider
       return apiRequest('PATCH', `/api/providers/${provider.id}/settings`, { 
-        phone 
+        phone,
+        workingHoursStart: provider.workingHoursStart, 
+        workingHoursEnd: provider.workingHoursEnd,
+        workingDays: provider.workingDays
       });
     },
     onSuccess: () => {
@@ -42,14 +56,17 @@ const WhatsAppPopup = () => {
         title: 'WhatsApp atualizado',
         description: 'Seu número de WhatsApp foi salvo com sucesso.',
       });
+      setSaving(false);
       setOpen(false);
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Erro ao atualizar WhatsApp:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível salvar seu número de WhatsApp.',
         variant: 'destructive',
       });
+      setSaving(false);
     }
   });
 
@@ -78,21 +95,32 @@ const WhatsAppPopup = () => {
   const handleSubmit = () => {
     // Remove caracteres não numéricos para salvar apenas números
     const phoneNumbers = whatsapp.replace(/\D/g, '');
+    
+    // Inicia o indicador de salvamento
+    setSaving(true);
+    
+    // Executa a mutação
     updateWhatsAppMutation.mutate(phoneNumbers);
   };
 
   // Verificar se deve mostrar o popup
   useEffect(() => {
-    if (provider && (!provider.phone || provider.phone.trim() === '')) {
-      setOpen(true);
-    } else if (provider && provider.phone) {
-      // Pre-preenche o campo com o telefone atual formatado
-      setWhatsapp(formatPhone(provider.phone));
+    if (provider) {
+      // Se tem telefone, pré-preenche o campo
+      if (provider.phone) {
+        setWhatsapp(formatPhone(provider.phone));
+      }
+      
+      // Se não estiver em modo manual e o provider não tem telefone, mostra o popup automaticamente
+      if (!triggerManually && (!provider.phone || provider.phone.trim() === '')) {
+        console.log('Provider sem WhatsApp configurado, exibindo popup automaticamente');
+        setOpen(true);
+      }
     }
-  }, [provider]);
+  }, [provider, triggerManually]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={triggerManually ? undefined : open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <div className="flex items-center mb-2">
@@ -131,8 +159,17 @@ const WhatsAppPopup = () => {
           </div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit}>
-            Salvar
+          <Button 
+            type="submit" 
+            onClick={handleSubmit} 
+            disabled={saving || isLoadingProvider}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : "Salvar"}
           </Button>
         </DialogFooter>
       </DialogContent>
