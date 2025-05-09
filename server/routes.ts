@@ -509,8 +509,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      // Validar os campos de horário de trabalho
-      const { workingHoursStart, workingHoursEnd, workingDays } = req.body;
+      // Extrair os campos da requisição
+      const { workingHoursStart, workingHoursEnd, workingDays, phone } = req.body;
       
       if (workingHoursStart === undefined || workingHoursEnd === undefined) {
         return res.status(400).json({ 
@@ -564,7 +564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Agora temos um método específico no storage para atualizar o provedor
+      // Preparar o objeto com os dados para atualização
       const providerData: Partial<InsertProvider> = {
         workingHoursStart,
         workingHoursEnd
@@ -573,6 +573,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Adicionar workingDays ao update se fornecido
       if (workingDays !== undefined) {
         providerData.workingDays = workingDays;
+      }
+      
+      // Adicionar o número de telefone/WhatsApp se fornecido
+      if (phone !== undefined) {
+        providerData.phone = phone;
       }
       
       const updatedProvider = await storage.updateProvider(id, providerData);
