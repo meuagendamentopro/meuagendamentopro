@@ -1719,5 +1719,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // API de notificações
+  app.get("/api/notifications", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      const notifications = await storage.getNotifications(req.user.id);
+      res.json(notifications);
+    } catch (error: any) {
+      console.error("Erro ao buscar notificações:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/notifications/unread", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      const notifications = await storage.getUnreadNotifications(req.user.id);
+      res.json(notifications);
+    } catch (error: any) {
+      console.error("Erro ao buscar notificações não lidas:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/notifications/:id/mark-as-read", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    const id = parseInt(req.params.id);
+    
+    try {
+      const notification = await storage.markNotificationAsRead(id);
+      if (!notification) {
+        return res.status(404).json({ error: "Notificação não encontrada" });
+      }
+      res.json(notification);
+    } catch (error: any) {
+      console.error("Erro ao marcar notificação como lida:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/notifications/mark-all-as-read", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      await storage.markAllNotificationsAsRead(req.user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao marcar todas notificações como lidas:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
