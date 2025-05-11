@@ -66,9 +66,15 @@ const AppointmentsPage: React.FC = () => {
 
   // Fetch appointments usando a rota protegida
   const { data: appointments, isLoading: appointmentsLoading, refetch: refetchAppointments } = useQuery({
-    queryKey: ["/api/my-appointments"],
+    queryKey: ["/api/my-appointments", statusFilter],
     queryFn: async () => {
-      const res = await fetch("/api/my-appointments");
+      const url = new URL("/api/my-appointments", window.location.origin);
+      // Adicionar o filtro de status à consulta
+      if (statusFilter !== "all") {
+        url.searchParams.append("status", statusFilter);
+      }
+      
+      const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Failed to fetch appointments");
       return res.json();
     },
