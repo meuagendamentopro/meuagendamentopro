@@ -164,18 +164,3 @@ export function adjustToLocalTimezone(date: Date): Date {
     date.getUTCSeconds()
   );
 }
-
-export function formatDuration(minutes: number): string {
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
-  
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  
-  if (remainingMinutes === 0) {
-    return hours === 1 ? `${hours} hora` : `${hours} horas`;
-  }
-  
-  return `${hours}h${remainingMinutes}min`;
-}

@@ -30,5 +30,4 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, description, children, i
   );
 };
 
-export { PageHeader };
 export default PageHeader;

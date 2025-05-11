@@ -1,53 +1,34 @@
 import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Edit, Trash, ToggleLeft, ToggleRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
-import PageHeader from "@/components/layout/page-header";
-import { formatDuration } from "@/lib/dates";
+import { Pencil, Trash2, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { formatCurrency, formatDuration } from "@/lib/utils";
 import { Service } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import PageHeader from "@/components/layout/page-header";
 import ServiceForm from "@/components/services/service-form";
 
-import { apiRequest } from "@/lib/queryClient";
-
-export default function ServicesPage() {
-  const { toast } = useToast();
+const ServicesPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const queryClient = useQueryClient();
-
-  // Fetching provider data
-  const { data: provider, isLoading: providerLoading } = useQuery({
+  const { toast } = useToast();
+  
+  // Buscar informações do provider logado
+  const { data: provider, isLoading: isLoadingProvider } = useQuery({
     queryKey: ['/api/my-provider'],
     queryFn: async () => {
       const res = await fetch('/api/my-provider');
@@ -56,106 +37,18 @@ export default function ServicesPage() {
     }
   });
 
-  // Fetching services data
-  const { data: services, isLoading: servicesLoading } = useQuery({
+  // Fetch services usando my-services para o provider logado
+  const { data: services, isLoading: isLoadingServices } = useQuery({
     queryKey: ['/api/my-services'],
     queryFn: async () => {
       const res = await fetch('/api/my-services');
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     },
-    enabled: !!provider,
+    // Só busca os serviços após ter as informações do provider
+    enabled: !!provider
   });
 
-  const isLoading = providerLoading || servicesLoading;
-
-  // Mutations
-  const createServiceMutation = useMutation({
-    mutationFn: async (serviceData: Omit<Service, 'id'>) => {
-      const res = await apiRequest("POST", "/api/services", serviceData);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
-      toast({
-        title: "Serviço adicionado",
-        description: "Seu novo serviço foi adicionado com sucesso",
-      });
-      setIsDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Ocorreu um erro ao adicionar o serviço",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateServiceMutation = useMutation({
-    mutationFn: async (service: Service) => {
-      const res = await apiRequest("PATCH", `/api/services/${service.id}`, service);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
-      toast({
-        title: "Serviço atualizado",
-        description: "As alterações foram salvas com sucesso",
-      });
-      setIsDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Ocorreu um erro ao atualizar o serviço",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const toggleServiceMutation = useMutation({
-    mutationFn: async (serviceId: number) => {
-      const service = services.find(s => s.id === serviceId);
-      const res = await apiRequest("PATCH", `/api/services/${serviceId}`, {
-        active: !service.active
-      });
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Ocorreu um erro ao atualizar o status do serviço",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteServiceMutation = useMutation({
-    mutationFn: async (serviceId: number) => {
-      const res = await apiRequest("DELETE", `/api/services/${serviceId}`);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
-      toast({
-        title: "Serviço excluído",
-        description: "O serviço foi excluído com sucesso",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Ocorreu um erro ao excluir o serviço",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Event handlers
   const handleAddService = () => {
     setEditingService(null);
     setIsDialogOpen(true);
@@ -166,27 +59,56 @@ export default function ServicesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (data: any) => {
-    if (editingService) {
-      updateServiceMutation.mutate({ ...editingService, ...data });
-    } else {
-      createServiceMutation.mutate({ ...data, providerId: provider.id });
+  const handleDeleteService = async (serviceId: number) => {
+    try {
+      await apiRequest('DELETE', `/api/services/${serviceId}`, undefined);
+      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
+      toast({
+        title: "Serviço excluído",
+        description: "O serviço foi excluído com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o serviço.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleToggleActive = (service: Service) => {
-    toggleServiceMutation.mutate(service.id);
+  const handleToggleActive = async (service: Service) => {
+    try {
+      await apiRequest('PUT', `/api/services/${service.id}`, {
+        ...service,
+        active: !service.active
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
+      toast({
+        title: service.active ? "Serviço desativado" : "Serviço ativado",
+        description: `O serviço "${service.name}" foi ${service.active ? "desativado" : "ativado"} com sucesso.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o status do serviço.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteService = (serviceId: number) => {
-    deleteServiceMutation.mutate(serviceId);
+  const handleServiceFormComplete = () => {
+    setIsDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['/api/my-services'] });
   };
+
+  // Verifica se está carregando
+  const isLoading = isLoadingProvider || isLoadingServices;
 
   return (
     <div className="space-y-6">
       <PageHeader 
         title="Serviços" 
-        description="Gerencie os serviços oferecidos aos seus clientes"
+        description="Gerencie os serviços oferecidos"
       >
         <Button onClick={handleAddService} disabled={!provider}>
           <Plus className="h-4 w-4 mr-2" /> Adicionar serviço
@@ -205,122 +127,73 @@ export default function ServicesPage() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-6">
-              <div className="inline-block min-w-full align-middle px-6">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap">Ações</TableHead>
-                      <TableHead className="whitespace-nowrap">Nome</TableHead>
-                      <TableHead className="whitespace-nowrap">Descrição</TableHead>
-                      <TableHead className="whitespace-nowrap">Duração</TableHead>
-                      <TableHead className="whitespace-nowrap">Preço</TableHead>
-                      <TableHead className="whitespace-nowrap">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {services.map((service: Service) => (
-                      <TableRow key={service.id}>
-                        <TableCell>
-                          <div className="flex items-center justify-start space-x-2">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleEditService(service)}
-                                    className="h-8 w-8 text-blue-600"
-                                  >
-                                    <Edit className="h-5 w-5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Editar serviço</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            
-                            <AlertDialog>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-red-600"
-                                      >
-                                        <Trash className="h-5 w-5" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Excluir serviço</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir serviço</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir o serviço "{service.name}"? Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-red-600 hover:bg-red-700"
-                                    onClick={() => handleDeleteService(service.id)}
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                            
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleToggleActive(service)}
-                                    className={`h-8 w-8 ${service.active ? 'text-green-600' : 'text-gray-400'}`}
-                                  >
-                                    {service.active ? (
-                                      <ToggleRight className="h-5 w-5" />
-                                    ) : (
-                                      <ToggleLeft className="h-5 w-5" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{service.active ? 'Desativar serviço' : 'Ativar serviço'}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{service.name}</TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {service.description || "-"}
-                        </TableCell>
-                        <TableCell>{formatDuration(service.duration)}</TableCell>
-                        <TableCell>{formatCurrency(service.price)}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            className={`${service.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
-                          >
-                            {service.active ? 'Ativo' : 'Inativo'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Duração</TableHead>
+                  <TableHead>Preço</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {services.map((service: Service) => (
+                  <TableRow key={service.id}>
+                    <TableCell className="font-medium">{service.name}</TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {service.description || "-"}
+                    </TableCell>
+                    <TableCell>{formatDuration(service.duration)}</TableCell>
+                    <TableCell>{formatCurrency(service.price)}</TableCell>
+                    <TableCell>
+                      <Switch 
+                        checked={service.active}
+                        onCheckedChange={() => handleToggleActive(service)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditService(service)}
+                        className="mr-2"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Editar</span>
+                      </Button>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-red-600">
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Excluir</span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir serviço</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir o serviço "{service.name}"? Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-red-600 hover:bg-red-700"
+                              onClick={() => handleDeleteService(service.id)}
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
@@ -329,21 +202,18 @@ export default function ServicesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingService ? "Editar serviço" : "Adicionar serviço"}
+              {editingService ? "Editar Serviço" : "Adicionar Serviço"}
             </DialogTitle>
-            <DialogDescription>
-              {editingService
-                ? "Atualize as informações do serviço abaixo."
-                : "Preencha as informações do novo serviço."}
-            </DialogDescription>
           </DialogHeader>
           <ServiceForm
-            service={editingService}
             providerId={provider?.id}
-            onComplete={() => setIsDialogOpen(false)}
+            service={editingService}
+            onComplete={handleServiceFormComplete}
           />
         </DialogContent>
       </Dialog>
     </div>
   );
-}
+};
+
+export default ServicesPage;

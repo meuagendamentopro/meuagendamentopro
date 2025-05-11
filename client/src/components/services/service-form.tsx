@@ -213,5 +213,4 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ providerId, service, onComple
   );
 };
 
-export { ServiceForm };
 export default ServiceForm;

@@ -31,37 +31,14 @@ const AlertDialogContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
-    <div className="fixed inset-0 z-[9999] flex items-start justify-start overflow-auto" 
-         style={{ 
-           position: 'fixed', 
-           top: 0, 
-           left: 0, 
-           right: 0, 
-           bottom: 0, 
-           width: '100vw', 
-           height: '100vh',
-           paddingTop: '10vh'
-         }}
-         onClick={(e) => {
-           // Impedir que cliques no container fechem o diálogo
-           e.stopPropagation();
-         }}
-    >
-      <AlertDialogPrimitive.Content
-        ref={ref}
-        style={{ 
-          position: 'relative', 
-          margin: 'auto',
-          maxWidth: 'calc(100vw - 2rem)',
-          width: '100%'
-        }}
-        className={cn(
-          "relative z-[9999] grid w-full max-w-md max-h-[80vh] gap-4 border bg-background p-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg sm:p-6 overflow-y-auto",
-          className
-        )}
-        {...props}
-      />
-    </div>
+    <AlertDialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        className
+      )}
+      {...props}
+    />
   </AlertDialogPortal>
 ))
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
