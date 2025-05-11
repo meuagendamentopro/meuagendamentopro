@@ -292,6 +292,7 @@ const AppointmentsPage: React.FC = () => {
                     <TableHead>Serviço</TableHead>
                     <TableHead>Data/Hora</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Observações</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -340,8 +341,19 @@ const AppointmentsPage: React.FC = () => {
                           </Badge>
                         )}
                       </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
+                      <TableCell>
+                        {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
+                          <span className="text-sm italic">
+                            <span className="font-medium">Motivo do cancelamento:</span> {appointment.cancellationReason}
+                          </span>
+                        ) : appointment.notes ? (
+                          <span className="text-sm">{appointment.notes}</span>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
                             <Button
                               variant="outline"
                               size="sm"
