@@ -107,7 +107,7 @@ export function useNotifications() {
         toast({
           title: 'Nova notificação',
           description: 'Você recebeu um novo agendamento',
-          variant: 'default',
+          variant: 'info',
         });
       }
       
@@ -136,7 +136,7 @@ export function useNotifications() {
           toast({
             title: notification.title || 'Nova notificação',
             description: notification.message || 'Você tem uma nova notificação',
-            variant: 'default',
+            variant: 'info',
           });
         } else {
           console.error('Notificação recebida via WebSocket sem dados de notificação:', data);
@@ -177,6 +177,7 @@ export function useNotifications() {
       toast({
         title: 'Notificações',
         description: 'Todas as notificações foram marcadas como lidas',
+        variant: 'default',
       });
     },
     onError: (error: any) => {
