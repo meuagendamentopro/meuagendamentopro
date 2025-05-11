@@ -328,7 +328,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                           <SelectValue placeholder="Selecione um cliente" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="max-h-[35vh]">
+                      <SelectContent className="max-h-[40vh] overflow-y-auto">
                         {clientsLoading ? (
                           <SelectItem value="loading" disabled>
                             Carregando...
