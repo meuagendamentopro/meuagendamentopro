@@ -65,11 +65,11 @@ app.use((req, res, next) => {
     
     // Rota específica para verificação de email
     app.get('/verify-email/:token', (req, res) => {
+      console.log(`Interceptando rota de verificação de email: ${req.url}`);
+      // Sempre envia o index.html para permitir que o React Router processe a rota
       if (app.get("env") === "development") {
-        // No desenvolvimento, redireciona para o client-side router
-        res.redirect(`/verify-email/${req.params.token}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`);
+        res.redirect('/');
       } else {
-        // Em produção, serve o index.html para suportar client-side routing
         res.sendFile('index.html', { root: './dist/client' });
       }
     });

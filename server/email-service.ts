@@ -125,7 +125,8 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
       console.log(`Definindo URL base para emails: ${baseUrl}`);
     }
   }
-  const verificationUrl = `${baseUrl}/verify-email/${token}?email=${encodeURIComponent(user.email)}`;
+  // API para verificação direta (sem redirecionamento)
+  const apiVerificationUrl = `${baseUrl}/api/verify-email-direct/${token}?email=${encodeURIComponent(user.email)}`;
   
   // Template do email
   const html = `
@@ -134,12 +135,12 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
       <p>Olá ${user.name},</p>
       <p>Obrigado por se cadastrar no Meu Agendamento! Para completar seu cadastro, por favor clique no link abaixo para confirmar seu endereço de email:</p>
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+        <a href="${apiVerificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
           Confirmar meu email
         </a>
       </div>
       <p>Ou copie e cole o link abaixo no seu navegador:</p>
-      <p style="word-break: break-all; font-size: 14px; color: #4F46E5;">${verificationUrl}</p>
+      <p style="word-break: break-all; font-size: 14px; color: #4F46E5;">${apiVerificationUrl}</p>
       <p>Este link é válido por 24 horas. Se você não solicitou esta verificação, por favor ignore este email.</p>
       <p>Atenciosamente,<br>Equipe Meu Agendamento</p>
     </div>
