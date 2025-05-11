@@ -279,46 +279,83 @@ const Dashboard: React.FC = () => {
       />
       
       {/* Subscription Alert */}
-      {currentUser && currentUser.role === 'provider' && !currentUser.neverExpires && currentUser.subscriptionExpiry && (
+      {currentUser && currentUser.role === 'provider' && (
         <div className="mb-4">
-          <Card className={
-            new Date(currentUser.subscriptionExpiry) < new Date() 
-              ? "bg-red-50 border-red-200" 
-              : "bg-blue-50 border-blue-200"
-          }>
-            <CardContent className="p-4">
-              <div className="flex items-center">
-                {new Date(currentUser.subscriptionExpiry) < new Date() ? (
+          {currentUser.neverExpires ? (
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-4">
+                <div className="flex items-center">
                   <div className="mr-3 flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                   </div>
-                ) : (
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-800">
+                      Você possui uma assinatura Premium com acesso ilimitado.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : currentUser.subscriptionExpiry ? (
+            <Card className={
+              new Date(currentUser.subscriptionExpiry) < new Date() 
+                ? "bg-red-50 border-red-200" 
+                : "bg-blue-50 border-blue-200"
+            }>
+              <CardContent className="p-4">
+                <div className="flex items-center">
+                  {new Date(currentUser.subscriptionExpiry) < new Date() ? (
+                    <div className="mr-3 flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="mr-3 flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 4a1 1 0 011 1v4a1 1 0 11-2 0v-4a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    {new Date(currentUser.subscriptionExpiry) < new Date() ? (
+                      <p className="text-sm font-medium text-red-800">
+                        Sua assinatura expirou em {new Date(currentUser.subscriptionExpiry).toLocaleDateString('pt-BR')}. 
+                        Entre em contato com o suporte para renovar.
+                      </p>
+                    ) : (
+                      <p className="text-sm font-medium text-blue-800">
+                        Sua assinatura é válida até {new Date(currentUser.subscriptionExpiry).toLocaleDateString('pt-BR')}.
+                        {new Date(currentUser.subscriptionExpiry).getTime() - new Date().getTime() < 7 * 24 * 60 * 60 * 1000 && (
+                          <span className="ml-1 font-bold">Expira em breve!</span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-amber-50 border-amber-200">
+              <CardContent className="p-4">
+                <div className="flex items-center">
                   <div className="mr-3 flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 4a1 1 0 011 1v4a1 1 0 11-2 0v-4a1 1 0 011-1z" clipRule="evenodd" />
                     </svg>
                   </div>
-                )}
-                <div className="flex-1">
-                  {new Date(currentUser.subscriptionExpiry) < new Date() ? (
-                    <p className="text-sm font-medium text-red-800">
-                      Sua assinatura expirou em {new Date(currentUser.subscriptionExpiry).toLocaleDateString('pt-BR')}. 
-                      Entre em contato com o suporte para renovar.
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-800">
+                      Informações sobre sua assinatura não estão disponíveis. 
+                      Entre em contato com o suporte para verificar seu status.
                     </p>
-                  ) : (
-                    <p className="text-sm font-medium text-blue-800">
-                      Sua assinatura é válida até {new Date(currentUser.subscriptionExpiry).toLocaleDateString('pt-BR')}.
-                      {new Date(currentUser.subscriptionExpiry).getTime() - new Date().getTime() < 7 * 24 * 60 * 60 * 1000 && (
-                        <span className="ml-1 font-bold">Expira em breve!</span>
-                      )}
-                    </p>
-                  )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
       
