@@ -265,7 +265,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[60vh] md:max-h-[70vh] overflow-y-auto pr-1">
         {/* Client Selection */}
         <div>
           <div className="mb-2 flex items-center justify-between">
