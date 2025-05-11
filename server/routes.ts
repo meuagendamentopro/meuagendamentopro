@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tornar a função broadcastUpdate disponível para outras partes do código
   (global as any).broadcastUpdate = broadcastUpdate;
   
-  // Endpoint para verificação de email
+  // Endpoint para verificação de email via POST (usado pelo frontend)
   app.post("/api/verify-email", async (req: Request, res: Response) => {
     try {
       const { email, token } = req.body;
@@ -266,6 +266,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ 
         error: "Erro ao processar a verificação de email. Tente novamente mais tarde." 
       });
+    }
+  });
+  
+  // Nova rota para verificação direta via GET (usado pelos links no email)
+  app.get("/api/verify-email-direct/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const email = req.query.email as string;
+      
+      if (!email || !token) {
+        return res.status(400).send(`
+          <html>
+            <head>
+              <title>Erro na Verificação</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #e53e3e; margin-bottom: 20px; }
+                .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block; }
+              </style>
+            </head>
+            <body>
+              <h1 class="error">Erro na Verificação</h1>
+              <p>Email ou token não fornecidos.</p>
+              <a href="/auth" class="btn">Voltar para Login</a>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Buscar o usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).send(`
+          <html>
+            <head>
+              <title>Erro na Verificação</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #e53e3e; margin-bottom: 20px; }
+                .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block; }
+              </style>
+            </head>
+            <body>
+              <h1 class="error">Erro na Verificação</h1>
+              <p>Usuário não encontrado com o email fornecido.</p>
+              <a href="/auth" class="btn">Voltar para Login</a>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Se o usuário já está verificado
+      if (user.isEmailVerified) {
+        return res.status(200).send(`
+          <html>
+            <head>
+              <title>Email Já Verificado</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .success { color: #48bb78; margin-bottom: 20px; }
+                .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block; }
+              </style>
+            </head>
+            <body>
+              <h1 class="success">Email Já Verificado</h1>
+              <p>Seu email já foi verificado anteriormente. Você pode fazer login na sua conta.</p>
+              <a href="/auth" class="btn">Ir para Login</a>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Verifica se o token é válido
+      if (user.verificationToken !== token) {
+        return res.status(400).send(`
+          <html>
+            <head>
+              <title>Erro na Verificação</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #e53e3e; margin-bottom: 20px; }
+                .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block; }
+              </style>
+            </head>
+            <body>
+              <h1 class="error">Erro na Verificação</h1>
+              <p>Token de verificação inválido.</p>
+              <a href="/auth" class="btn">Voltar para Login</a>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Verificar se o token expirou
+      if (user.verificationTokenExpiry && new Date() > new Date(user.verificationTokenExpiry)) {
+        return res.status(400).send(`
+          <html>
+            <head>
+              <title>Erro na Verificação</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #e53e3e; margin-bottom: 20px; }
+                .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block; }
+                .resend { margin-top: 15px; }
+              </style>
+            </head>
+            <body>
+              <h1 class="error">Erro na Verificação</h1>
+              <p>Token de verificação expirado.</p>
+              <a href="/auth" class="btn">Voltar para Login</a>
+              <p class="resend">
+                <a href="/auth?resend=${encodeURIComponent(email)}">Solicitar novo email de verificação</a>
+              </p>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Atualiza o usuário para marcar o email como verificado
+      const updatedUser = await storage.updateUser(user.id, {
+        isEmailVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null
+      });
+      
+      if (!updatedUser) {
+        return res.status(500).send(`
+          <html>
+            <head>
+              <title>Erro na Verificação</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #e53e3e; margin-bottom: 20px; }
+                .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block; }
+              </style>
+            </head>
+            <body>
+              <h1 class="error">Erro na Verificação</h1>
+              <p>Falha ao atualizar usuário. Tente novamente.</p>
+              <a href="/auth" class="btn">Voltar para Login</a>
+            </body>
+          </html>
+        `);
+      }
+      
+      // Envia um email de boas-vindas
+      try {
+        await sendWelcomeEmail(user);
+      } catch (emailError) {
+        console.error("Erro ao enviar email de boas-vindas:", emailError);
+        // Não interrompemos o fluxo se falhar o envio do email de boas-vindas
+      }
+      
+      // Responder com HTML de sucesso
+      res.status(200).send(`
+        <html>
+          <head>
+            <title>Email Verificado com Sucesso</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .success { color: #48bb78; margin-bottom: 20px; }
+              .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                    text-decoration: none; border-radius: 5px; display: inline-block; }
+            </style>
+          </head>
+          <body>
+            <h1 class="success">Email Verificado com Sucesso!</h1>
+            <p>Seu email foi verificado com sucesso. Agora você pode fazer login na sua conta.</p>
+            <a href="/auth" class="btn">Ir para Login</a>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Erro na verificação de email:", error);
+      res.status(500).send(`
+        <html>
+          <head>
+            <title>Erro na Verificação</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .error { color: #e53e3e; margin-bottom: 20px; }
+              .btn { background-color: #4F46E5; color: white; padding: 10px 20px; 
+                    text-decoration: none; border-radius: 5px; display: inline-block; }
+            </style>
+          </head>
+          <body>
+            <h1 class="error">Erro na Verificação</h1>
+            <p>Ocorreu um erro durante a verificação do seu email. Tente novamente.</p>
+            <a href="/auth" class="btn">Voltar para Login</a>
+          </body>
+        </html>
+      `);
     }
   });
   
