@@ -6,7 +6,8 @@ import {
   AppointmentStatus,
   notifications, type Notification, type InsertNotification,
   users, type User, type InsertUser,
-  providerClients, type ProviderClient, type InsertProviderClient
+  providerClients, type ProviderClient, type InsertProviderClient,
+  timeExclusions, type TimeExclusion, type InsertTimeExclusion
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -66,6 +67,14 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number): Promise<Notification | undefined>;
   markAllNotificationsAsRead(userId: number): Promise<void>;
+  
+  // Time Exclusion methods
+  getTimeExclusions(providerId: number): Promise<TimeExclusion[]>;
+  getTimeExclusionsByDay(providerId: number, dayOfWeek: number): Promise<TimeExclusion[]>;
+  getTimeExclusion(id: number): Promise<TimeExclusion | undefined>;
+  createTimeExclusion(exclusion: InsertTimeExclusion): Promise<TimeExclusion>;
+  updateTimeExclusion(id: number, exclusion: Partial<InsertTimeExclusion>): Promise<TimeExclusion | undefined>;
+  deleteTimeExclusion(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {

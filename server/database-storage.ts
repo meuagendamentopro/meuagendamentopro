@@ -7,7 +7,8 @@ import {
   providerClients, ProviderClient,
   appointments, Appointment, InsertAppointment,
   AppointmentStatus,
-  notifications, Notification, InsertNotification
+  notifications, Notification, InsertNotification,
+  timeExclusions, TimeExclusion, InsertTimeExclusion
 } from "@shared/schema";
 import { db } from "./db";
 import { and, eq, gte, lte, sql, inArray, ne } from "drizzle-orm";
@@ -501,7 +502,49 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
     
-    // Passo 2: Seleciona todos os agendamentos para o provedor na mesma data
+    // Passo 2: Verificar se o horário está dentro de alguma exclusão de horário
+    try {
+      // Buscar exclusões para este dia da semana
+      const timeExclusionsForDay = await this.getTimeExclusionsByDay(providerId, weekday);
+      
+      if (timeExclusionsForDay.length > 0) {
+        console.log(`Encontradas ${timeExclusionsForDay.length} exclusões de horário para o dia ${weekday}`);
+        
+        // Extrair hora e minuto do horário solicitado para comparação com exclusões
+        const requestHourStr = requestHour.toString().padStart(2, '0');
+        const requestMinuteStr = date.getMinutes().toString().padStart(2, '0');
+        const requestTimeStr = `${requestHourStr}:${requestMinuteStr}`;
+        
+        // Calcular hora e minuto do final do agendamento
+        const endHourStr = requestEndHour.toString().padStart(2, '0');
+        const endMinuteStr = requestEndMinutes.toString().padStart(2, '0');
+        const endTimeStr = `${endHourStr}:${endMinuteStr}`;
+        
+        console.log(`Comparando horário solicitado ${requestTimeStr}-${endTimeStr} com exclusões`);
+        
+        for (const exclusion of timeExclusionsForDay) {
+          console.log(`Verificando exclusão: ${exclusion.name || 'Sem nome'} - ${exclusion.startTime} às ${exclusion.endTime}`);
+          
+          // Verificar sobreposição entre horário solicitado e exclusão
+          // Não há sobreposição se um termina antes do outro começar
+          const noOverlap = 
+            endTimeStr <= exclusion.startTime || 
+            requestTimeStr >= exclusion.endTime;
+          
+          if (!noOverlap) {
+            console.log(`Horário indisponível devido à exclusão: ${exclusion.name || 'Sem nome'} (${exclusion.startTime} - ${exclusion.endTime})`);
+            return false;
+          }
+        }
+      } else {
+        console.log(`Nenhuma exclusão de horário encontrada para o dia ${weekday}`);
+      }
+    } catch (error) {
+      console.error("Erro ao verificar exclusões de horário:", error);
+      // Não interrompe o fluxo se falhar, continua a verificação
+    }
+    
+    // Passo 3: Seleciona todos os agendamentos para o provedor na mesma data
     const appointmentsOnDay = await this.getAppointmentsByDate(providerId, date);
     
     // Para cada agendamento, verifica se há conflito de horário
