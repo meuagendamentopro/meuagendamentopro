@@ -54,6 +54,14 @@ app.use((req, res, next) => {
       res.status(status).json({ message });
     });
 
+    // Rota especial para redirecionamento da verificação direta para API
+    app.get('/verify-email-direct/:token', (req, res) => {
+      const token = req.params.token;
+      const email = req.query.email as string;
+      console.log(`Redirecionando verificação de email para API: ${req.url}`);
+      res.redirect(`/api/verify-email-direct/${token}?email=${encodeURIComponent(email)}`);
+    });
+
     // Configuração do frontend
     if (app.get("env") === "development") {
       console.log("Configurando ambiente de desenvolvimento (Vite)");
