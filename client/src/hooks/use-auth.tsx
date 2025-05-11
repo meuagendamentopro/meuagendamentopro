@@ -100,8 +100,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (user: User) => {
+    onSuccess: async (user: User) => {
       queryClient.setQueryData(["/api/user"], user);
+
+      // Verificar se existe um perfil de prestador para este usuário
+      try {
+        const providerRes = await fetch("/api/my-provider");
+        if (providerRes.status === 404) {
+          // Não tem provider, vamos criar um
+          console.log("Criando perfil de prestador para novo usuário");
+          const createProviderRes = await apiRequest("POST", "/api/providers", {
+            name: user.name,
+            email: user.email,
+            phone: "",
+            workingHoursStart: 8,  // Horário padrão de início
+            workingHoursEnd: 18,   // Horário padrão de término
+            bookingLink: user.username.toLowerCase().replace(/[^a-z0-9]/g, "-")
+          });
+          
+          if (createProviderRes.ok) {
+            console.log("Perfil de prestador criado com sucesso");
+          } else {
+            console.error("Erro ao criar perfil de prestador:", await createProviderRes.text());
+          }
+        } else {
+          console.log("Usuário já possui perfil de prestador");
+        }
+      } catch (error) {
+        console.error("Erro ao verificar/criar perfil de prestador:", error);
+        // Não interrompe o fluxo se falhar
+      }
+
       toast({
         title: "Registro bem-sucedido",
         description: `Bem-vindo(a), ${user.name}!`,
