@@ -176,6 +176,7 @@ export const appointments = pgTable("appointments", {
   endTime: timestamp("end_time").notNull(),
   status: text("status").notNull().default(AppointmentStatus.PENDING),
   notes: text("notes"),
+  cancellationReason: text("cancellation_reason"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

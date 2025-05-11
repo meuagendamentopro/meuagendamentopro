@@ -1569,11 +1569,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AppointmentStatus.CONFIRMED,
           AppointmentStatus.CANCELLED,
           AppointmentStatus.COMPLETED
-        ])
+        ]),
+        cancellationReason: z.string().optional()
       });
       
-      const { status } = statusSchema.parse(req.body);
-      const updatedAppointment = await storage.updateAppointmentStatus(id, status);
+      const { status, cancellationReason } = statusSchema.parse(req.body);
+      const updatedAppointment = await storage.updateAppointmentStatus(id, status, cancellationReason);
       
       if (!updatedAppointment) {
         return res.status(404).json({ message: "Appointment not found" });
@@ -1599,7 +1600,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message = `O agendamento #${updatedAppointment.id} foi confirmado`;
           } else if (status === AppointmentStatus.CANCELLED) {
             titleMsg = "Agendamento cancelado";
-            message = `O agendamento #${updatedAppointment.id} foi cancelado`;
+            message = cancellationReason 
+              ? `O agendamento #${updatedAppointment.id} foi cancelado. Motivo: ${cancellationReason}`
+              : `O agendamento #${updatedAppointment.id} foi cancelado`;
           } else if (status === AppointmentStatus.COMPLETED) {
             titleMsg = "Agendamento concluído";
             message = `O agendamento #${updatedAppointment.id} foi marcado como concluído`;

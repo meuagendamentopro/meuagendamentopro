@@ -428,10 +428,17 @@ export class DatabaseStorage implements IStorage {
     return appointment;
   }
 
-  async updateAppointmentStatus(id: number, status: string): Promise<Appointment | undefined> {
+  async updateAppointmentStatus(id: number, status: string, cancellationReason?: string): Promise<Appointment | undefined> {
+    const updateData: Record<string, any> = { status };
+    
+    // Se for cancelamento e tiver motivo, salva o motivo
+    if (status === AppointmentStatus.CANCELLED && cancellationReason) {
+      updateData.cancellationReason = cancellationReason;
+    }
+    
     const [updatedAppointment] = await db
       .update(appointments)
-      .set({ status })
+      .set(updateData)
       .where(eq(appointments.id, id))
       .returning();
     return updatedAppointment;

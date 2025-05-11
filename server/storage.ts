@@ -59,7 +59,7 @@ export interface IStorage {
   getAppointmentsByDate(providerId: number, date: Date): Promise<Appointment[]>;
   getAppointmentsByDateRange(providerId: number, startDate: Date, endDate: Date): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
-  updateAppointmentStatus(id: number, status: string): Promise<Appointment | undefined>;
+  updateAppointmentStatus(id: number, status: string, cancellationReason?: string): Promise<Appointment | undefined>;
   checkAvailability(providerId: number, date: Date, duration: number): Promise<boolean>;
   
   // Notification methods
@@ -594,11 +594,19 @@ export class MemStorage implements IStorage {
     return newAppointment;
   }
   
-  async updateAppointmentStatus(id: number, status: string): Promise<Appointment | undefined> {
+  async updateAppointmentStatus(id: number, status: string, cancellationReason?: string): Promise<Appointment | undefined> {
     const appointment = this.appointments.get(id);
     if (!appointment) return undefined;
     
-    const updatedAppointment: Appointment = { ...appointment, status };
+    const updatedAppointment: Appointment = { 
+      ...appointment, 
+      status,
+      // Adiciona o motivo de cancelamento apenas se o status for "cancelled" e o motivo for fornecido
+      ...(status === AppointmentStatus.CANCELLED && cancellationReason 
+        ? { cancellationReason } 
+        : {})
+    };
+    
     this.appointments.set(id, updatedAppointment);
     return updatedAppointment;
   }
