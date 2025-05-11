@@ -43,6 +43,7 @@ import {
   Edit2, 
   AlertTriangle,
   Ban,
+  MessageCircle,
 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { Client } from "@shared/schema";
@@ -238,6 +239,14 @@ const ClientsPage: React.FC = () => {
       .toUpperCase()
       .substring(0, 2);
   };
+  
+  // Create WhatsApp URL from phone number
+  const getWhatsAppUrl = (phone: string) => {
+    // Remove any non-numeric characters
+    const cleanPhone = phone.replace(/\D/g, '');
+    // Format for WhatsApp API with country code (assuming Brazil +55)
+    return `https://wa.me/55${cleanPhone}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -310,7 +319,17 @@ const ClientsPage: React.FC = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{formatPhoneNumber(client.phone)}</TableCell>
+                      <TableCell>
+                        <a 
+                          href={getWhatsAppUrl(client.phone)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary hover:text-primary/80 transition-colors"
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1.5" />
+                          {formatPhoneNumber(client.phone)}
+                        </a>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">{client.email || "-"}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="max-w-xs truncate">
