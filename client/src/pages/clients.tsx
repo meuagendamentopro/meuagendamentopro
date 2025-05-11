@@ -280,15 +280,15 @@ const ClientsPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full overflow-x-hidden">
+              <Table className="w-full min-w-0 overflow-hidden">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Observações</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="w-1/3">Nome</TableHead>
+                    <TableHead className="w-1/4">Telefone</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden md:table-cell">Observações</TableHead>
+                    <TableHead className="w-16 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -311,8 +311,8 @@ const ClientsPage: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>{formatPhoneNumber(client.phone)}</TableCell>
-                      <TableCell>{client.email || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{client.email || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="max-w-xs truncate">
                           {client.notes || "-"}
                         </div>
