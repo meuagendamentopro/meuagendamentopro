@@ -514,12 +514,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
       
-      const { neverExpires, extensionMonths } = req.body;
-      console.log("Dados extraídos:", { neverExpires, extensionMonths });
+      const { neverExpires, extensionMonths, specificDate, method } = req.body;
+      console.log("Dados extraídos:", { neverExpires, extensionMonths, specificDate, method });
       
       // Validar os dados da assinatura
-      if (neverExpires === undefined && extensionMonths === undefined) {
-        return res.status(400).json({ error: "Deve fornecer pelo menos um parâmetro: neverExpires ou extensionMonths" });
+      if (neverExpires === undefined && method === undefined) {
+        return res.status(400).json({ 
+          error: "Deve fornecer pelo menos um parâmetro: neverExpires ou método de extensão" 
+        });
       }
       
       // Preparar os dados para atualização
@@ -534,31 +536,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      if (!neverExpires && extensionMonths !== undefined) {
-        // Validar extensionMonths
-        const months = parseInt(extensionMonths);
-        if (isNaN(months) || months < 1 || months > 36) {
+      if (!neverExpires && method) {
+        if (method === 'extension' && extensionMonths !== undefined) {
+          // Validar extensionMonths
+          const months = parseInt(extensionMonths);
+          if (isNaN(months) || months < 1 || months > 36) {
+            return res.status(400).json({ 
+              error: "Meses de extensão deve ser um número entre 1 e 36" 
+            });
+          }
+          
+          // Calcular nova data de expiração
+          let baseDate = new Date();
+          
+          // Se o usuário já tiver uma data de expiração no futuro, usar essa como base
+          if (existingUser.subscriptionExpiry) {
+            const currentExpiry = new Date(existingUser.subscriptionExpiry);
+            if (currentExpiry > baseDate) {
+              baseDate = currentExpiry;
+            }
+          }
+          
+          // Adicionar os meses de extensão
+          const newExpiryDate = new Date(baseDate);
+          newExpiryDate.setMonth(newExpiryDate.getMonth() + months);
+          
+          updateData.subscriptionExpiry = newExpiryDate;
+        } 
+        else if (method === 'specific_date' && specificDate) {
+          // Validar data específica
+          const dateObj = new Date(specificDate);
+          
+          if (isNaN(dateObj.getTime())) {
+            return res.status(400).json({ 
+              error: "Data de expiração inválida" 
+            });
+          }
+          
+          // Verificar se a data não é no passado
+          if (dateObj < new Date()) {
+            return res.status(400).json({ 
+              error: "A data de expiração não pode ser no passado" 
+            });
+          }
+          
+          // Definir hora para o final do dia
+          dateObj.setHours(23, 59, 59, 999);
+          
+          updateData.subscriptionExpiry = dateObj;
+        }
+        else {
           return res.status(400).json({ 
-            error: "Meses de extensão deve ser um número entre 1 e 36" 
+            error: "Parâmetros inválidos para o método selecionado" 
           });
         }
-        
-        // Calcular nova data de expiração
-        let baseDate = new Date();
-        
-        // Se o usuário já tiver uma data de expiração no futuro, usar essa como base
-        if (existingUser.subscriptionExpiry) {
-          const currentExpiry = new Date(existingUser.subscriptionExpiry);
-          if (currentExpiry > baseDate) {
-            baseDate = currentExpiry;
-          }
-        }
-        
-        // Adicionar os meses de extensão
-        const newExpiryDate = new Date(baseDate);
-        newExpiryDate.setMonth(newExpiryDate.getMonth() + months);
-        
-        updateData.subscriptionExpiry = newExpiryDate;
       }
       
       // Atualizar o usuário

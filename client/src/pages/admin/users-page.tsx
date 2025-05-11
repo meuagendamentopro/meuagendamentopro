@@ -165,7 +165,9 @@ export default function UsersPage() {
   const subscriptionForm = useForm<SubscriptionFormValues>({
     resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
+      method: 'extension',
       extensionMonths: 3,
+      specificDate: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0], // 3 meses à frente como padrão
       neverExpires: false,
     },
   });
@@ -957,23 +959,75 @@ export default function UsersPage() {
                 />
                 
                 {!subscriptionForm.watch("neverExpires") && (
-                  <FormField
-                    control={subscriptionForm.control}
-                    name="extensionMonths"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estender assinatura por (meses)</FormLabel>
-                        <FormControl>
-                          <Input type="number" min={1} max={36} {...field} />
-                        </FormControl>
-                        <p className="text-sm text-muted-foreground">
-                          A assinatura será estendida pelo número de meses especificado a partir de hoje 
-                          ou da data de expiração atual, o que for maior.
-                        </p>
-                        <FormMessage />
-                      </FormItem>
+                  <>
+                    <FormField
+                      control={subscriptionForm.control}
+                      name="method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Método de definição da assinatura</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione um método" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="extension">Estender por meses</SelectItem>
+                              <SelectItem value="specific_date">Definir data específica</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {subscriptionForm.watch("method") === "extension" && (
+                      <FormField
+                        control={subscriptionForm.control}
+                        name="extensionMonths"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Estender assinatura por (meses)</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={36} {...field} />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              A assinatura será estendida pelo número de meses especificado a partir de hoje 
+                              ou da data de expiração atual, o que for maior.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+
+                    {subscriptionForm.watch("method") === "specific_date" && (
+                      <FormField
+                        control={subscriptionForm.control}
+                        name="specificDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Data específica de expiração</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="date" 
+                                min={new Date().toISOString().split('T')[0]} 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <p className="text-sm text-muted-foreground">
+                              A assinatura expirará exatamente na data especificada.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </>
                 )}
               </div>
 
