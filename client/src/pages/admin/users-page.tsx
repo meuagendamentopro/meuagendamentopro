@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, PlusCircle, MoreVertical, Edit, Trash2, Shield, ShieldOff, Calendar, Clock } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -913,9 +913,9 @@ export default function UsersPage() {
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                       <div className="space-y-0.5">
                         <FormLabel className="text-base">Assinatura sem expiração</FormLabel>
-                        <FormDescription>
+                        <p className="text-sm text-muted-foreground">
                           Quando ativada, a assinatura nunca expira (apenas para administradores)
-                        </FormDescription>
+                        </p>
                       </div>
                       <FormControl>
                         <input
@@ -939,10 +939,10 @@ export default function UsersPage() {
                         <FormControl>
                           <Input type="number" min={1} max={36} {...field} />
                         </FormControl>
-                        <FormDescription>
+                        <p className="text-sm text-muted-foreground">
                           A assinatura será estendida pelo número de meses especificado a partir de hoje 
                           ou da data de expiração atual, o que for maior.
-                        </FormDescription>
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
