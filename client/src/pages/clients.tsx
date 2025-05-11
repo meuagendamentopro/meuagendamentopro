@@ -367,7 +367,7 @@ const ClientsPage: React.FC = () => {
 
       {/* Add/Edit Client Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
               {selectedClient ? "Editar Cliente" : "Adicionar Cliente"}
