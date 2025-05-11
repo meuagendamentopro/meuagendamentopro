@@ -216,7 +216,7 @@ const AppointmentsPage: React.FC = () => {
   const isLoading = appointmentsLoading || clientsLoading || servicesLoading;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full">
       <PageHeader 
         title="Agendamentos" 
         description="Gerencie todos os seus agendamentos"
@@ -226,23 +226,23 @@ const AppointmentsPage: React.FC = () => {
         </Button>
       </PageHeader>
 
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="max-w-full">
+        <CardContent className="pt-6 px-2 sm:px-6">
           {/* Filters */}
           <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Buscar por cliente, telefone ou serviço..."
+                placeholder="Buscar cliente ou serviço..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filtrar por status" />
+                <SelectTrigger className="w-[140px] sm:w-[180px]">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os status</SelectItem>
@@ -254,8 +254,8 @@ const AppointmentsPage: React.FC = () => {
               </Select>
 
               <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filtrar por data" />
+                <SelectTrigger className="w-[140px] sm:w-[180px]">
+                  <SelectValue placeholder="Data" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as datas</SelectItem>
@@ -284,16 +284,16 @@ const AppointmentsPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="w-full overflow-hidden">
+            <div className="w-full overflow-x-auto">
               <Table className="w-full min-w-0 table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[30%] sm:w-[20%]">Cliente</TableHead>
+                    <TableHead className="w-[25%] sm:w-[20%]">Cliente</TableHead>
                     <TableHead className="hidden sm:table-cell w-[20%]">Serviço</TableHead>
-                    <TableHead className="w-[30%] sm:w-[15%]">Data/Hora</TableHead>
+                    <TableHead className="w-[25%] sm:w-[15%]">Data/Hora</TableHead>
                     <TableHead className="hidden sm:table-cell w-[15%]">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Observações</TableHead>
-                    <TableHead className="w-[40%] sm:w-[30%] md:w-[20%] text-right">Ações</TableHead>
+                    <TableHead className="w-[50%] sm:w-[25%] md:w-[15%] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -306,14 +306,14 @@ const AppointmentsPage: React.FC = () => {
 
                     return (
                       <TableRow key={appointment.id}>
-                        <TableCell className="p-2 sm:p-4">
-                          <div className="font-medium truncate max-w-[80px] sm:max-w-full">{getClientName(appointment.clientId)}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-[80px] sm:max-w-full">{getClientPhone(appointment.clientId)}</div>
+                        <TableCell className="p-1 sm:p-3">
+                          <div className="font-medium truncate max-w-[65px] sm:max-w-full">{getClientName(appointment.clientId)}</div>
+                          <div className="text-xs sm:text-sm text-gray-500 truncate max-w-[65px] sm:max-w-full">{getClientPhone(appointment.clientId)}</div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell p-2 sm:p-4 truncate">{getServiceName(appointment.serviceId)}</TableCell>
-                        <TableCell className="p-2 sm:p-4">
-                          <div className="truncate max-w-[80px] sm:max-w-full">{formatDate(appointmentDate)}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-[80px] sm:max-w-full">{formatTime(appointmentDate)}</div>
+                        <TableCell className="hidden sm:table-cell p-1 sm:p-3 truncate">{getServiceName(appointment.serviceId)}</TableCell>
+                        <TableCell className="p-1 sm:p-3">
+                          <div className="truncate max-w-[65px] sm:max-w-full">{formatDate(appointmentDate)}</div>
+                          <div className="text-xs sm:text-sm text-gray-500 truncate max-w-[65px] sm:max-w-full">{formatTime(appointmentDate)}</div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
