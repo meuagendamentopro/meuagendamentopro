@@ -36,9 +36,9 @@ export function generateVerificationToken(userId: number): string {
   // Gera um token aleatório de 6 dígitos
   const token = Math.floor(100000 + Math.random() * 900000).toString();
   
-  // Define a validade do token (24 horas)
+  // Define a validade do token (20 minutos)
   const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24);
+  expiresAt.setMinutes(expiresAt.getMinutes() + 20);
   
   // Remove qualquer token existente para este usuário
   const existingTokenIndex = verificationTokens.findIndex(t => t.userId === userId);
@@ -125,23 +125,20 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
       console.log(`Definindo URL base para emails: ${baseUrl}`);
     }
   }
-  // URL de verificação direta (que será redirecionada para a API)
-  const verificationUrl = `${baseUrl}/verify-email-direct/${token}?email=${encodeURIComponent(user.email)}`;
-  
-  // Template do email
+  // Template do email com código de verificação
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
       <h2 style="color: #333; text-align: center;">Confirme seu Email</h2>
       <p>Olá ${user.name},</p>
-      <p>Obrigado por se cadastrar no Meu Agendamento! Para completar seu cadastro, por favor clique no link abaixo para confirmar seu endereço de email:</p>
+      <p>Obrigado por se cadastrar no Meu Agendamento! Para completar seu cadastro, por favor utilize o código abaixo:</p>
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${verificationUrl}" style="background-color: #4F46E5; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-          Confirmar meu email
-        </a>
+        <div style="font-size: 32px; letter-spacing: 5px; font-weight: bold; color: #4F46E5; padding: 15px; background-color: #f5f5f5; border-radius: 10px; display: inline-block;">
+          ${token}
+        </div>
       </div>
-      <p>Ou copie e cole o link abaixo no seu navegador:</p>
-      <p style="word-break: break-all; font-size: 14px; color: #4F46E5;">${verificationUrl}</p>
-      <p>Este link é válido por 24 horas. Se você não solicitou esta verificação, por favor ignore este email.</p>
+      <p>Insira este código na tela de verificação para ativar sua conta.</p>
+      <p style="font-weight: bold; color: #ef4444;">Este código expira em 20 minutos.</p>
+      <p>Se você não solicitou esta verificação, por favor ignore este email.</p>
       <p>Atenciosamente,<br>Equipe Meu Agendamento</p>
     </div>
   `;
