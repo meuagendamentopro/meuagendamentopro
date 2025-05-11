@@ -18,20 +18,25 @@ export function formatPhoneNumber(phone: string): string {
   // Remove non-numeric characters
   const cleaned = phone.replace(/\D/g, '');
   
-  // Force format as (XX) XXXXX-XXXX 
+  // Force format as (XX) XXXXX-XXXX or (XX) XXXX-XXXX
   if (cleaned.length >= 11) {
-    // If more than 11 digits, truncate
+    // Caso seja um número com 11 dígitos (com 9 na frente) - formato celular Brasil
     return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 7)}-${cleaned.substring(7, 11)}`;
   } else if (cleaned.length === 10) {
-    // For 10 digit numbers, add a 9 after DDD (new Brazilian format)
-    return `(${cleaned.substring(0, 2)}) 9${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}`;
+    // Para números com 10 dígitos (sem o 9) - formato antigo ou telefone fixo
+    return `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6, 10)}`;
   } else if (cleaned.length > 2) {
-    // Handle incomplete numbers but with at least DDD
+    // Trata números incompletos, mas com pelo menos o DDD
     const remainingDigits = cleaned.substring(2);
-    if (remainingDigits.length <= 5) {
+    if (remainingDigits.length <= 4) {
+      // Para números com até 4 dígitos após o DDD
+      return `(${cleaned.substring(0, 2)}) ${remainingDigits}`;
+    } else if (remainingDigits.length <= 5) {
+      // Para números com 5 dígitos após o DDD (provável celular incompleto)
       return `(${cleaned.substring(0, 2)}) ${remainingDigits}`;
     } else {
-      return `(${cleaned.substring(0, 2)}) ${remainingDigits.substring(0, 5)}-${remainingDigits.substring(5)}`;
+      // Para números mais completos, adiciona o hífen
+      return `(${cleaned.substring(0, 2)}) ${remainingDigits.substring(0, remainingDigits.length-4)}-${remainingDigits.substring(remainingDigits.length-4)}`;
     }
   }
   

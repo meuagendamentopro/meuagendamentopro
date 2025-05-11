@@ -293,10 +293,16 @@ const SettingsPage: React.FC = () => {
                       if (numbers.length <= 6) {
                         return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
                       }
-                      if (numbers.length <= 10) {
-                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+                      if (numbers.length === 10) {
+                        // Para números com 10 dígitos (sem o 9) - formato antigo ou telefone fixo
+                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6, 10)}`;
                       }
-                      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+                      if (numbers.length >= 11) {
+                        // Para números com 11 dígitos (com o 9) - formato celular Brasil
+                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+                      }
+                      // Para números incompletos com mais de 6 dígitos
+                      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
                     };
 
                     return (
