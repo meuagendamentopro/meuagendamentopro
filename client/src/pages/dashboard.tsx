@@ -141,11 +141,12 @@ const Dashboard: React.FC = () => {
       
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       
-      // Count today's appointments
+      // Count today's active appointments (pending or confirmed only)
       const todayAppts = appointments.filter((appt: Appointment) => {
         const apptDate = new Date(appt.date);
         apptDate.setHours(0, 0, 0, 0);
-        return apptDate.getTime() === today.getTime();
+        return apptDate.getTime() === today.getTime() && 
+          (appt.status === AppointmentStatus.PENDING || appt.status === AppointmentStatus.CONFIRMED);
       }).length;
       
       // Count completed appointments this week
