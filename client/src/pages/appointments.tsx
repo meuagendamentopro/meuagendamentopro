@@ -284,16 +284,16 @@ const AppointmentsPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full overflow-x-hidden">
+              <Table className="w-full min-w-0 overflow-hidden">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Serviço</TableHead>
-                    <TableHead>Data/Hora</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Observações</TableHead>
-                    <TableHead>Ações</TableHead>
+                    <TableHead className="w-1/4">Cliente</TableHead>
+                    <TableHead className="w-1/6">Serviço</TableHead>
+                    <TableHead className="w-1/6">Data/Hora</TableHead>
+                    <TableHead className="w-1/6">Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Observações</TableHead>
+                    <TableHead className="w-1/6">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,7 +341,7 @@ const AppointmentsPage: React.FC = () => {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
                           <span className="text-sm italic">
                             <span className="font-medium">Motivo do cancelamento:</span> {appointment.cancellationReason}
@@ -353,23 +353,26 @@ const AppointmentsPage: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-wrap gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditAppointment(appointment)}
+                              className="px-2"
                             >
-                              Editar
+                              <span className="hidden md:inline">Editar</span>
+                              <Pencil className="h-4 w-4 md:hidden" />
                             </Button>
 
                             {isPending && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-success-600 border-success-600 hover:bg-success-50"
+                                className="text-success-600 border-success-600 hover:bg-success-50 px-2"
                                 onClick={() => handleUpdateStatus(appointment.id, AppointmentStatus.CONFIRMED)}
                               >
-                                Confirmar
+                                <span className="hidden md:inline">Confirmar</span>
+                                <Check className="h-4 w-4 md:hidden" />
                               </Button>
                             )}
 
