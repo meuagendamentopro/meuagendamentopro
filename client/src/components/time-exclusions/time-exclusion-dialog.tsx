@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { 
   Select,
   SelectContent,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { TimeExclusion } from '@shared/schema';
 import { useTimeExclusions } from '@/hooks/use-time-exclusions';
+import { useToast } from '@/hooks/use-toast';
 
 interface TimeExclusionDialogProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ interface FormValues {
 }
 
 const DAYS_OF_WEEK = [
-  { value: "0", label: "Todos os dias" }, // Mudamos de "" para "0"
+  { value: "0", label: "Todos os dias" },
   { value: "1", label: "Segunda-feira" },
   { value: "2", label: "Terça-feira" },
   { value: "3", label: "Quarta-feira" },
@@ -47,53 +48,65 @@ export function TimeExclusionDialog({
   dayOfWeek 
 }: TimeExclusionDialogProps) {
   const { createExclusionMutation, updateExclusionMutation } = useTimeExclusions();
+  const { toast } = useToast();
   const isEditing = !!exclusion;
+  
+  // Estado local para os campos do formulário
+  const [nameValue, setNameValue] = useState("");
+  const [startTimeValue, setStartTimeValue] = useState("12:00");
+  const [endTimeValue, setEndTimeValue] = useState("13:00");
+  const [dayOfWeekValue, setDayOfWeekValue] = useState("0");
+
+  // Inicializar valores quando o diálogo abre
+  useEffect(() => {
+    if (isOpen) {
+      setNameValue(exclusion?.name || "");
+      setStartTimeValue(exclusion?.startTime || "12:00");
+      setEndTimeValue(exclusion?.endTime || "13:00");
+      setDayOfWeekValue(exclusion?.dayOfWeek?.toString() || dayOfWeek?.toString() || "0");
+    }
+  }, [isOpen, exclusion, dayOfWeek]);
 
   // Valores default para o formulário
   const defaultValues: FormValues = {
-    name: exclusion?.name || "",
-    startTime: exclusion?.startTime || "12:00",
-    endTime: exclusion?.endTime || "13:00",
-    dayOfWeek: exclusion?.dayOfWeek?.toString() || dayOfWeek?.toString() || "0", // Agora usamos "0" para "todos os dias"
+    name: "",
+    startTime: "12:00",
+    endTime: "13:00",
+    dayOfWeek: "0",
   };
 
   // Inicializar o formulário
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue, watch } = useForm<FormValues>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting }, reset, setValue } = useForm<FormValues>({
     defaultValues,
   });
-
-  // Resetar o formulário quando o diálogo se abre
-  React.useEffect(() => {
-    if (isOpen) {
-      reset(defaultValues);
-    }
-  }, [isOpen, reset, defaultValues]);
-
-  // Valor atual do campo dayOfWeek
-  const selectedDayOfWeek = watch('dayOfWeek');
-
-  // Função para lidar com a mudança do select
-  const handleDayOfWeekChange = (value: string) => {
-    setValue('dayOfWeek', value);
-  };
 
   // Função para submeter o formulário
   const onSubmit = async (data: FormValues) => {
     try {
       // Verificar os dados
       if (data.startTime >= data.endTime) {
-        // Toast de erro
+        toast({
+          title: "Erro",
+          description: "O horário final deve ser após o horário inicial",
+          variant: "destructive"
+        });
         return;
       }
 
       // Converter dayOfWeek para number ou null
-      // Agora verificamos se é "0" (todos os dias) e definimos como null nesse caso
       const parsedDayOfWeek = data.dayOfWeek !== "0" && data.dayOfWeek !== ""
         ? parseInt(data.dayOfWeek) 
         : null;
         
       // Se o nome estiver vazio, usar "Horário Indisponível" como padrão
       const name = data.name.trim() || "Horário Indisponível";
+
+      console.log("Enviando dados:", {
+        name,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        dayOfWeek: parsedDayOfWeek
+      });
 
       // Criar ou atualizar uma exclusão de horário
       if (isEditing && exclusion) {
@@ -121,8 +134,26 @@ export function TimeExclusionDialog({
       onClose();
     } catch (error) {
       console.error("Erro ao salvar exclusão de horário:", error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao salvar a exclusão de horário",
+        variant: "destructive"
+      });
     }
   };
+
+  // Atualizar valores do formulário quando componente monta
+  useEffect(() => {
+    if (isOpen) {
+      // Reset com valores atualizados
+      reset({
+        name: nameValue,
+        startTime: startTimeValue,
+        endTime: endTimeValue,
+        dayOfWeek: dayOfWeekValue,
+      });
+    }
+  }, [isOpen, nameValue, startTimeValue, endTimeValue, dayOfWeekValue, reset]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -139,6 +170,7 @@ export function TimeExclusionDialog({
             <Input 
               id="name" 
               placeholder="Ex: Almoço, Café, Reunião..."
+              defaultValue={nameValue}
               {...register('name')}
             />
           </div>
@@ -154,6 +186,7 @@ export function TimeExclusionDialog({
               <Input 
                 id="startTime" 
                 type="time"
+                defaultValue={startTimeValue}
                 {...register('startTime', { 
                   required: "Obrigatório",
                 })}
@@ -170,6 +203,7 @@ export function TimeExclusionDialog({
               <Input 
                 id="endTime" 
                 type="time"
+                defaultValue={endTimeValue}
                 {...register('endTime', { 
                   required: "Obrigatório",
                 })}
@@ -179,19 +213,26 @@ export function TimeExclusionDialog({
           
           <div className="space-y-2">
             <Label htmlFor="dayOfWeek">Dia da Semana</Label>
-            <Select 
-              value={selectedDayOfWeek} 
-              onValueChange={handleDayOfWeekChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o dia" />
-              </SelectTrigger>
-              <SelectContent>
-                {DAYS_OF_WEEK.map((day) => (
-                  <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              name="dayOfWeek"
+              control={control}
+              defaultValue={dayOfWeekValue}
+              render={({ field }) => (
+                <Select 
+                  defaultValue={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o dia" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DAYS_OF_WEEK.map((day) => (
+                      <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
             <div className="text-xs text-muted-foreground">
               Se "Todos os dias" for selecionado, esta exclusão será aplicada todos os dias da semana.
             </div>
