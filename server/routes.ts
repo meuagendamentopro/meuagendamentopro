@@ -490,6 +490,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Falha ao atualizar status do usuário" });
     }
   });
+  
+  // Rota para gerenciar assinatura de usuário (apenas Admin)
+  app.patch("/api/admin/users/:id/subscription", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID de usuário inválido" });
+      }
+      
+      // Verificar se o usuário existe
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      const { neverExpires, subscriptionExpiry } = req.body;
+      
+      // Validar os dados da assinatura
+      if (neverExpires === undefined && subscriptionExpiry === undefined) {
+        return res.status(400).json({ error: "Deve fornecer pelo menos um parâmetro: neverExpires ou subscriptionExpiry" });
+      }
+      
+      // Preparar os dados para atualização
+      const updateData: Partial<any> = {};
+      
+      if (neverExpires !== undefined) {
+        updateData.neverExpires = neverExpires;
+      }
+      
+      if (subscriptionExpiry !== undefined) {
+        // Caso seja enviado como string, converter para Date
+        updateData.subscriptionExpiry = new Date(subscriptionExpiry);
+        
+        // Validar se a data é válida
+        if (isNaN(updateData.subscriptionExpiry.getTime())) {
+          return res.status(400).json({ error: "Data de expiração inválida" });
+        }
+      }
+      
+      // Atualizar o usuário
+      const updatedUser = await storage.updateUser(id, updateData);
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao atualizar a assinatura do usuário" });
+      }
+      
+      // Notificar via WebSocket
+      broadcastUpdate('user-updated', updatedUser);
+      
+      // Retornar o usuário atualizado (sem a senha)
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      res.status(200).json({ 
+        success: true, 
+        message: `Assinatura atualizada com sucesso`,
+        user: userWithoutPassword
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar assinatura do usuário:", error);
+      res.status(500).json({ error: "Falha ao atualizar assinatura do usuário" });
+    }
+  });
 
   // Provider routes
   app.get("/api/providers", async (req: Request, res: Response) => {

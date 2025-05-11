@@ -71,6 +71,16 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: "Conta de usuário bloqueada" });
         }
         
+        // Verificar expiração da assinatura (apenas para provedores, não para admins)
+        if (user.role === 'provider' && !user.neverExpires) {
+          const now = new Date();
+          const expiry = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) : null;
+          
+          if (expiry && now > expiry) {
+            return done(null, false, { message: "Assinatura expirada" });
+          }
+        }
+        
         return done(null, user);
       } catch (error) {
         return done(error);
@@ -110,6 +120,17 @@ export function setupAuth(app: Express) {
       if (user.isActive === false) {
         console.log(`Acesso bloqueado para usuário inativo: ${userId}`);
         return done(null, false);
+      }
+      
+      // Verificar expiração da assinatura a cada requisição (apenas para provedores)
+      if (user.role === 'provider' && !user.neverExpires) {
+        const now = new Date();
+        const expiry = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) : null;
+        
+        if (expiry && now > expiry) {
+          console.log(`Acesso bloqueado para usuário ${userId} com assinatura expirada`);
+          return done(null, false);
+        }
       }
       
       done(null, user);
