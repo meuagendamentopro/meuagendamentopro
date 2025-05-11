@@ -1,85 +1,112 @@
 #!/bin/bash
+# Script para configurar um banco de dados PostgreSQL local para o sistema de agendamento
 
-# Script para configurar um banco de dados PostgreSQL local
-# Este script vai:
-# 1. Verificar se o PostgreSQL está instalado
-# 2. Criar um banco de dados chamado "agendadb"
-# 3. Executar o script de migração
-
-# Cores para saída
+# Cores para melhor visualização
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}Configurando banco de dados PostgreSQL local para o sistema de agendamento...${NC}"
+echo -e "${YELLOW}=====================================================${NC}"
+echo -e "${GREEN}Configuração de Banco de Dados Local - Sistema de Agendamento${NC}"
+echo -e "${YELLOW}=====================================================${NC}"
+echo
 
-# Verificar se o PostgreSQL está instalado
+# Verificar se PostgreSQL está instalado
 if ! command -v psql &> /dev/null; then
-    echo -e "${RED}PostgreSQL não encontrado. Por favor, instale o PostgreSQL primeiro.${NC}"
-    echo "Em sistemas baseados em Debian/Ubuntu, você pode instalá-lo com:"
-    echo "sudo apt-get install postgresql postgresql-contrib"
+    echo -e "${RED}PostgreSQL não encontrado! Por favor, instale-o antes de prosseguir.${NC}"
+    echo "No Ubuntu/Debian: sudo apt install postgresql postgresql-contrib"
+    echo "No macOS (com Homebrew): brew install postgresql"
+    echo "No Windows: Baixe o instalador em https://www.postgresql.org/download/windows/"
     exit 1
 fi
 
-echo -e "${GREEN}PostgreSQL encontrado!${NC}"
+echo -e "${BLUE}PostgreSQL detectado. Continuando com a configuração...${NC}"
+echo
+
+# Solicitar configurações do banco local
+read -p "Nome do Banco de Dados [agendadb]: " DB_NAME
+DB_NAME=${DB_NAME:-agendadb}
+
+read -p "Usuário PostgreSQL [postgres]: " DB_USER
+DB_USER=${DB_USER:-postgres}
+
+read -p "Senha PostgreSQL: " DB_PASSWORD
+
+read -p "Host [localhost]: " DB_HOST
+DB_HOST=${DB_HOST:-localhost}
+
+read -p "Porta [5432]: " DB_PORT
+DB_PORT=${DB_PORT:-5432}
+
+# Criar arquivo .env temporário com as configurações
+echo "LOCAL_DB_HOST=$DB_HOST" > .env.local
+echo "LOCAL_DB_PORT=$DB_PORT" >> .env.local
+echo "LOCAL_DB_NAME=$DB_NAME" >> .env.local
+echo "LOCAL_DB_USER=$DB_USER" >> .env.local
+echo "LOCAL_DB_PASSWORD=$DB_PASSWORD" >> .env.local
+
+echo -e "${YELLOW}Verificando se o banco de dados '$DB_NAME' existe...${NC}"
 
 # Verificar se o banco de dados já existe
-DB_EXISTS=$(psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='agendadb'" 2>/dev/null)
-
-if [ "$DB_EXISTS" = "1" ]; then
-    echo -e "${YELLOW}Banco de dados 'agendadb' já existe.${NC}"
-    
-    # Perguntar se deve sobrescrever
-    read -p "Deseja limpar e recriar o banco de dados? (s/N): " RECREATE
-    if [[ $RECREATE =~ ^[Ss]$ ]]; then
-        echo "Recriando banco de dados..."
-        psql -U postgres -c "DROP DATABASE agendadb" 2>/dev/null
-        psql -U postgres -c "CREATE DATABASE agendadb" 2>/dev/null
-        echo -e "${GREEN}Banco de dados recriado com sucesso!${NC}"
-    else
-        echo "Mantendo banco de dados existente."
-    fi
+if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -lqt | grep -q $DB_NAME; then
+    echo -e "${GREEN}O banco de dados '$DB_NAME' já existe.${NC}"
 else
-    echo "Criando banco de dados 'agendadb'..."
-    psql -U postgres -c "CREATE DATABASE agendadb" 2>/dev/null
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Banco de dados criado com sucesso!${NC}"
+    echo -e "${YELLOW}Criando banco de dados '$DB_NAME'...${NC}"
+    if PGPASSWORD=$DB_PASSWORD createdb -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME; then
+        echo -e "${GREEN}Banco de dados '$DB_NAME' criado com sucesso!${NC}"
     else
-        echo -e "${RED}Erro ao criar banco de dados. Verifique se você tem permissões adequadas.${NC}"
-        echo "Talvez você precise executar como outro usuário PostgreSQL:"
-        echo "sudo -u postgres createdb agendadb"
+        echo -e "${RED}Erro ao criar o banco de dados. Tentando com comandos SQL diretos...${NC}"
+        if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -c "CREATE DATABASE $DB_NAME;"; then
+            echo -e "${GREEN}Banco de dados '$DB_NAME' criado com sucesso!${NC}"
+        else
+            echo -e "${RED}Falha ao criar o banco de dados. Por favor, crie manualmente antes de continuar.${NC}"
+            echo "Command: createdb -h $DB_HOST -p $DB_PORT -U $DB_USER $DB_NAME"
+            exit 1
+        fi
+    fi
+fi
+
+echo
+echo -e "${YELLOW}Executando script de migração de dados...${NC}"
+echo
+
+# Usar o Node.js para executar o script de migração
+if [ -f "scripts/migrate-to-local-db.js" ]; then
+    node scripts/migrate-to-local-db.js
+else
+    echo -e "${YELLOW}Script JavaScript não encontrado. Usando TypeScript diretamente...${NC}"
+    
+    # Verificar se tsx (executor de TypeScript) está instalado
+    if ! command -v npx &> /dev/null; then
+        echo -e "${RED}npx não encontrado. Por favor, instale o Node.js antes de prosseguir.${NC}"
         exit 1
     fi
+    
+    # Executar o script TypeScript
+    npx tsx scripts/migrate-to-local-db.ts
 fi
 
-# Configurar variáveis de ambiente para o script de migração
-echo -e "${YELLOW}Configurando variáveis de ambiente temporárias...${NC}"
-export LOCAL_DB_HOST=localhost
-export LOCAL_DB_PORT=5432
-export LOCAL_DB_NAME=agendadb
-export LOCAL_DB_USER=postgres
+# Limpeza
+rm -f .env.local
 
-# Solicitar a senha do PostgreSQL
-read -sp "Digite a senha do usuário 'postgres' do PostgreSQL: " PG_PASSWORD
+# Exibir string de conexão para usar no .env
 echo
-export LOCAL_DB_PASSWORD=$PG_PASSWORD
+echo -e "${GREEN}===== CONFIGURAÇÃO CONCLUÍDA! =====${NC}"
+echo
+echo -e "${BLUE}Para usar o banco local, adicione esta linha ao seu arquivo .env:${NC}"
+echo -e "${YELLOW}DATABASE_URL=postgres://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME${NC}"
+echo
+echo -e "${GREEN}Credenciais de acesso:${NC}"
+echo -e "- ${BLUE}Usuário Admin:${NC} admin / password123"
+echo -e "- ${BLUE}Usuário Link:${NC} link / password123"
+echo
 
-# Executar o script de migração
-echo -e "${YELLOW}Executando script de migração...${NC}"
-npx tsx scripts/migrate-to-local-db.ts
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Migração concluída com sucesso!${NC}"
-    echo
-    echo -e "${YELLOW}Para usar o banco local, adicione a seguinte linha ao seu arquivo .env:${NC}"
-    echo "DATABASE_URL=postgres://postgres:$PG_PASSWORD@localhost:5432/agendadb"
-    echo
-    echo -e "${YELLOW}Credenciais de acesso:${NC}"
-    echo "- Usuário Admin: admin / password123"
-    echo "- Usuário Link: link / password123"
-else
-    echo -e "${RED}Ocorreu um erro durante a migração.${NC}"
-    echo "Verifique o log acima para mais detalhes."
-fi
+# Informações adicionais
+echo -e "${BLUE}Para gerenciar seu banco de dados, você pode usar:${NC}"
+echo -e "- pgAdmin 4: Interface gráfica para PostgreSQL - https://www.pgadmin.org/download/"
+echo -e "- DBeaver: Cliente SQL universal - https://dbeaver.io/download/"
+echo -e "- Ou diretamente via terminal com o comando psql"
+echo
+echo -e "${GREEN}Obrigado por utilizar o Sistema de Agendamento!${NC}"
