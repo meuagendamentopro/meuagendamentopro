@@ -107,7 +107,7 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
       // que os links funcionem quando acessados externamente
       if (process.env.REPL_ID) {
         // Formato correto para URLs de desenvolvimento Replit
-        baseUrl = `https://${process.env.REPL_ID}-00-${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        baseUrl = `https://${process.env.REPL_ID}-00-2zpr2jvty37m.riker.replit.dev`;
         console.log(`Usando URL Replit para emails: ${baseUrl}`);
       } else {
         baseUrl = 'http://localhost:5000';
@@ -117,7 +117,7 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
       // Em produção, tenta usar o domínio Replit
       if (process.env.REPL_ID) {
         // Mesmo em produção, o URL do Replit é o mesmo formato
-        baseUrl = `https://${process.env.REPL_ID}-00-${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        baseUrl = `https://${process.env.REPL_ID}-00-2zpr2jvty37m.riker.replit.dev`;
       } else {
         // Fallback para localhost se não conseguirmos determinar o URL do Replit
         baseUrl = 'http://localhost:5000';
