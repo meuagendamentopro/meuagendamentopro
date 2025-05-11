@@ -188,7 +188,7 @@ export function setupAuth(app: Express) {
         // Criar o perfil de prestador
         const providerData = {
           userId: user.id,
-          name: `${user.name}'s Services`, // Nome padrão para o negócio
+          name: user.name, // Usando o nome do usuário diretamente
           email: user.email,
           phone: "",
           bookingLink,
