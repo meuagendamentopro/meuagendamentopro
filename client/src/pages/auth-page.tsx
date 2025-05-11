@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { VerificationPending } from "@/components/auth/verification-pending";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Nome de usuário é obrigatório"),
@@ -34,6 +35,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("login");
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   const { user, isLoading, loginMutation, registerMutation } = useAuth();
   const [location, navigate] = useLocation();
 

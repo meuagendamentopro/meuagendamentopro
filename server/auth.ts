@@ -309,10 +309,125 @@ export function setupAuth(app: Express) {
     }
   }
   
+  // Rota para verificar email
+  app.post("/api/verify-email", async (req, res) => {
+    const { email, token } = req.body;
+    
+    if (!email || !token) {
+      return res.status(400).json({ error: "Email e token são obrigatórios" });
+    }
+    
+    try {
+      // Buscar usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(400).json({ error: "Email não encontrado" });
+      }
+      
+      // Verificar se o email já foi verificado
+      if (user.isEmailVerified) {
+        return res.status(400).json({ error: "Email já verificado" });
+      }
+      
+      // Verificar se o token é válido
+      if (user.verificationToken !== token) {
+        return res.status(400).json({ error: "Token inválido" });
+      }
+      
+      // Verificar se o token expirou
+      if (user.verificationTokenExpiry && new Date(user.verificationTokenExpiry) < new Date()) {
+        return res.status(400).json({ error: "Token expirado. Solicite um novo." });
+      }
+      
+      // Marcar email como verificado e limpar o token
+      await storage.updateUser(user.id, {
+        isEmailVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null
+      });
+      
+      // Enviar email de boas-vindas
+      if (isEmailServiceConfigured()) {
+        sendWelcomeEmail(user).catch(error => {
+          console.error("Erro ao enviar email de boas-vindas:", error);
+        });
+      }
+      
+      // Responder com sucesso
+      return res.status(200).json({ success: true, message: "Email verificado com sucesso" });
+    } catch (error) {
+      console.error("Erro ao verificar email:", error);
+      return res.status(500).json({ error: "Erro ao verificar email" });
+    }
+  });
+  
+  // Rota para reenviar token de verificação
+  app.post("/api/resend-verification", async (req, res) => {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: "Email é obrigatório" });
+    }
+    
+    try {
+      // Buscar usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        return res.status(400).json({ error: "Email não encontrado" });
+      }
+      
+      // Verificar se o email já foi verificado
+      if (user.isEmailVerified) {
+        return res.status(400).json({ error: "Email já verificado" });
+      }
+      
+      // Verificar se o serviço de email está configurado
+      if (!isEmailServiceConfigured()) {
+        return res.status(500).json({ error: "Serviço de email não configurado" });
+      }
+      
+      // Gerar novo token
+      const token = generateVerificationToken(user.id);
+      
+      // Atualizar token no banco de dados
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // Token válido por 24 horas
+      
+      await storage.updateUser(user.id, {
+        verificationToken: token,
+        verificationTokenExpiry: expiresAt
+      });
+      
+      // Enviar email com o novo token
+      const emailSent = await sendVerificationEmail(user, token);
+      
+      if (!emailSent) {
+        return res.status(500).json({ error: "Falha ao enviar email de verificação" });
+      }
+      
+      // Responder com sucesso
+      return res.status(200).json({ success: true, message: "Email de verificação reenviado com sucesso" });
+    } catch (error) {
+      console.error("Erro ao reenviar verificação:", error);
+      return res.status(500).json({ error: "Erro ao reenviar verificação" });
+    }
+  });
+
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", async (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ error: info?.message || "Credenciais inválidas" });
+      
+      // Verificar se o email foi verificado (se a verificação estiver habilitada)
+      if (isEmailServiceConfigured() && !user.isEmailVerified) {
+        return res.status(403).json({ 
+          error: "Email não verificado", 
+          needsVerification: true,
+          email: user.email 
+        });
+      }
       
       // Antes de fazer login, destruir todas as sessões existentes deste usuário
       await destroyUserSessions(user.id);
