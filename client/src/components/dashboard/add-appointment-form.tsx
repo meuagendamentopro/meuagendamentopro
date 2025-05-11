@@ -372,7 +372,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                     <SelectValue placeholder="Selecione um serviço" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent className="max-h-[35vh]">
+                <SelectContent className="max-h-[40vh] overflow-y-auto">
                   {servicesLoading ? (
                     <SelectItem value="loading" disabled>
                       Carregando...
@@ -450,7 +450,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                       <SelectValue placeholder="Escolha um horário" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent className="max-h-[35vh]">
+                  <SelectContent className="max-h-[40vh] overflow-y-auto">
                     {timeSlots.map((time) => (
                       <SelectItem key={time} value={time}>
                         {time}
