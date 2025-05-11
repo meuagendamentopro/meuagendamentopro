@@ -191,7 +191,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                                     onClick={() => handleConfirmAppointment(appointment.id)}
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-green-600"
+                                    className="h-8 w-8 text-green-600 p-0"
                                   >
                                     <CheckCircle className="h-5 w-5" />
                                   </Button>
@@ -209,7 +209,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-red-600"
+                                  className="h-8 w-8 text-red-600 p-0"
                                 >
                                   <XCircle className="h-5 w-5" />
                                 </Button>
