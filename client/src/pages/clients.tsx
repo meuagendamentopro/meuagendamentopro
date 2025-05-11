@@ -284,11 +284,11 @@ const ClientsPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Observações</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="whitespace-nowrap">Nome</TableHead>
+                    <TableHead className="whitespace-nowrap">Telefone</TableHead>
+                    <TableHead className="whitespace-nowrap">Email</TableHead>
+                    <TableHead className="whitespace-nowrap">Observações</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

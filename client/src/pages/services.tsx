@@ -127,17 +127,18 @@ const ServicesPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Nome</TableHead>
+                    <TableHead className="whitespace-nowrap">Descrição</TableHead>
+                    <TableHead className="whitespace-nowrap">Duração</TableHead>
+                    <TableHead className="whitespace-nowrap">Preço</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {services.map((service: Service) => (
                   <TableRow key={service.id}>
@@ -193,7 +194,8 @@ const ServicesPage: React.FC = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
