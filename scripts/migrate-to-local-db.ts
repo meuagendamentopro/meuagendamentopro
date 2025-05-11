@@ -20,7 +20,7 @@ import * as schema from '../shared/schema';
 import { db } from '../server/db';
 import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 import { hashPassword } from '../server/auth';
 import { closeDb } from '../server/db';
 
@@ -228,127 +228,183 @@ async function insertData(data: any) {
     // Inserir usuários
     console.log('Inserindo usuários...');
     for (const user of data.users) {
-      await localDb.insert(schema.users).values({
-        id: user.id, // Preservar os IDs originais
-        username: user.username,
-        password: user.password,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        subscriptionExpiry: user.subscriptionExpiry,
-        neverExpires: user.neverExpires,
-        verificationToken: user.verificationToken,
-        verificationTokenExpiry: user.verificationTokenExpiry,
-        isEmailVerified: user.isEmailVerified,
-        createdAt: user.createdAt
-      });
+      await localPool.query(`
+        INSERT INTO users (
+          id, username, password, name, email, role, 
+          subscription_expiry, never_expires, verification_token, 
+          verification_token_expiry, is_email_verified, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+        )
+      `, [
+        user.id,
+        user.username,
+        user.password,
+        user.name,
+        user.email,
+        user.role,
+        user.subscriptionExpiry,
+        user.neverExpires,
+        user.verificationToken,
+        user.verificationTokenExpiry,
+        user.isEmailVerified,
+        user.createdAt
+      ]);
     }
     
     // Inserir provedores
     console.log('Inserindo provedores...');
     for (const provider of data.providers) {
-      await localDb.insert(schema.providers).values({
-        id: provider.id,
-        userId: provider.userId,
-        name: provider.name,
-        email: provider.email,
-        phone: provider.phone,
-        description: provider.description,
-        timezone: provider.timezone,
-        workingHours: provider.workingHours,
-        workingDays: provider.workingDays,
-        bookingLink: provider.bookingLink,
-        active: provider.active,
-        isBlocked: provider.isBlocked,
-        createdAt: provider.createdAt
-      });
+      await localPool.query(`
+        INSERT INTO providers (
+          id, user_id, name, email, phone, description, 
+          timezone, working_hours, working_days, booking_link,
+          active, is_blocked, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+        )
+      `, [
+        provider.id,
+        provider.userId,
+        provider.name,
+        provider.email,
+        provider.phone,
+        provider.description,
+        provider.timezone,
+        provider.workingHours,
+        provider.workingDays,
+        provider.bookingLink,
+        provider.active,
+        provider.isBlocked,
+        provider.createdAt
+      ]);
     }
     
     // Inserir clientes
     console.log('Inserindo clientes...');
     for (const client of data.clients) {
-      await localDb.insert(schema.clients).values({
-        id: client.id,
-        name: client.name,
-        phone: client.phone,
-        email: client.email,
-        notes: client.notes,
-        createdAt: client.createdAt,
-        isActive: client.isActive
-      });
+      await localPool.query(`
+        INSERT INTO clients (
+          id, name, phone, email, notes, created_at, is_active
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7
+        )
+      `, [
+        client.id,
+        client.name,
+        client.phone,
+        client.email,
+        client.notes,
+        client.createdAt,
+        client.isActive
+      ]);
     }
     
     // Inserir associações provedor-cliente
     console.log('Inserindo associações provedor-cliente...');
     for (const pc of data.providerClients) {
-      await localDb.insert(schema.providerClients).values({
-        id: pc.id,
-        providerId: pc.providerId,
-        clientId: pc.clientId,
-        createdAt: pc.createdAt
-      });
+      await localPool.query(`
+        INSERT INTO provider_clients (
+          id, provider_id, client_id, created_at
+        ) VALUES (
+          $1, $2, $3, $4
+        )
+      `, [
+        pc.id,
+        pc.providerId,
+        pc.clientId,
+        pc.createdAt
+      ]);
     }
     
     // Inserir serviços
     console.log('Inserindo serviços...');
     for (const service of data.services) {
-      await localDb.insert(schema.services).values({
-        id: service.id,
-        providerId: service.providerId,
-        name: service.name,
-        description: service.description,
-        duration: service.duration,
-        price: service.price,
-        color: service.color,
-        createdAt: service.createdAt,
-        isActive: service.isActive
-      });
+      await localPool.query(`
+        INSERT INTO services (
+          id, provider_id, name, description, duration, 
+          price, color, created_at, is_active
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9
+        )
+      `, [
+        service.id,
+        service.providerId,
+        service.name,
+        service.description,
+        service.duration,
+        service.price,
+        service.color,
+        service.createdAt,
+        service.isActive
+      ]);
     }
     
     // Inserir agendamentos
     console.log('Inserindo agendamentos...');
     for (const appointment of data.appointments) {
-      await localDb.insert(schema.appointments).values({
-        id: appointment.id,
-        providerId: appointment.providerId,
-        clientId: appointment.clientId,
-        serviceId: appointment.serviceId,
-        date: appointment.date,
-        endTime: appointment.endTime,
-        status: appointment.status,
-        notes: appointment.notes,
-        cancellationReason: appointment.cancellationReason,
-        createdAt: appointment.createdAt
-      });
+      await localPool.query(`
+        INSERT INTO appointments (
+          id, provider_id, client_id, service_id, date, 
+          end_time, status, notes, cancellation_reason, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+        )
+      `, [
+        appointment.id,
+        appointment.providerId,
+        appointment.clientId,
+        appointment.serviceId,
+        appointment.date,
+        appointment.endTime,
+        appointment.status,
+        appointment.notes,
+        appointment.cancellationReason,
+        appointment.createdAt
+      ]);
     }
     
     // Inserir notificações
     console.log('Inserindo notificações...');
     for (const notification of data.notifications) {
-      await localDb.insert(schema.notifications).values({
-        id: notification.id,
-        userId: notification.userId,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        isRead: notification.isRead,
-        appointmentId: notification.appointmentId,
-        createdAt: notification.createdAt
-      });
+      await localPool.query(`
+        INSERT INTO notifications (
+          id, user_id, title, message, type, 
+          is_read, appointment_id, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8
+        )
+      `, [
+        notification.id,
+        notification.userId,
+        notification.title,
+        notification.message,
+        notification.type,
+        notification.isRead,
+        notification.appointmentId,
+        notification.createdAt
+      ]);
     }
     
     // Inserir exclusões de horário
     console.log('Inserindo exclusões de horário...');
     for (const exclusion of data.timeExclusions) {
-      await localDb.insert(schema.timeExclusions).values({
-        id: exclusion.id,
-        providerId: exclusion.providerId,
-        dayOfWeek: exclusion.dayOfWeek,
-        startTime: exclusion.startTime,
-        endTime: exclusion.endTime,
-        recurring: exclusion.recurring,
-        createdAt: exclusion.createdAt
-      });
+      await localPool.query(`
+        INSERT INTO time_exclusions (
+          id, provider_id, day_of_week, start_time, 
+          end_time, recurring, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7
+        )
+      `, [
+        exclusion.id,
+        exclusion.providerId,
+        exclusion.dayOfWeek,
+        exclusion.startTime,
+        exclusion.endTime,
+        exclusion.recurring,
+        exclusion.createdAt
+      ]);
     }
     
     // Atualizar as sequências
@@ -423,77 +479,141 @@ async function migrateToLocalDb() {
 // Função para criar credenciais de teste se não existirem
 async function createTestCredentials() {
   // Verificar se os usuários admin e link já existem
-  const adminExists = await localDb.select().from(schema.users).where(eq(schema.users.username, 'admin'));
-  const linkExists = await localDb.select().from(schema.users).where(eq(schema.users.username, 'link'));
+  const adminResult = await localPool.query(`SELECT * FROM users WHERE username = 'admin'`);
+  const linkResult = await localPool.query(`SELECT * FROM users WHERE username = 'link'`);
   
-  if (adminExists.length === 0) {
+  if (adminResult.rows.length === 0) {
     console.log('Criando usuário admin...');
     const hashedPassword = await hashPassword('password123');
     
     // Inserir usuário admin
-    const [admin] = await localDb.insert(schema.users).values({
-      username: 'admin',
-      password: hashedPassword,
-      name: 'Administrador',
-      email: 'admin@example.com',
-      role: 'admin',
-      neverExpires: true,
-      isEmailVerified: true
-    }).returning();
+    const adminInsertResult = await localPool.query(`
+      INSERT INTO users (
+        username, password, name, email, role, 
+        never_expires, is_email_verified, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8
+      ) RETURNING *
+    `, [
+      'admin',
+      hashedPassword,
+      'Administrador',
+      'admin@example.com',
+      'admin',
+      true,
+      true,
+      new Date()
+    ]);
+    
+    const admin = adminInsertResult.rows[0];
     
     // Criar provedor para o admin
-    await localDb.insert(schema.providers).values({
-      userId: admin.id,
-      name: 'Administrador',
-      email: 'admin@example.com',
-      phone: '11999999999',
-      description: 'Administrador do sistema',
-      workingHours: '09:00-18:00',
-      workingDays: '1,2,3,4,5',
-      bookingLink: 'admin'
-    });
+    await localPool.query(`
+      INSERT INTO providers (
+        user_id, name, email, phone, description, 
+        working_hours, working_days, booking_link, active, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+      )
+    `, [
+      admin.id,
+      'Administrador',
+      'admin@example.com',
+      '11999999999',
+      'Administrador do sistema',
+      JSON.stringify({
+        '0': [], // Domingo
+        '1': [{'start': '09:00', 'end': '18:00'}], // Segunda
+        '2': [{'start': '09:00', 'end': '18:00'}], // Terça
+        '3': [{'start': '09:00', 'end': '18:00'}], // Quarta
+        '4': [{'start': '09:00', 'end': '18:00'}], // Quinta
+        '5': [{'start': '09:00', 'end': '18:00'}], // Sexta
+        '6': [] // Sábado
+      }),
+      '1,2,3,4,5',
+      'admin',
+      true,
+      new Date()
+    ]);
     
     console.log('Usuário admin criado com sucesso!');
   }
   
-  if (linkExists.length === 0) {
+  if (linkResult.rows.length === 0) {
     console.log('Criando usuário link...');
     const hashedPassword = await hashPassword('password123');
     
     // Inserir usuário link
-    const [link] = await localDb.insert(schema.users).values({
-      username: 'link',
-      password: hashedPassword,
-      name: 'Lincoln',
-      email: 'link@example.com',
-      role: 'user',
-      neverExpires: false,
-      isEmailVerified: true,
-      subscriptionExpiry: new Date(Date.now() + 1000 * 60 * 60 * 24 * 90) // 90 dias
-    }).returning();
+    const linkInsertResult = await localPool.query(`
+      INSERT INTO users (
+        username, password, name, email, role, 
+        never_expires, is_email_verified, subscription_expiry, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9
+      ) RETURNING *
+    `, [
+      'link',
+      hashedPassword,
+      'Lincoln',
+      'link@example.com',
+      'user',
+      false,
+      true,
+      new Date(Date.now() + 1000 * 60 * 60 * 24 * 90), // 90 dias
+      new Date()
+    ]);
+    
+    const link = linkInsertResult.rows[0];
     
     // Criar provedor para o link
-    const [provider] = await localDb.insert(schema.providers).values({
-      userId: link.id,
-      name: 'Lincoln',
-      email: 'link@example.com',
-      phone: '11987654321',
-      description: 'Provedor de serviços',
-      workingHours: '09:00-18:00',
-      workingDays: '1,2,3,4,5',
-      bookingLink: 'link'
-    }).returning();
+    const providerInsertResult = await localPool.query(`
+      INSERT INTO providers (
+        user_id, name, email, phone, description, 
+        working_hours, working_days, booking_link, active, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+      ) RETURNING *
+    `, [
+      link.id,
+      'Lincoln',
+      'link@example.com',
+      '11987654321',
+      'Provedor de serviços',
+      JSON.stringify({
+        '0': [], // Domingo
+        '1': [{'start': '09:00', 'end': '18:00'}], // Segunda
+        '2': [{'start': '09:00', 'end': '18:00'}], // Terça
+        '3': [{'start': '09:00', 'end': '18:00'}], // Quarta
+        '4': [{'start': '09:00', 'end': '18:00'}], // Quinta
+        '5': [{'start': '09:00', 'end': '18:00'}], // Sexta
+        '6': [] // Sábado
+      }),
+      '1,2,3,4,5',
+      'link',
+      true,
+      new Date()
+    ]);
+    
+    const provider = providerInsertResult.rows[0];
     
     // Criar um serviço de exemplo para o link
-    await localDb.insert(schema.services).values({
-      providerId: provider.id,
-      name: 'Serviço de Exemplo',
-      description: 'Este é um serviço de exemplo',
-      duration: 60,
-      price: 10000, // R$ 100,00
-      color: '#4f46e5',
-      isActive: true
-    });
+    await localPool.query(`
+      INSERT INTO services (
+        provider_id, name, description, duration, 
+        price, color, is_active, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8
+      )
+    `, [
+      provider.id,
+      'Serviço de Exemplo',
+      'Este é um serviço de exemplo',
+      60,
+      10000, // R$ 100,00
+      '#4f46e5',
+      true,
+      new Date()
+    ]);
     
     console.log('Usuário link criado com sucesso!');
   }
