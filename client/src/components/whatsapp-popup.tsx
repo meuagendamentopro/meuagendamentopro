@@ -168,7 +168,7 @@ const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps
   return (
     <Dialog open={triggerManually ? undefined : open} onOpenChange={setOpen}>
       {triggerManually && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="w-full max-w-[95vw] sm:max-w-[425px]">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[425px]">
         <DialogHeader>
           <div className="flex items-center mb-2">
             <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center mr-3">

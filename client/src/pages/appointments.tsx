@@ -288,12 +288,12 @@ const AppointmentsPage: React.FC = () => {
               <Table className="w-full min-w-0 table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[25%] sm:w-[20%]">Cliente</TableHead>
+                    <TableHead className="w-[30%] sm:w-[20%]">Cliente</TableHead>
                     <TableHead className="hidden sm:table-cell w-[20%]">Serviço</TableHead>
-                    <TableHead className="w-[25%] sm:w-[15%]">Data/Hora</TableHead>
+                    <TableHead className="w-[30%] sm:w-[15%]">Data/Hora</TableHead>
                     <TableHead className="hidden sm:table-cell w-[15%]">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Observações</TableHead>
-                    <TableHead className="w-[50%] sm:w-[30%] md:w-[20%] text-right">Ações</TableHead>
+                    <TableHead className="w-[40%] sm:w-[30%] md:w-[20%] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -306,23 +306,23 @@ const AppointmentsPage: React.FC = () => {
 
                     return (
                       <TableRow key={appointment.id}>
-                        <TableCell>
-                          <div className="font-medium truncate max-w-[110px] sm:max-w-full">{getClientName(appointment.clientId)}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-[110px] sm:max-w-full">{getClientPhone(appointment.clientId)}</div>
+                        <TableCell className="p-2 sm:p-4">
+                          <div className="font-medium truncate max-w-[80px] sm:max-w-full">{getClientName(appointment.clientId)}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-[80px] sm:max-w-full">{getClientPhone(appointment.clientId)}</div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell truncate">{getServiceName(appointment.serviceId)}</TableCell>
-                        <TableCell>
-                          <div className="truncate max-w-[110px] sm:max-w-full">{formatDate(appointmentDate)}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-[110px] sm:max-w-full">{formatTime(appointmentDate)}</div>
+                        <TableCell className="hidden sm:table-cell p-2 sm:p-4 truncate">{getServiceName(appointment.serviceId)}</TableCell>
+                        <TableCell className="p-2 sm:p-4">
+                          <div className="truncate max-w-[80px] sm:max-w-full">{formatDate(appointmentDate)}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-[80px] sm:max-w-full">{formatTime(appointmentDate)}</div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
+                        <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Badge
                                   variant="outline"
-                                  className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100 cursor-help`}
+                                  className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100 cursor-help whitespace-nowrap`}
                                 >
                                   {getStatusTranslation(appointment.status)}
                                 </Badge>
@@ -335,7 +335,7 @@ const AppointmentsPage: React.FC = () => {
                         ) : (
                           <Badge
                             variant="outline"
-                            className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100`}
+                            className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100 whitespace-nowrap`}
                           >
                             {getStatusTranslation(appointment.status)}
                           </Badge>
@@ -352,27 +352,27 @@ const AppointmentsPage: React.FC = () => {
                           <span className="text-sm text-gray-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-1">
+                      <TableCell className="text-right p-1 sm:p-4">
+                        <div className="flex flex-wrap justify-end gap-0.5 sm:gap-1">
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               onClick={() => handleEditAppointment(appointment)}
-                              className="p-1 h-8 w-8 sm:h-9 sm:w-auto sm:p-2"
+                              className="h-6 w-6 sm:h-8 sm:w-auto sm:px-2 sm:py-1"
                             >
                               <span className="hidden sm:inline">Editar</span>
-                              <Pencil className="h-4 w-4 sm:hidden" />
+                              <Pencil className="h-3 w-3 sm:hidden" />
                             </Button>
 
                             {isPending && (
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="text-success-600 hover:bg-success-50 p-1 h-8 w-8 sm:h-9 sm:w-auto sm:p-2"
+                                size="icon" 
+                                className="text-success-600 hover:bg-success-50 h-6 w-6 sm:h-8 sm:w-auto sm:px-2 sm:py-1"
                                 onClick={() => handleUpdateStatus(appointment.id, AppointmentStatus.CONFIRMED)}
                               >
                                 <span className="hidden sm:inline">Confirmar</span>
-                                <Check className="h-4 w-4 sm:hidden" />
+                                <Check className="h-3 w-3 sm:hidden" />
                               </Button>
                             )}
 
@@ -381,11 +381,11 @@ const AppointmentsPage: React.FC = () => {
                                 <AlertDialogTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    size="sm"
-                                    className="text-red-600 hover:bg-red-50 p-1 h-8 w-8 sm:h-9 sm:w-auto sm:p-2"
+                                    size="icon"
+                                    className="text-red-600 hover:bg-red-50 h-6 w-6 sm:h-8 sm:w-auto sm:px-2 sm:py-1"
                                   >
                                     <span className="hidden sm:inline">Cancelar</span>
-                                    <X className="h-4 w-4 sm:hidden" />
+                                    <X className="h-3 w-3 sm:hidden" />
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
