@@ -108,10 +108,18 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
       if (response.ok) {
         toast({
           title: "Verificação concluída",
-          description: "Sua conta foi verificada com sucesso!",
+          description: data.message || "Sua conta foi verificada com sucesso!",
           variant: "default"
         });
-        setTimeout(() => navigate("/auth"), 1500);
+        
+        // Verifica se o login automático foi realizado
+        if (data.autoLogin) {
+          // Se sim, redireciona para a página principal após 1.5 segundos
+          setTimeout(() => navigate("/"), 1500);
+        } else {
+          // Se não, redireciona para a página de login
+          setTimeout(() => navigate("/auth"), 1500);
+        }
       } else {
         toast({
           title: "Verificação falhou",

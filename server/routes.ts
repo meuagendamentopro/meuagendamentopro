@@ -2579,9 +2579,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enviar email de boas-vindas após a verificação
       await sendWelcomeEmail(user);
       
-      return res.status(200).json({ 
-        success: true, 
-        message: "Email verificado com sucesso"
+      // Iniciar a sessão do usuário (login automático)
+      // Atualiza o usuário após a verificação
+      const updatedUser = await storage.getUser(user.id);
+      
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Erro ao recuperar dados do usuário" });
+      }
+      
+      // Fazer login automático
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Erro ao iniciar sessão automática:", err);
+          return res.status(200).json({ 
+            success: true, 
+            message: "Email verificado com sucesso. Por favor, faça login.",
+            autoLogin: false
+          });
+        }
+        
+        // Retorna sucesso com indicação de login automático
+        return res.status(200).json({ 
+          success: true, 
+          message: "Email verificado com sucesso. Login automático realizado.",
+          autoLogin: true,
+          user: req.user
+        });
       });
     } catch (error) {
       console.error("Erro ao verificar código:", error);
