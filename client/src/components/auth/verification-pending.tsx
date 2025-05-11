@@ -114,10 +114,26 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
         
         // Verifica se o login automático foi realizado
         if (data.autoLogin) {
-          // Se sim, redireciona para a página principal após 1.5 segundos
-          setTimeout(() => navigate("/"), 1500);
+          // Se o login automático foi realizado, atualiza o cache do usuário
+          // e redireciona para a página principal após curto tempo
+          const userResponse = await apiRequest("GET", "/api/user");
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            // Atualiza manualmente o cache do usuário (importante para atualização de estado)
+            import("@/lib/queryClient").then(({ queryClient }) => {
+              queryClient.setQueryData(["/api/user"], userData);
+            });
+            
+            console.log("Login automático realizado, redirecionando...");
+            // Redireciona após breve atraso para permitir que o toast seja visto
+            setTimeout(() => navigate("/"), 1500);
+          } else {
+            console.error("Falha ao obter dados do usuário após login automático");
+            setTimeout(() => navigate("/auth"), 1500);
+          }
         } else {
           // Se não, redireciona para a página de login
+          console.log("Login automático não realizado, redirecionando para página de login...");
           setTimeout(() => navigate("/auth"), 1500);
         }
       } else {
