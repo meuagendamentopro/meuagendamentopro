@@ -596,7 +596,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
 
       {/* Add Appointment Dialog */}
       <Dialog open={addAppointmentTime !== null} onOpenChange={() => setAddAppointmentTime(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Adicionar Agendamento</DialogTitle>
             <DialogDescription>
@@ -619,7 +619,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
 
       {/* Edit Appointment Dialog */}
       <Dialog open={editAppointmentId !== null} onOpenChange={() => setEditAppointmentId(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Editar Agendamento</DialogTitle>
             <DialogDescription>
