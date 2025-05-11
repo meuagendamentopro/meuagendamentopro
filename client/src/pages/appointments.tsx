@@ -20,6 +20,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import PageHeader from "@/components/layout/page-header";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AddAppointmentForm from "@/components/dashboard/add-appointment-form";
 
 const AppointmentsPage: React.FC = () => {
@@ -47,6 +49,7 @@ const AppointmentsPage: React.FC = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
   const { toast } = useToast();
 
   // Obter dados do provider atual
@@ -106,7 +109,9 @@ const AppointmentsPage: React.FC = () => {
         !searchTerm ||
         (client && client.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (client && client.phone.includes(searchTerm)) ||
-        (service && service.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        (service && service.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        // Search in cancellation reason if available
+        (appointment.cancellationReason && appointment.cancellationReason.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Status filter
       const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
@@ -157,10 +162,11 @@ const AppointmentsPage: React.FC = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateStatus = async (appointmentId: number, newStatus: string) => {
+  const handleUpdateStatus = async (appointmentId: number, newStatus: string, reason?: string) => {
     try {
       await apiRequest("PATCH", `/api/appointments/${appointmentId}/status`, {
         status: newStatus,
+        ...(newStatus === AppointmentStatus.CANCELLED && reason ? { cancellationReason: reason } : {})
       });
       refetchAppointments();
       toast({
@@ -303,13 +309,31 @@ const AppointmentsPage: React.FC = () => {
                           <div className="text-sm text-gray-500">{formatTime(appointmentDate)}</div>
                         </TableCell>
                         <TableCell>
+                        {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="outline"
+                                  className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100 cursor-help`}
+                                >
+                                  {getStatusTranslation(appointment.status)}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p><strong>Motivo:</strong> {appointment.cancellationReason}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
                           <Badge
                             variant="outline"
                             className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100`}
                           >
                             {getStatusTranslation(appointment.status)}
                           </Badge>
-                        </TableCell>
+                        )}
+                      </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button
@@ -345,15 +369,34 @@ const AppointmentsPage: React.FC = () => {
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
-                                    <AlertDialogDescription>
+                                    <AlertDialogDescription className="pb-4">
                                       Tem certeza que deseja cancelar este agendamento? Esta ação não pode ser desfeita.
                                     </AlertDialogDescription>
+                                    
+                                    <div className="mt-4 space-y-2">
+                                      <Label htmlFor="cancellationReason" className="text-left">
+                                        Motivo do cancelamento
+                                      </Label>
+                                      <Input
+                                        id="cancellationReason"
+                                        placeholder="Explique o motivo do cancelamento"
+                                        value={cancellationReason}
+                                        onChange={(e) => setCancellationReason(e.target.value)}
+                                      />
+                                    </div>
                                   </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Não, manter</AlertDialogCancel>
+                                  <AlertDialogFooter className="mt-6">
+                                    <AlertDialogCancel
+                                      onClick={() => setCancellationReason("")}
+                                    >
+                                      Não, manter
+                                    </AlertDialogCancel>
                                     <AlertDialogAction
                                       className="bg-red-600 hover:bg-red-700"
-                                      onClick={() => handleUpdateStatus(appointment.id, AppointmentStatus.CANCELLED)}
+                                      onClick={() => {
+                                        handleUpdateStatus(appointment.id, AppointmentStatus.CANCELLED, cancellationReason);
+                                        setCancellationReason("");
+                                      }}
                                     >
                                       Sim, cancelar
                                     </AlertDialogAction>
