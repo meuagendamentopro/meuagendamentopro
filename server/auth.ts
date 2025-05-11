@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { User as SchemaUser } from "@shared/schema";
 import connectPg from "connect-pg-simple";
-import { pool } from "./db";
+import { pool, db } from "./db";
 
 declare global {
   namespace Express {
@@ -25,10 +25,36 @@ export async function comparePasswords(supplied: string, stored: string): Promis
   return bcrypt.compare(supplied, stored);
 }
 
+// Limpa sessões antigas e inválidas
+async function cleanupOldSessions() {
+  try {
+    // Deletar sessões expiradas (mais de 30 dias de inatividade)
+    const query = `DELETE FROM "session" WHERE "expire" < NOW()`;
+    const result = await pool.query(query);
+    console.log(`Limpeza de sessões: ${result.rowCount} sessões expiradas removidas`);
+    return result.rowCount;
+  } catch (error) {
+    console.error("Erro ao limpar sessões expiradas:", error);
+    return 0;
+  }
+}
+
 export function setupAuth(app: Express) {
   // Configuração de sessão mais robusta
   console.log(`Configurando sessão. Ambiente: ${process.env.NODE_ENV}`);
   console.log(`SESSION_SECRET disponível: ${!!process.env.SESSION_SECRET}`);
+  
+  // Limpar sessões expiradas no início e a cada 24 horas
+  cleanupOldSessions().then(count => {
+    console.log(`Limpeza inicial de sessões concluída. ${count} sessões removidas.`);
+  });
+  
+  // Programar limpeza diária de sessões
+  setInterval(() => {
+    cleanupOldSessions().then(count => {
+      console.log(`Limpeza programada de sessões concluída. ${count} sessões removidas.`);
+    });
+  }, 24 * 60 * 60 * 1000); // 24 horas
   
   // Usamos uma string constante como fallback para não quebrar o desenvolvimento
   const sessionSecret = process.env.SESSION_SECRET || 'meu-agendamento-secret-key-development-only';
@@ -229,10 +255,32 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Função auxiliar para remover sessões antigas de um usuário
+  async function destroyUserSessions(userId: number) {
+    try {
+      // Usando SQL direto para deletar sessões antigas deste usuário
+      // A estrutura da tabela session do connect-pg-simple tem uma coluna sess
+      // que contém os dados da sessão em formato JSON, incluindo passport.user
+      const query = `
+        DELETE FROM "session"
+        WHERE sess->'passport'->'user' = $1::text
+      `;
+      await pool.query(query, [userId.toString()]);
+      console.log(`Sessões antigas do usuário ${userId} removidas com sucesso`);
+      return true;
+    } catch (error) {
+      console.error(`Erro ao remover sessões antigas do usuário ${userId}:`, error);
+      return false;
+    }
+  }
+  
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
+    passport.authenticate("local", async (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ error: info?.message || "Credenciais inválidas" });
+      
+      // Antes de fazer login, destruir todas as sessões existentes deste usuário
+      await destroyUserSessions(user.id);
       
       req.login(user, (err: Error | null) => {
         if (err) return next(err);
