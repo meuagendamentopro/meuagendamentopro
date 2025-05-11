@@ -8,7 +8,7 @@ import DaySchedule from "@/components/dashboard/day-schedule";
 import AppointmentTable from "@/components/dashboard/appointment-table";
 import ServicesList from "@/components/dashboard/services-list";
 import QRCodeModal from "@/components/dashboard/qr-code-modal";
-import { ToastTester } from "@/components/toast-tester";
+
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -361,15 +361,6 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       )}
-      
-      {/* Toast Tester Section */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <h2 className="text-lg font-medium mb-4">Teste de Notificações</h2>
-          <p className="text-sm text-gray-500 mb-4">Clique nos botões abaixo para testar os diferentes estilos de notificações:</p>
-          <ToastTester />
-        </CardContent>
-      </Card>
       
       {/* Stats Section */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
