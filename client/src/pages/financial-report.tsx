@@ -382,10 +382,10 @@ export default function FinancialReport() {
             )}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto -mx-6">  {/* Negative margin to allow overflow */}
-            <div className="inline-block min-w-full align-middle px-6"> {/* Add padding back */}
-              <Table>
+        <CardContent className="px-4 sm:px-6">
+          <div className="overflow-x-auto w-full">
+            <div className="inline-block w-full align-middle">
+              <Table className="w-full border-collapse">
                 <TableCaption>
                   {filteredAppointments?.length
                     ? `Total de ${filteredAppointments.length} atendimentos`
@@ -393,17 +393,17 @@ export default function FinancialReport() {
                 </TableCaption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="whitespace-nowrap">Data</TableHead>
-                    <TableHead className="whitespace-nowrap">Cliente</TableHead>
-                    <TableHead className="whitespace-nowrap">Serviço</TableHead>
-                    <TableHead className="whitespace-nowrap">Status</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Valor</TableHead>
+                    <TableHead className="whitespace-nowrap p-2">Data</TableHead>
+                    <TableHead className="whitespace-nowrap p-2">Cliente</TableHead>
+                    <TableHead className="whitespace-nowrap p-2 hidden sm:table-cell">Serviço</TableHead>
+                    <TableHead className="whitespace-nowrap p-2 hidden md:table-cell">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap p-2">Valor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAppointments?.map((appointment) => (
                     <TableRow key={appointment.id}>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap p-2 text-xs sm:text-sm">
                         {format(
                           parseISO(typeof appointment.date === 'string' 
                             ? appointment.date 
@@ -411,14 +411,19 @@ export default function FinancialReport() {
                           "dd/MM/yyyy HH:mm"
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{appointment.clientName}</TableCell>
-                      <TableCell className="whitespace-nowrap">{appointment.serviceName}</TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap p-2 text-xs sm:text-sm">
+                        {appointment.clientName}
+                        <div className="text-xs text-gray-500 sm:hidden">
+                          {appointment.serviceName}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap p-2 hidden sm:table-cell text-xs sm:text-sm">{appointment.serviceName}</TableCell>
+                      <TableCell className="whitespace-nowrap p-2 hidden md:table-cell text-xs sm:text-sm">
                         {appointment.status.toLowerCase() === "completed"
                           ? "Concluído"
                           : "Confirmado"}
                       </TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
+                      <TableCell className="text-right whitespace-nowrap p-2 text-xs sm:text-sm font-medium">
                         R$ {(appointment.servicePrice / 100).toFixed(2)}
                       </TableCell>
                     </TableRow>
