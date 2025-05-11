@@ -397,7 +397,19 @@ export default function UsersPage() {
   
   // Handler para submeter gerenciamento de assinatura
   const handleSubscriptionSubmit = (data: SubscriptionFormValues) => {
-    if (!selectedUser) return;
+    if (!selectedUser) {
+      toast({
+        title: "Erro",
+        description: "Nenhum usuário selecionado",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log("Enviando dados de assinatura:", {
+      userId: selectedUser.id,
+      data: data
+    });
     
     manageSubscriptionMutation.mutate({
       userId: selectedUser.id,

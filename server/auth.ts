@@ -76,7 +76,14 @@ export function setupAuth(app: Express) {
           const now = new Date();
           const expiry = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) : null;
           
+          console.log(`Verificando expiração de assinatura para usuário ${user.username}:`, {
+            agora: now,
+            expiracao: expiry,
+            nuncaExpira: user.neverExpires
+          });
+          
           if (expiry && now > expiry) {
+            console.log(`Assinatura expirada para ${user.username}`);
             return done(null, false, { message: "Assinatura expirada" });
           }
         }

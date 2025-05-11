@@ -498,6 +498,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para gerenciar assinatura de usuário (apenas Admin)
   app.patch("/api/admin/users/:id/subscription", isAdmin, async (req: Request, res: Response) => {
     try {
+      console.log("Recebida solicitação para atualizar assinatura:", {
+        params: req.params,
+        body: req.body
+      });
+      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: "ID de usuário inválido" });
@@ -510,6 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { neverExpires, extensionMonths } = req.body;
+      console.log("Dados extraídos:", { neverExpires, extensionMonths });
       
       // Validar os dados da assinatura
       if (neverExpires === undefined && extensionMonths === undefined) {
