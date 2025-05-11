@@ -285,16 +285,77 @@ const ClientsPage: React.FC = () => {
                 <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[100px] whitespace-nowrap">Ações</TableHead>
                     <TableHead className="whitespace-nowrap">Nome</TableHead>
                     <TableHead className="whitespace-nowrap">Telefone</TableHead>
                     <TableHead className="whitespace-nowrap">Email</TableHead>
                     <TableHead className="whitespace-nowrap">Observações</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredClients.map((client: Client) => (
                     <TableRow key={client.id}>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditClient(client)}
+                                  className="h-8 w-8"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Editar cliente</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleBlock(client)}
+                                  className={`h-8 w-8 ${client.isBlocked ? 'text-amber-600' : 'text-gray-500'}`}
+                                >
+                                  {client.isBlocked ? (
+                                    <ShieldOff className="h-4 w-4" />
+                                  ) : (
+                                    <Shield className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{client.isBlocked ? 'Desbloquear cliente' : 'Bloquear cliente'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteClient(client)}
+                                  className="h-8 w-8 text-destructive"
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Excluir cliente</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200 flex items-center justify-center mr-3">
@@ -317,45 +378,6 @@ const ClientsPage: React.FC = () => {
                         <div className="max-w-xs truncate">
                           {client.notes || "-"}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditClient(client)}>
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleToggleBlock(client)}>
-                              {client.isBlocked ? (
-                                <>
-                                  <ShieldOff className="h-4 w-4 mr-2" />
-                                  Desbloquear cliente
-                                </>
-                              ) : (
-                                <>
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  Bloquear cliente
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteClient(client)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash className="h-4 w-4 mr-2" />
-                              Excluir permanentemente
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
