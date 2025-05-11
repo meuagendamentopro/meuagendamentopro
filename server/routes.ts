@@ -363,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `);
       }
       
-      // Verificar se o token expirou
+      // Verifica se o token expirou
       if (user.verificationTokenExpiry && new Date() > new Date(user.verificationTokenExpiry)) {
         return res.status(400).send(`
           <html>
@@ -388,6 +388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           </html>
         `);
       }
+      
+      // Verificação de expiração já foi feita acima
       
       // Atualiza o usuário para marcar o email como verificado
       const updatedUser = await storage.updateUser(user.id, {
