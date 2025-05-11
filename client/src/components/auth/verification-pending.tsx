@@ -177,7 +177,7 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
         
         <div className="space-y-2">
           <Label htmlFor="verification-code">Código de verificação</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Input
               id="verification-code"
               type="text"
@@ -190,6 +190,7 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
             <Button 
               onClick={handleVerifyCode} 
               disabled={isVerifying || verificationCode.length < 6}
+              className="w-full sm:w-auto"
             >
               {isVerifying ? "Verificando..." : "Verificar"}
             </Button>
