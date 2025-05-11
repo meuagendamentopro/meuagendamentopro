@@ -95,6 +95,8 @@ export class MemStorage implements IStorage {
   private appointmentId: number;
   private userId: number;
   private notificationId: number;
+  private timeExclusionId: number;
+  private timeExclusions: Map<number, TimeExclusion>;
   
   constructor() {
     const MemoryStore = createMemoryStore(session);
@@ -107,6 +109,7 @@ export class MemStorage implements IStorage {
     this.appointments = new Map();
     this.users = new Map();
     this.notifications = new Map();
+    this.timeExclusions = new Map();
     
     this.providerId = 0;
     this.serviceId = 0;
@@ -115,6 +118,7 @@ export class MemStorage implements IStorage {
     this.appointmentId = 0;
     this.userId = 0;
     this.notificationId = 0;
+    this.timeExclusionId = 0;
     
     // Vamos criar sincronamente para evitar a Promise
     const adminId = ++this.userId;

@@ -1994,5 +1994,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============== Rotas para Exclusão de Horários ==============
+  
+  // Obter todas as exclusões de horário de um prestador
+  app.get("/api/time-exclusions", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const provider = (req as any).provider;
+      
+      // Buscar todas as exclusões de horário do prestador
+      const exclusions = await storage.getTimeExclusions(provider.id);
+      
+      res.json(exclusions);
+    } catch (error) {
+      console.error("Erro ao buscar exclusões de horário:", error);
+      res.status(500).json({ message: "Erro ao buscar exclusões de horário" });
+    }
+  });
+  
+  // Obter exclusões de horário para um dia específico
+  app.get("/api/time-exclusions/day/:dayOfWeek", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const provider = (req as any).provider;
+      const dayOfWeek = parseInt(req.params.dayOfWeek);
+      
+      if (isNaN(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
+        return res.status(400).json({ message: "Dia da semana inválido. Deve ser um número de 1 a 7." });
+      }
+      
+      // Buscar exclusões para o dia específico
+      const exclusions = await storage.getTimeExclusionsByDay(provider.id, dayOfWeek);
+      
+      res.json(exclusions);
+    } catch (error) {
+      console.error("Erro ao buscar exclusões de horário para o dia:", error);
+      res.status(500).json({ message: "Erro ao buscar exclusões de horário para o dia" });
+    }
+  });
+  
+  // Criar uma nova exclusão de horário
+  app.post("/api/time-exclusions", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const provider = (req as any).provider;
+      
+      // Validar os dados recebidos
+      // Requisitos: startTime, endTime (formato: "HH:MM")
+      const { startTime, endTime, dayOfWeek, name } = req.body;
+      
+      // Validar formato de hora
+      const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/; // Formato HH:MM (00:00 a 23:59)
+      
+      if (!startTime || !endTime || !timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+        return res.status(400).json({ message: "Formato de hora inválido. Use o formato HH:MM (24h)" });
+      }
+      
+      // Validar que hora de início é antes da hora de fim
+      if (startTime >= endTime) {
+        return res.status(400).json({ message: "Hora de início deve ser anterior à hora de término" });
+      }
+      
+      // Validar dia da semana se fornecido
+      if (dayOfWeek !== undefined && (isNaN(Number(dayOfWeek)) || Number(dayOfWeek) < 1 || Number(dayOfWeek) > 7)) {
+        return res.status(400).json({ message: "Dia da semana inválido. Deve ser um número de 1 a 7, ou nulo para todos os dias." });
+      }
+      
+      // Criar nova exclusão
+      const newExclusion = await storage.createTimeExclusion({
+        providerId: provider.id,
+        startTime,
+        endTime,
+        dayOfWeek: dayOfWeek ? Number(dayOfWeek) : undefined,
+        name: name || `Exclusão ${startTime}-${endTime}`,
+        isActive: true
+      });
+      
+      res.status(201).json(newExclusion);
+    } catch (error) {
+      console.error("Erro ao criar exclusão de horário:", error);
+      res.status(500).json({ message: "Erro ao criar exclusão de horário" });
+    }
+  });
+  
+  // Atualizar uma exclusão de horário
+  app.put("/api/time-exclusions/:id", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const provider = (req as any).provider;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      // Buscar a exclusão para verificar se pertence a este prestador
+      const exclusion = await storage.getTimeExclusion(id);
+      
+      if (!exclusion) {
+        return res.status(404).json({ message: "Exclusão de horário não encontrada" });
+      }
+      
+      if (exclusion.providerId !== provider.id) {
+        return res.status(403).json({ message: "Você não tem permissão para editar esta exclusão de horário" });
+      }
+      
+      // Validar dados
+      const { startTime, endTime, dayOfWeek, name, isActive } = req.body;
+      
+      const updateData: Partial<InsertTimeExclusion> = {};
+      
+      // Validar e adicionar campos ao objeto de atualização
+      if (startTime !== undefined && endTime !== undefined) {
+        const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
+        
+        if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+          return res.status(400).json({ message: "Formato de hora inválido. Use o formato HH:MM (24h)" });
+        }
+        
+        if (startTime >= endTime) {
+          return res.status(400).json({ message: "Hora de início deve ser anterior à hora de término" });
+        }
+        
+        updateData.startTime = startTime;
+        updateData.endTime = endTime;
+      } else if (startTime !== undefined || endTime !== undefined) {
+        return res.status(400).json({ message: "Hora de início e término devem ser fornecidos juntos" });
+      }
+      
+      if (dayOfWeek !== undefined) {
+        if (dayOfWeek === null) {
+          updateData.dayOfWeek = null; // Para todos os dias
+        } else if (isNaN(Number(dayOfWeek)) || Number(dayOfWeek) < 1 || Number(dayOfWeek) > 7) {
+          return res.status(400).json({ message: "Dia da semana inválido. Deve ser um número de 1 a 7, ou nulo para todos os dias." });
+        } else {
+          updateData.dayOfWeek = Number(dayOfWeek);
+        }
+      }
+      
+      if (name !== undefined) {
+        updateData.name = name;
+      }
+      
+      if (isActive !== undefined) {
+        updateData.isActive = Boolean(isActive);
+      }
+      
+      // Atualizar a exclusão
+      const updatedExclusion = await storage.updateTimeExclusion(id, updateData);
+      
+      res.json(updatedExclusion);
+    } catch (error) {
+      console.error("Erro ao atualizar exclusão de horário:", error);
+      res.status(500).json({ message: "Erro ao atualizar exclusão de horário" });
+    }
+  });
+  
+  // Excluir uma exclusão de horário
+  app.delete("/api/time-exclusions/:id", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const provider = (req as any).provider;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      // Buscar a exclusão para verificar se pertence a este prestador
+      const exclusion = await storage.getTimeExclusion(id);
+      
+      if (!exclusion) {
+        return res.status(404).json({ message: "Exclusão de horário não encontrada" });
+      }
+      
+      if (exclusion.providerId !== provider.id) {
+        return res.status(403).json({ message: "Você não tem permissão para excluir esta exclusão de horário" });
+      }
+      
+      // Excluir a exclusão
+      await storage.deleteTimeExclusion(id);
+      
+      res.status(200).json({ message: "Exclusão de horário removida com sucesso" });
+    } catch (error) {
+      console.error("Erro ao excluir exclusão de horário:", error);
+      res.status(500).json({ message: "Erro ao excluir exclusão de horário" });
+    }
+  });
+
   return httpServer;
 }
