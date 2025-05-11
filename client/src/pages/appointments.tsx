@@ -458,7 +458,10 @@ const AppointmentsPage: React.FC = () => {
           {provider && (
             <AddAppointmentForm 
               providerId={provider.id}
-              initialDate={new Date()}
+              initialDate={selectedAppointment ? new Date(selectedAppointment.date) : new Date()}
+              initialClientId={selectedAppointment?.clientId}
+              initialServiceId={selectedAppointment?.serviceId}
+              initialNotes={selectedAppointment?.notes || ""}
               onComplete={handleDialogClose}
             />
           )}
