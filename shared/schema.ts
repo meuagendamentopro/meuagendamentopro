@@ -13,6 +13,9 @@ export const users = pgTable("users", {
   role: text("role").default("provider").notNull(), // 'admin' ou 'provider'
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true).notNull(), // Para bloquear acesso ao sistema
+  isEmailVerified: boolean("is_email_verified").default(false).notNull(), // Indica se o email foi verificado
+  verificationToken: text("verification_token"), // Token para verificação de email (opcional)
+  verificationTokenExpiry: timestamp("verification_token_expiry"), // Data de expiração do token
   subscriptionExpiry: timestamp("subscription_expiry"), // Data de expiração da assinatura (null para admin ou assinatura sem expiração)
   neverExpires: boolean("never_expires").default(false), // Para assinaturas que nunca expiram
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -33,6 +36,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
   avatarUrl: true,
   isActive: true,
+  isEmailVerified: true,
+  verificationToken: true,
+  verificationTokenExpiry: true,
   subscriptionExpiry: true,
   neverExpires: true,
 });
