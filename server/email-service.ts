@@ -103,13 +103,24 @@ export async function sendVerificationEmail(user: User, token: string): Promise<
   if (!baseUrl) {
     // Em desenvolvimento, usa localhost
     if (process.env.NODE_ENV === 'development') {
-      baseUrl = 'http://localhost:5000';
+      // Na Replit, mesmo em desenvolvimento, use o URL da Replit para garantir
+      // que os links funcionem quando acessados externamente
+      if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        console.log(`Usando URL Replit para emails: ${baseUrl}`);
+      } else {
+        baseUrl = 'http://localhost:5000';
+        console.log('Usando URL localhost para emails');
+      }
     } else {
       // Em produção, tenta usar o domínio Replit
-      const replitDomain = process.env.REPL_SLUG 
-        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` 
-        : 'http://localhost:5000';
-      baseUrl = replitDomain;
+      if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      } else {
+        // Fallback para localhost se não conseguirmos determinar o URL do Replit
+        baseUrl = 'http://localhost:5000';
+      }
+      console.log(`Definindo URL base para emails: ${baseUrl}`);
     }
   }
   const verificationUrl = `${baseUrl}/verify-email/${token}?email=${encodeURIComponent(user.email)}`;
