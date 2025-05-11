@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, uniqueIndex, time } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from 'drizzle-orm';
@@ -54,11 +54,33 @@ export const providers = pgTable("providers", {
 });
 
 // Relações entre tabelas
-export const providersRelations = relations(providers, ({ one }) => ({
+// Tabela para faixas de horário de exclusão (como horário de almoço)
+export const timeExclusions = pgTable("time_exclusions", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").notNull().references(() => providers.id, { onDelete: 'cascade' }),
+  startTime: text("start_time").notNull(), // Formato: "HH:MM"
+  endTime: text("end_time").notNull(),     // Formato: "HH:MM"
+  dayOfWeek: integer("day_of_week"),      // Dia específico da semana (1-7, null para todos os dias)
+  name: text("name"),                     // Descrição opcional (ex: "Almoço", "Pausa")
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTimeExclusionSchema = createInsertSchema(timeExclusions).pick({
+  providerId: true,
+  startTime: true,
+  endTime: true,
+  dayOfWeek: true,
+  name: true,
+  isActive: true,
+});
+
+export const providersRelations = relations(providers, ({ one, many }) => ({
   user: one(users, {
     fields: [providers.userId],
     references: [users.id]
-  })
+  }),
+  timeExclusions: many(timeExclusions)
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -352,6 +374,9 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 export type ProviderClient = typeof providerClients.$inferSelect;
 export type InsertProviderClient = z.infer<typeof insertProviderClientSchema>;
+
+export type TimeExclusion = typeof timeExclusions.$inferSelect;
+export type InsertTimeExclusion = z.infer<typeof insertTimeExclusionSchema>;
 
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
