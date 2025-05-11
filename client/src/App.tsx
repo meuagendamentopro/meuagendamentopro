@@ -14,6 +14,7 @@ import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
 import FinancialReport from "@/pages/financial-report";
 import AdminPage from "@/pages/admin-page";
+import UsersPage from "@/pages/admin/users-page";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -280,6 +281,15 @@ function Router() {
         element={
           <MainLayout>
             <AdminPage />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/admin/users" 
+        element={
+          <MainLayout>
+            <UsersPage />
           </MainLayout>
         } 
       />
