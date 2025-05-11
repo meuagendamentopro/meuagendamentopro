@@ -509,11 +509,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
       
-      const { neverExpires, subscriptionExpiry } = req.body;
+      const { neverExpires, extensionMonths } = req.body;
       
       // Validar os dados da assinatura
-      if (neverExpires === undefined && subscriptionExpiry === undefined) {
-        return res.status(400).json({ error: "Deve fornecer pelo menos um parâmetro: neverExpires ou subscriptionExpiry" });
+      if (neverExpires === undefined && extensionMonths === undefined) {
+        return res.status(400).json({ error: "Deve fornecer pelo menos um parâmetro: neverExpires ou extensionMonths" });
       }
       
       // Preparar os dados para atualização
@@ -521,16 +521,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (neverExpires !== undefined) {
         updateData.neverExpires = neverExpires;
+        
+        // Se neverExpires for true, limpar subscriptionExpiry
+        if (neverExpires === true) {
+          updateData.subscriptionExpiry = null;
+        }
       }
       
-      if (subscriptionExpiry !== undefined) {
-        // Caso seja enviado como string, converter para Date
-        updateData.subscriptionExpiry = new Date(subscriptionExpiry);
-        
-        // Validar se a data é válida
-        if (isNaN(updateData.subscriptionExpiry.getTime())) {
-          return res.status(400).json({ error: "Data de expiração inválida" });
+      if (!neverExpires && extensionMonths !== undefined) {
+        // Validar extensionMonths
+        const months = parseInt(extensionMonths);
+        if (isNaN(months) || months < 1 || months > 36) {
+          return res.status(400).json({ 
+            error: "Meses de extensão deve ser um número entre 1 e 36" 
+          });
         }
+        
+        // Calcular nova data de expiração
+        let baseDate = new Date();
+        
+        // Se o usuário já tiver uma data de expiração no futuro, usar essa como base
+        if (existingUser.subscriptionExpiry) {
+          const currentExpiry = new Date(existingUser.subscriptionExpiry);
+          if (currentExpiry > baseDate) {
+            baseDate = currentExpiry;
+          }
+        }
+        
+        // Adicionar os meses de extensão
+        const newExpiryDate = new Date(baseDate);
+        newExpiryDate.setMonth(newExpiryDate.getMonth() + months);
+        
+        updateData.subscriptionExpiry = newExpiryDate;
       }
       
       // Atualizar o usuário
