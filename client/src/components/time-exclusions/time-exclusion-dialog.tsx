@@ -30,7 +30,7 @@ interface FormValues {
 }
 
 const DAYS_OF_WEEK = [
-  { value: "", label: "Todos os dias" },
+  { value: "0", label: "Todos os dias" }, // Mudamos de "" para "0"
   { value: "1", label: "Segunda-feira" },
   { value: "2", label: "Terça-feira" },
   { value: "3", label: "Quarta-feira" },
@@ -54,7 +54,7 @@ export function TimeExclusionDialog({
     name: exclusion?.name || "Horário Indisponível",
     startTime: exclusion?.startTime || "12:00",
     endTime: exclusion?.endTime || "13:00",
-    dayOfWeek: exclusion?.dayOfWeek?.toString() || dayOfWeek?.toString() || "",
+    dayOfWeek: exclusion?.dayOfWeek?.toString() || dayOfWeek?.toString() || "0", // Agora usamos "0" para "todos os dias"
   };
 
   // Inicializar o formulário
@@ -87,7 +87,8 @@ export function TimeExclusionDialog({
       }
 
       // Converter dayOfWeek para number ou null
-      const parsedDayOfWeek = data.dayOfWeek !== "" 
+      // Agora verificamos se é "0" (todos os dias) e definimos como null nesse caso
+      const parsedDayOfWeek = data.dayOfWeek !== "0" && data.dayOfWeek !== ""
         ? parseInt(data.dayOfWeek) 
         : null;
 
