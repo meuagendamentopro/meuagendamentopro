@@ -119,24 +119,25 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   };
 
   // Filter appointments for today or later, and limit
-  // Incluímos agendamentos cancelados recentes também
+  // Mostramos apenas agendamentos PENDENTES e CONFIRMADOS (não mostramos os CANCELADOS)
   const filteredAppointments = React.useMemo(() => {
     if (!appointments) return [];
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
     return appointments
       .filter(appointment => {
-        const appointmentDate = new Date(appointment.date);
-        // Incluir agendamentos futuros de qualquer status
-        if (appointmentDate >= today) return true;
+        // Remover todos os agendamentos cancelados
+        if (appointment.status === AppointmentStatus.CANCELLED) {
+          return false;
+        }
         
-        // Incluir agendamentos cancelados recentes (últimos 7 dias)
-        if (appointment.status === AppointmentStatus.CANCELLED && appointmentDate >= sevenDaysAgo) {
+        // Incluir apenas agendamentos futuros pendentes ou confirmados
+        const appointmentDate = new Date(appointment.date);
+        if (appointmentDate >= today && 
+           (appointment.status === AppointmentStatus.PENDING || 
+            appointment.status === AppointmentStatus.CONFIRMED)) {
           return true;
         }
         
