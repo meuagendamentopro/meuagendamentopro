@@ -62,6 +62,17 @@ app.use((req, res, next) => {
       console.log("Configurando ambiente de produção (arquivos estáticos)");
       serveStatic(app);
     }
+    
+    // Rota específica para verificação de email
+    app.get('/verify-email/:token', (req, res) => {
+      if (app.get("env") === "development") {
+        // No desenvolvimento, redireciona para o client-side router
+        res.redirect(`/verify-email/${req.params.token}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`);
+      } else {
+        // Em produção, serve o index.html para suportar client-side routing
+        res.sendFile('index.html', { root: './dist/client' });
+      }
+    });
 
     // Rota de fallback para capturar todos os caminhos não tratados
     app.get('*', (req, res) => {
