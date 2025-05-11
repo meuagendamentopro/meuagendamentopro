@@ -2052,9 +2052,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Hora de início deve ser anterior à hora de término" });
       }
       
-      // Validar dia da semana se fornecido
-      if (dayOfWeek !== undefined && (isNaN(Number(dayOfWeek)) || Number(dayOfWeek) < 1 || Number(dayOfWeek) > 7)) {
-        return res.status(400).json({ message: "Dia da semana inválido. Deve ser um número de 1 a 7, ou nulo para todos os dias." });
+      // Validar dia da semana se fornecido (permitindo 0 para 'todos os dias')
+      if (dayOfWeek !== undefined && dayOfWeek !== null && 
+          (isNaN(Number(dayOfWeek)) || (Number(dayOfWeek) !== 0 && (Number(dayOfWeek) < 1 || Number(dayOfWeek) > 7)))) {
+        return res.status(400).json({ message: "Dia da semana inválido. Deve ser um número de 1 a 7, 0 para todos os dias, ou nulo." });
       }
       
       // Criar nova exclusão
@@ -2062,7 +2063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         providerId: provider.id,
         startTime,
         endTime,
-        dayOfWeek: dayOfWeek ? Number(dayOfWeek) : undefined,
+        dayOfWeek: dayOfWeek !== undefined && dayOfWeek !== null ? Number(dayOfWeek) : null,
         name: name || `Exclusão ${startTime}-${endTime}`,
         isActive: true
       });
