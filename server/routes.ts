@@ -1231,15 +1231,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(`Buscando provider pelo linkId: ${linkId}`);
       
-      // Tenta primeiro buscar pelo bookingLink (prioridade)
-      const providers = await storage.getProviders();
-      let provider = providers.find(p => p.bookingLink === linkId);
+      // Tenta primeiro buscar pelo bookingLink direto da tabela (mais eficiente)
+      let provider = await storage.getProviderByBookingLink(linkId);
       
-      // Se não encontrar pelo bookingLink, tenta como ID numérico (para compatibilidade)
+      // Se não encontrar, tenta como ID numérico (para compatibilidade)
       if (!provider) {
         const id = parseInt(linkId);
         if (!isNaN(id)) {
           provider = await storage.getProvider(id);
+        }
+      }
+      
+      // Se ainda não encontrou, tenta buscar pelo nome de usuário
+      if (!provider) {
+        try {
+          provider = await storage.getProviderByUsername(linkId);
+        } catch (err) {
+          console.log("Erro ao tentar buscar por username:", err);
         }
       }
       

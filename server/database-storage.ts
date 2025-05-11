@@ -157,6 +157,15 @@ export class DatabaseStorage implements IStorage {
     // Depois encontrar o provider associado ao usuário
     return this.getProviderByUserId(user.id);
   }
+  
+  async getProviderByBookingLink(bookingLink: string): Promise<Provider | undefined> {
+    // Busca diretamente pelo bookingLink na tabela de providers
+    const [provider] = await db.select()
+      .from(providers)
+      .where(eq(providers.bookingLink, bookingLink));
+    
+    return provider;
+  }
 
   async createProvider(providerData: InsertProvider): Promise<Provider> {
     const [provider] = await db.insert(providers).values(providerData).returning();

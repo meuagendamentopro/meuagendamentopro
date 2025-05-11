@@ -29,6 +29,7 @@ export interface IStorage {
   getProviders(): Promise<Provider[]>;
   getProvider(id: number): Promise<Provider | undefined>;
   getProviderByUserId(userId: number): Promise<Provider | undefined>;
+  getProviderByBookingLink(bookingLink: string): Promise<Provider | undefined>;
   createProvider(provider: InsertProvider): Promise<Provider>;
   updateProvider(id: number, provider: Partial<InsertProvider>): Promise<Provider | undefined>;
   
