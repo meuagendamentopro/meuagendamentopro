@@ -1277,10 +1277,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingClient) {
         console.log(`Cliente existente encontrado pelo telefone: ${data.phone}, ID: ${existingClient.id}`);
         
-        // Associar cliente existente a este provider, se ainda não estiver associado
+        // Sempre tenta associar o cliente existente a este provider para garantir
         try {
-          const belongsToProvider = await storage.clientBelongsToProvider(provider.id, existingClient.id);
-          if (!belongsToProvider) {
+          // Verifica se já existe associação direta (não usa clientBelongsToProvider)
+          const [association] = await db
+            .select()
+            .from(providerClients)
+            .where(
+              and(
+                eq(providerClients.providerId, provider.id),
+                eq(providerClients.clientId, existingClient.id)
+              )
+            );
+            
+          if (!association) {
             await storage.associateClientWithProvider(provider.id, existingClient.id);
             console.log(`Cliente existente #${existingClient.id} associado ao provider #${provider.id}`);
           } else {
@@ -1288,6 +1298,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (err) {
           console.error("Erro ao associar cliente existente:", err);
+          // Sempre tenta criar a associação, mesmo se houver erro na verificação
+          try {
+            await storage.associateClientWithProvider(provider.id, existingClient.id);
+          } catch (err2) {
+            console.error("Segundo erro ao associar cliente:", err2);
+          }
         }
         
         return res.json(existingClient);
@@ -1298,12 +1314,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Novo cliente criado: ${client.name} (ID: ${client.id})`);
       
       // Associar o cliente diretamente ao provider usando a tabela de associação
-      try {
-        await storage.associateClientWithProvider(provider.id, client.id);
-        console.log(`Novo cliente #${client.id} associado ao provider #${provider.id}`);
-      } catch (err) {
-        console.error("Erro ao associar cliente ao provider:", err);
-        // Não falha a operação se a associação não for criada, apenas loga o erro
+      // Tenta várias vezes para garantir que a associação seja criada
+      let associationSuccess = false;
+      for (let attempt = 0; attempt < 3 && !associationSuccess; attempt++) {
+        try {
+          await storage.associateClientWithProvider(provider.id, client.id);
+          console.log(`Novo cliente #${client.id} associado ao provider #${provider.id}`);
+          associationSuccess = true;
+        } catch (err) {
+          console.error(`Erro ao associar cliente ao provider (tentativa ${attempt + 1}):`, err);
+          // Pequena pausa antes de tentar novamente
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      if (!associationSuccess) {
+        console.warn(`Não foi possível associar o cliente #${client.id} ao provider #${provider.id} após múltiplas tentativas`);
       }
       
       res.status(201).json(client);

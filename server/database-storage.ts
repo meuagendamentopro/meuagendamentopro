@@ -336,6 +336,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async clientBelongsToProvider(providerId: number, clientId: number): Promise<boolean> {
+    // Verifica se existe uma associação direta na tabela de junção
     const [association] = await db
       .select()
       .from(providerClients)
@@ -345,7 +346,24 @@ export class DatabaseStorage implements IStorage {
           eq(providerClients.clientId, clientId)
         )
       );
-    return !!association;
+      
+    if (!!association) {
+      return true;
+    }
+    
+    // Se não houver associação direta, verifica se o cliente tem agendamentos com este provider
+    const [appointmentExists] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(appointments)
+      .where(
+        and(
+          eq(appointments.providerId, providerId),
+          eq(appointments.clientId, clientId)
+        )
+      );
+    
+    // Se existe pelo menos um agendamento, também considera que o cliente pertence ao provider
+    return appointmentExists && appointmentExists.count > 0;
   }
 
   // Appointment methods
