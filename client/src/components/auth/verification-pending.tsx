@@ -6,7 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "wouter";
+import { useLocation } from "wouter";
 
 interface VerificationPendingProps {
   email: string;
@@ -20,7 +20,7 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
   const [resendDisabled, setResendDisabled] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const { toast } = useToast();
-  const [, navigate] = useRouter();
+  const [, navigate] = useLocation();
   
   useEffect(() => {
     let timer: number | undefined;

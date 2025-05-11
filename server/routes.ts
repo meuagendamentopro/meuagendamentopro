@@ -2545,5 +2545,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rota para verificação de código
+  app.post("/api/verify-code", async (req: Request, res: Response) => {
+    try {
+      const { email, code } = req.body;
+      
+      if (!email || !code) {
+        return res.status(400).json({ error: "Email e código são obrigatórios" });
+      }
+      
+      // Buscar o usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Não indicamos que o usuário não existe por razões de segurança
+        return res.status(400).json({ error: "Código inválido ou expirado" });
+      }
+      
+      // Verificar se o código é válido
+      const isValid = verifyToken(user.id, code);
+      
+      if (!isValid) {
+        return res.status(400).json({ error: "Código inválido ou expirado" });
+      }
+      
+      // Marcar o email como verificado
+      await storage.updateUser(user.id, { 
+        isEmailVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null
+      });
+      
+      // Enviar email de boas-vindas após a verificação
+      await sendWelcomeEmail(user);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Email verificado com sucesso"
+      });
+    } catch (error) {
+      console.error("Erro ao verificar código:", error);
+      return res.status(500).json({ error: "Erro ao processar verificação" });
+    }
+  });
+  
+  // Rota para reenvio de código de verificação
+  app.post("/api/resend-verification", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email é obrigatório" });
+      }
+      
+      // Buscar o usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      
+      if (!user) {
+        // Por razões de segurança, não revelamos se o usuário existe ou não
+        return res.status(200).json({
+          message: "Se o email existir em nosso sistema, um novo código de verificação será enviado."
+        });
+      }
+      
+      // Verificar se o email já está verificado
+      if (user.isEmailVerified) {
+        return res.status(400).json({ error: "Email já foi verificado" });
+      }
+      
+      // Gerar um novo token
+      const token = generateVerificationToken(user.id);
+      
+      // Atualizar o token de verificação no banco de dados
+      await storage.updateUser(user.id, {
+        verificationToken: token,
+        verificationTokenExpiry: new Date(Date.now() + 20 * 60 * 1000) // 20 minutos
+      });
+      
+      // Enviar email com o novo token
+      const sent = await sendVerificationEmail(user, token);
+      
+      if (!sent) {
+        return res.status(500).json({ error: "Falha ao enviar email. Tente novamente mais tarde." });
+      }
+      
+      return res.status(200).json({
+        message: "Novo código de verificação enviado. Verifique seu email."
+      });
+    } catch (error) {
+      console.error("Erro ao reenviar código de verificação:", error);
+      return res.status(500).json({ error: "Erro ao processar reenvio" });
+    }
+  });
+
   return httpServer;
 }
