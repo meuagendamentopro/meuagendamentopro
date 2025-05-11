@@ -21,6 +21,7 @@ import { AppointmentStatus } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MessageCircle } from "lucide-react";
 
 interface AppointmentTableProps {
   providerId: number;
@@ -104,6 +105,34 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     if (!clients) return "";
     const client = clients.find(c => c.id === clientId);
     return client ? formatPhoneNumber(client.phone) : "";
+  };
+  
+  // Cria URL do WhatsApp com mensagem pré-definida
+  const getWhatsAppUrl = (clientId: number, appointmentId: number) => {
+    if (!clients || !appointments) return "";
+    
+    const client = clients.find(c => c.id === clientId);
+    const appointment = appointments.find(a => a.id === appointmentId);
+    
+    if (!client || !appointment) return "";
+    
+    // Remove qualquer caractere não numérico do telefone
+    const cleanPhone = client.phone.replace(/\D/g, '');
+    
+    // Pega os detalhes do agendamento
+    const appointmentDate = new Date(appointment.date);
+    const formattedDate = formatDate(appointmentDate);
+    const formattedTime = formatTime(appointmentDate);
+    const serviceName = getServiceName(appointment.serviceId);
+    
+    // Cria a mensagem pré-definida
+    const message = `Olá, ${client.name}. Seu agendamento para o dia ${formattedDate}, às ${formattedTime} para o serviço ${serviceName} foi confirmado com sucesso!`;
+    
+    // Codifica a mensagem para URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Retorna a URL do WhatsApp com a mensagem pré-definida
+    return `https://wa.me/55${cleanPhone}?text=${encodedMessage}`;
   };
 
   const getServiceName = (serviceId: number) => {
@@ -208,8 +237,16 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                           <div className="text-sm font-medium text-gray-900">
                             {getClientName(appointment.clientId)}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {getClientPhone(appointment.clientId)}
+                          <div className="text-sm">
+                            <a 
+                              href={getWhatsAppUrl(appointment.clientId, appointment.id)} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center text-primary hover:text-primary/80 transition-colors"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                              {getClientPhone(appointment.clientId)}
+                            </a>
                           </div>
                         </div>
                       </div>
