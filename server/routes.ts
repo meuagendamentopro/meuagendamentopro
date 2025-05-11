@@ -1202,18 +1202,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Se não tiver, atualiza o provider com um bookingLink baseado no nome de usuário
       const user = await storage.getUser(provider.userId);
       if (user) {
-        const bookingLink = user.username.toLowerCase();
+        // Certifica-se que o username é usado diretamente, sem caminhos
+        const bookingLink = user.username.toLowerCase().replace(/^\/booking\//, '');
         await storage.updateProvider(provider.id, { bookingLink });
         provider.bookingLink = bookingLink;
       }
     }
     
     // URL do link de compartilhamento
-    const bookingPath = `/booking/${provider.bookingLink || provider.id}`;
+    // Certifica-se que bookingLink não comece com '/booking/'
+    const linkId = provider.bookingLink ? 
+      provider.bookingLink.replace(/^\/booking\//, '') : 
+      provider.id.toString();
+    
+    const bookingPath = `/booking/${linkId}`;
     
     res.json({ 
       bookingLink: bookingPath,
-      linkId: provider.bookingLink || provider.id.toString(),
+      linkId: linkId,
       fullUrl: `${req.protocol}://${req.get('host')}${bookingPath}`
     });
   });
