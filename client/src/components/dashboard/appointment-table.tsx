@@ -21,6 +21,7 @@ import { AppointmentStatus } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CheckCircle, XCircle } from "lucide-react";
 
 interface AppointmentTableProps {
   providerId: number;
@@ -166,11 +167,11 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="whitespace-nowrap">Ações</TableHead>
                   <TableHead className="whitespace-nowrap">Cliente</TableHead>
                   <TableHead className="whitespace-nowrap">Serviço</TableHead>
                   <TableHead className="whitespace-nowrap">Data/Hora</TableHead>
                   <TableHead className="whitespace-nowrap">Status</TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,6 +181,78 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                   
                   return (
                     <TableRow key={appointment.id}>
+                      <TableCell>
+                        <div className="flex items-center justify-start space-x-2">
+                          {appointment.status === AppointmentStatus.PENDING && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => handleConfirmAppointment(appointment.id)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-green-600"
+                                  >
+                                    <CheckCircle className="h-5 w-5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Confirmar agendamento</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+
+                          {appointment.status !== AppointmentStatus.CANCELLED && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-600"
+                                >
+                                  <XCircle className="h-5 w-5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja cancelar o agendamento de {getClientName(appointment.clientId)} para {formatDate(appointmentDate)} às {formatTime(appointmentDate)}?
+                                  </AlertDialogDescription>
+                                  <div className="mt-4">
+                                    <Label htmlFor="reason" className="text-left block mb-2">
+                                      Motivo do cancelamento
+                                    </Label>
+                                    <Input
+                                      id="reason"
+                                      placeholder="Explique o motivo do cancelamento"
+                                      value={cancellationReason}
+                                      onChange={(e) => setCancellationReason(e.target.value)}
+                                    />
+                                  </div>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="mt-6">
+                                  <AlertDialogCancel 
+                                    onClick={() => setCancellationReason("")}
+                                  >
+                                    Não, manter
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    className="bg-red-600 hover:bg-red-700"
+                                    onClick={() => {
+                                      handleCancelAppointment(appointment.id, cancellationReason);
+                                      setCancellationReason("");
+                                    }}
+                                  >
+                                    Sim, cancelar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           {renderClientAvatar(appointment.clientId)}
@@ -202,76 +275,6 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                         >
                           {getStatusTranslation(appointment.status)}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {appointment.status === AppointmentStatus.PENDING && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleConfirmAppointment(appointment.id)}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-green-600 mr-2"
-                                >
-                                  ✓
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Confirmar agendamento</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-
-                        {appointment.status !== AppointmentStatus.CANCELLED && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-600"
-                              >
-                                ✕
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja cancelar o agendamento de {getClientName(appointment.clientId)} para {formatDate(appointmentDate)} às {formatTime(appointmentDate)}?
-                                </AlertDialogDescription>
-                                <div className="mt-4">
-                                  <Label htmlFor="reason" className="text-left block mb-2">
-                                    Motivo do cancelamento
-                                  </Label>
-                                  <Input
-                                    id="reason"
-                                    placeholder="Explique o motivo do cancelamento"
-                                    value={cancellationReason}
-                                    onChange={(e) => setCancellationReason(e.target.value)}
-                                  />
-                                </div>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter className="mt-6">
-                                <AlertDialogCancel 
-                                  onClick={() => setCancellationReason("")}
-                                >
-                                  Não, manter
-                                </AlertDialogCancel>
-                                <AlertDialogAction 
-                                  className="bg-red-600 hover:bg-red-700"
-                                  onClick={() => {
-                                    handleCancelAppointment(appointment.id, cancellationReason);
-                                    setCancellationReason("");
-                                  }}
-                                >
-                                  Sim, cancelar
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
                       </TableCell>
                     </TableRow>
                   );

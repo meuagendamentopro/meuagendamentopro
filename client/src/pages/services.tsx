@@ -192,12 +192,12 @@ export default function ServicesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="whitespace-nowrap">Ações</TableHead>
                       <TableHead className="whitespace-nowrap">Nome</TableHead>
                       <TableHead className="whitespace-nowrap">Descrição</TableHead>
                       <TableHead className="whitespace-nowrap">Duração</TableHead>
                       <TableHead className="whitespace-nowrap">Preço</TableHead>
                       <TableHead className="whitespace-nowrap">Status</TableHead>
-                      <TableHead className="text-right whitespace-nowrap">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
