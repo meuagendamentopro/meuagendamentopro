@@ -13,8 +13,10 @@ import {
   providerClients,
   appointments,
   notifications,
+  timeExclusions,
   InsertProvider,
-  insertProviderSchema
+  insertProviderSchema,
+  InsertTimeExclusion
 } from "@shared/schema";
 import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";

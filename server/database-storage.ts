@@ -638,4 +638,92 @@ export class DatabaseStorage implements IStorage {
         eq(notifications.isRead, false)
       ));
   }
+  
+  // Métodos para TimeExclusion (Exclusões de Horário)
+
+  // Buscar todas as exclusões de horário de um prestador
+  async getTimeExclusions(providerId: number): Promise<TimeExclusion[]> {
+    try {
+      return await db.select()
+        .from(timeExclusions)
+        .where(eq(timeExclusions.providerId, providerId))
+        .orderBy(timeExclusions.startTime);
+    } catch (error) {
+      console.error("Erro ao buscar exclusões de horário:", error);
+      throw new Error("Erro ao buscar exclusões de horário");
+    }
+  }
+
+  // Buscar exclusões de horário de um prestador para um dia específico da semana
+  async getTimeExclusionsByDay(providerId: number, dayOfWeek: number): Promise<TimeExclusion[]> {
+    try {
+      return await db.select()
+        .from(timeExclusions)
+        .where(and(
+          eq(timeExclusions.providerId, providerId),
+          eq(timeExclusions.isActive, true),
+          sql`(${timeExclusions.dayOfWeek} = ${dayOfWeek} OR ${timeExclusions.dayOfWeek} IS NULL)`
+        ))
+        .orderBy(timeExclusions.startTime);
+    } catch (error) {
+      console.error(`Erro ao buscar exclusões de horário para o dia ${dayOfWeek}:`, error);
+      throw new Error("Erro ao buscar exclusões de horário para este dia");
+    }
+  }
+
+  // Buscar uma exclusão de horário específica pelo ID
+  async getTimeExclusion(id: number): Promise<TimeExclusion | undefined> {
+    try {
+      const [exclusion] = await db.select()
+        .from(timeExclusions)
+        .where(eq(timeExclusions.id, id));
+      
+      return exclusion;
+    } catch (error) {
+      console.error("Erro ao buscar exclusão de horário:", error);
+      throw new Error("Erro ao buscar exclusão de horário");
+    }
+  }
+
+  // Criar uma nova exclusão de horário
+  async createTimeExclusion(exclusionData: InsertTimeExclusion): Promise<TimeExclusion> {
+    try {
+      const [newExclusion] = await db.insert(timeExclusions)
+        .values(exclusionData)
+        .returning();
+      
+      return newExclusion;
+    } catch (error) {
+      console.error("Erro ao criar exclusão de horário:", error);
+      throw new Error("Erro ao criar exclusão de horário");
+    }
+  }
+
+  // Atualizar uma exclusão de horário existente
+  async updateTimeExclusion(id: number, exclusionData: Partial<InsertTimeExclusion>): Promise<TimeExclusion | undefined> {
+    try {
+      const [updatedExclusion] = await db.update(timeExclusions)
+        .set(exclusionData)
+        .where(eq(timeExclusions.id, id))
+        .returning();
+      
+      return updatedExclusion;
+    } catch (error) {
+      console.error("Erro ao atualizar exclusão de horário:", error);
+      throw new Error("Erro ao atualizar exclusão de horário");
+    }
+  }
+
+  // Excluir uma exclusão de horário
+  async deleteTimeExclusion(id: number): Promise<boolean> {
+    try {
+      await db.delete(timeExclusions)
+        .where(eq(timeExclusions.id, id));
+      
+      return true;
+    } catch (error) {
+      console.error("Erro ao excluir exclusão de horário:", error);
+      throw new Error("Erro ao excluir exclusão de horário");
+    }
+  }
 }
