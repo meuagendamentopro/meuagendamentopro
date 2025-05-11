@@ -566,6 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         else if (method === 'specific_date' && specificDate) {
           // Validar data específica
           const dateObj = new Date(specificDate);
+          console.log(`Data específica: ${specificDate}, objeto de data: ${dateObj}, é válida: ${!isNaN(dateObj.getTime())}`);
           
           if (isNaN(dateObj.getTime())) {
             return res.status(400).json({ 
@@ -573,10 +574,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
-          // Permitir qualquer data (inclusive no passado)
+          // Remover completamente verificação de data no passado
+          const isInThePast = dateObj < new Date();
+          console.log(`A data ${dateObj} está no passado? ${isInThePast}`);
           
           // Definir hora para o final do dia
           dateObj.setHours(23, 59, 59, 999);
+          console.log(`Data final configurada: ${dateObj}`);
           
           updateData.subscriptionExpiry = dateObj;
         }
