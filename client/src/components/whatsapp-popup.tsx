@@ -28,28 +28,72 @@ const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps
   const { toast } = useToast();
 
   // Buscar dados do provider
-  const { data: provider, isLoading: isLoadingProvider } = useQuery({
+  const { data: provider, isLoading: isLoadingProvider, error } = useQuery({
     queryKey: ['/api/my-provider'],
     queryFn: async () => {
-      const res = await fetch('/api/my-provider');
-      if (!res.ok) throw new Error('Falha ao buscar dados do provider');
-      return res.json();
-    }
+      try {
+        const res = await fetch('/api/my-provider');
+        if (!res.ok) {
+          if (res.status === 404) {
+            // Se o perfil de prestador não existir, retornamos um objeto vazio
+            // para que o popup possa ser mostrado e o usuário possa configurar o WhatsApp
+            return { id: null, phone: '', name: '', email: '' };
+          }
+          throw new Error('Falha ao buscar dados do provider');
+        }
+        return res.json();
+      } catch (error) {
+        console.error("Erro ao buscar dados do provider:", error);
+        // Se houver erro, ainda retornamos um objeto para que o popup possa ser mostrado
+        return { id: null, phone: '', name: '', email: '' };
+      }
+    },
+    retry: false, // Não tentar novamente se falhar, já retornamos um objeto vazio
   });
 
   // Mutation para atualizar o número de WhatsApp
   const updateWhatsAppMutation = useMutation({
     mutationFn: async (phone: string) => {
-      if (!provider || !provider.id) {
+      if (!provider) {
         throw new Error('Dados do provedor não disponíveis');
       }
       
+      if (!provider.id) {
+        // Se o provider não tem ID, precisamos criar um novo provider para o usuário atual
+        console.log("Criando novo perfil de provider");
+        // Primeiro busca os dados do usuário atual
+        const userResponse = await fetch('/api/user');
+        if (!userResponse.ok) {
+          throw new Error('Falha ao buscar dados do usuário');
+        }
+        const user = await userResponse.json();
+        
+        // Cria um novo provider
+        const createProviderResponse = await apiRequest('POST', '/api/providers', {
+          userId: user.id,
+          name: `${user.name}'s Services`,
+          email: user.email,
+          phone: phone,
+          bookingLink: `/booking/${user.username}`,
+          workingHoursStart: 8,
+          workingHoursEnd: 18,
+          workingDays: "1,2,3,4,5"
+        });
+        
+        if (!createProviderResponse.ok) {
+          throw new Error('Falha ao criar perfil de prestador');
+        }
+        
+        return createProviderResponse;
+      }
+      
+      // Se já tem provider, atualiza o telefone
       // Enviar apenas os campos necessários para não interferir com outros campos do objeto provider
       return apiRequest('PATCH', `/api/providers/${provider.id}/settings`, { 
         phone,
-        workingHoursStart: provider.workingHoursStart, 
-        workingHoursEnd: provider.workingHoursEnd,
-        workingDays: provider.workingDays
+        workingHoursStart: provider.workingHoursStart || 8, 
+        workingHoursEnd: provider.workingHoursEnd || 18,
+        workingDays: provider.workingDays || "1,2,3,4,5"
       });
     },
     onSuccess: () => {

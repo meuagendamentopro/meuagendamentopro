@@ -178,6 +178,46 @@ export function setupAuth(app: Express) {
         neverExpires: false, // Assinatura expira por padrão
       });
 
+      console.log(`Novo usuário criado: ${user.name} (ID: ${user.id})`);
+      
+      // Criar automaticamente o perfil de prestador para o usuário
+      // Gerar um link único para compartilhamento baseado no nome de usuário
+      const bookingLink = `/booking/${user.username}`;
+      
+      try {
+        // Criar o perfil de prestador
+        const providerData = {
+          userId: user.id,
+          name: `${user.name}'s Services`, // Nome padrão para o negócio
+          email: user.email,
+          phone: "",
+          bookingLink,
+          avatarUrl: user.avatarUrl || null,
+          workingHoursStart: 8, // 8:00 AM padrão
+          workingHoursEnd: 18,  // 6:00 PM padrão
+          workingDays: "1,2,3,4,5" // Segunda a sexta por padrão
+        };
+        
+        const provider = await storage.createProvider(providerData);
+        console.log(`Perfil de prestador criado automaticamente para usuário ${user.id}, provider ID: ${provider.id}`);
+
+        // Criar serviço de exemplo para o novo prestador
+        const exampleService = {
+          providerId: provider.id,
+          name: "Serviço de Exemplo",
+          description: "Este é um serviço de exemplo. Edite ou exclua conforme necessário.",
+          duration: 60, // 60 minutos
+          price: 10000, // R$ 100,00 (em centavos)
+          active: true
+        };
+        
+        const service = await storage.createService(exampleService);
+        console.log(`Serviço de exemplo criado para novo prestador: ${service.id}`);
+      } catch (providerError) {
+        console.error("Erro ao criar perfil de prestador automático:", providerError);
+        // Continua com o login mesmo se houver erro na criação do perfil
+      }
+
       // Fazer login automático após o registro
       req.login(user, (err) => {
         if (err) return next(err);

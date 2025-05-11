@@ -619,6 +619,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const providers = await storage.getProviders();
     res.json(providers);
   });
+  
+  // Rota para criar um novo provider (usado quando usuários precisam criar seu próprio perfil)
+  app.post("/api/providers", async (req: Request, res: Response) => {
+    try {
+      // Verificar autenticação
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+      
+      // Verificar se o usuário atual já tem um provider
+      const existingProvider = await storage.getProviderByUserId(req.user.id);
+      if (existingProvider) {
+        return res.status(400).json({ 
+          error: "Perfil já existe", 
+          message: "Você já possui um perfil de prestador configurado",
+          provider: existingProvider
+        });
+      }
+      
+      // Validar os dados do body
+      const providerData = insertProviderSchema.parse({
+        ...req.body,
+        userId: req.user.id // Garantir que o userId seja o do usuário atual
+      });
+      
+      // Criar o provider
+      const newProvider = await storage.createProvider(providerData);
+      
+      // Opcionalmente criar um serviço de exemplo
+      try {
+        const exampleService = {
+          providerId: newProvider.id,
+          name: "Serviço de Exemplo",
+          description: "Este é um serviço de exemplo. Edite ou exclua conforme necessário.",
+          duration: 60, // 60 minutos
+          price: 10000, // R$ 100,00 (em centavos)
+          active: true
+        };
+        
+        await storage.createService(exampleService);
+        console.log(`Serviço de exemplo criado para novo prestador: ${newProvider.id}`);
+      } catch (serviceError) {
+        console.error("Erro ao criar serviço de exemplo:", serviceError);
+        // Continua mesmo com erro no serviço
+      }
+      
+      // Retornar o provider criado
+      res.status(201).json(newProvider);
+    } catch (error) {
+      console.error('Erro ao criar provider:', error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      
+      res.status(500).json({ message: "Falha ao criar perfil de prestador" });
+    }
+  });
 
   app.get("/api/providers/:id", async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
