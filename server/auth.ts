@@ -1,12 +1,19 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response } from "express";
 import session from "express-session";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { User as SchemaUser } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { pool, db } from "./db";
+import { 
+  generateVerificationToken, 
+  sendVerificationEmail,
+  sendWelcomeEmail, 
+  verifyToken,
+  isEmailServiceConfigured
+} from "./email-service";
 
 declare global {
   namespace Express {
@@ -195,6 +202,9 @@ export function setupAuth(app: Express) {
       // Hash da senha
       const hashedPassword = await hashPassword(req.body.password);
       
+      // Verificar se o serviço de email está configurado
+      const needsEmailVerification = isEmailServiceConfigured();
+      
       // Criar o usuário com a data de expiração
       const user = await storage.createUser({
         ...req.body,
@@ -202,9 +212,34 @@ export function setupAuth(app: Express) {
         role: "provider", // Define papel como provider por padrão
         subscriptionExpiry, // Define período de teste de 3 dias
         neverExpires: false, // Assinatura expira por padrão
+        isEmailVerified: !needsEmailVerification, // Se não precisar de verificação, já marca como verificado
       });
 
       console.log(`Novo usuário criado: ${user.name} (ID: ${user.id})`);
+      
+      // Se o serviço de email estiver configurado, enviar email de verificação
+      if (needsEmailVerification) {
+        const token = generateVerificationToken(user.id);
+        
+        // Salvar o token no banco de dados
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24); // Token válido por 24 horas
+        
+        await storage.updateUser(user.id, {
+          verificationToken: token,
+          verificationTokenExpiry: expiresAt
+        });
+        
+        // Enviar email com o token
+        const emailSent = await sendVerificationEmail(user, token);
+        
+        if (!emailSent) {
+          console.error(`Falha ao enviar email de verificação para o usuário ${user.id}`);
+          // Não bloqueia o registro mesmo que o email falhe, mas registra o erro
+        } else {
+          console.log(`Email de verificação enviado para ${user.email}`);
+        }
+      }
       
       // Criar automaticamente o perfil de prestador para o usuário
       // Gerar um link único para compartilhamento baseado no nome de usuário
