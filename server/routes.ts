@@ -1273,6 +1273,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const dateParam = req.query.date as string;
     const startDateParam = req.query.startDate as string;
     const endDateParam = req.query.endDate as string;
+    const statusFilter = req.query.status as string;
+    
+    // Determinar se os agendamentos cancelados devem ser incluídos
+    // Se o filtro de status for 'cancelled', precisamos incluir agendamentos cancelados
+    // Ou se não houver filtro de status, incluímos todos
+    const includeCancelled = !statusFilter || statusFilter === 'all' || statusFilter === AppointmentStatus.CANCELLED;
     
     let appointments;
     
@@ -1287,16 +1293,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
-      appointments = await storage.getAppointmentsByDate(providerId, date);
+      appointments = await storage.getAppointmentsByDate(providerId, date, includeCancelled);
     } else if (startDateParam && endDateParam) {
       const startDate = new Date(startDateParam);
       const endDate = new Date(endDateParam);
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         return res.status(400).json({ message: "Invalid date format" });
       }
-      appointments = await storage.getAppointmentsByDateRange(providerId, startDate, endDate);
+      appointments = await storage.getAppointmentsByDateRange(providerId, startDate, endDate, includeCancelled);
     } else {
-      appointments = await storage.getAppointments(providerId);
+      appointments = await storage.getAppointments(providerId, includeCancelled);
+    }
+    
+    // Filtrar por status se um status específico foi solicitado (exceto 'all')
+    if (statusFilter && statusFilter !== 'all') {
+      appointments = appointments.filter(appointment => appointment.status === statusFilter);
     }
     
     // Enriquecer os agendamentos com informações de cliente e serviço
@@ -1332,6 +1343,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const dateParam = req.query.date as string;
     const startDateParam = req.query.startDate as string;
     const endDateParam = req.query.endDate as string;
+    const statusFilter = req.query.status as string;
+    
+    // Determinar se os agendamentos cancelados devem ser incluídos
+    // Se o filtro de status for 'cancelled', precisamos incluir agendamentos cancelados
+    // Ou se não houver filtro de status, incluímos todos
+    const includeCancelled = !statusFilter || statusFilter === 'all' || statusFilter === AppointmentStatus.CANCELLED;
     
     let appointments;
     
@@ -1346,16 +1363,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
-      appointments = await storage.getAppointmentsByDate(providerId, date);
+      appointments = await storage.getAppointmentsByDate(providerId, date, includeCancelled);
     } else if (startDateParam && endDateParam) {
       const startDate = new Date(startDateParam);
       const endDate = new Date(endDateParam);
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         return res.status(400).json({ message: "Invalid date format" });
       }
-      appointments = await storage.getAppointmentsByDateRange(providerId, startDate, endDate);
+      appointments = await storage.getAppointmentsByDateRange(providerId, startDate, endDate, includeCancelled);
     } else {
-      appointments = await storage.getAppointments(providerId);
+      appointments = await storage.getAppointments(providerId, includeCancelled);
+    }
+    
+    // Filtrar por status se um status específico foi solicitado (exceto 'all')
+    if (statusFilter && statusFilter !== 'all') {
+      appointments = appointments.filter(appointment => appointment.status === statusFilter);
     }
     
     // Enriquecer os agendamentos com informações de cliente e serviço
