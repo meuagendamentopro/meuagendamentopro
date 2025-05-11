@@ -35,8 +35,14 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("login");
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
-  const { user, isLoading, loginMutation, registerMutation } = useAuth();
+  const { 
+    user, 
+    isLoading, 
+    loginMutation, 
+    registerMutation, 
+    pendingVerification,
+    setPendingVerification 
+  } = useAuth();
   const [location, navigate] = useLocation();
 
   // Redirecionar para a página principal se já estiver autenticado
@@ -67,14 +73,7 @@ export default function AuthPage() {
 
   const onLoginSubmit = async (data: LoginFormValues) => {
     try {
-      loginMutation.mutate(data, {
-        onError: (error: any) => {
-          // Verificar se é o erro de email não verificado
-          if (error.response?.status === 403 && error.response?.data?.needsVerification) {
-            setVerificationEmail(error.response.data.email);
-          }
-        }
-      });
+      loginMutation.mutate(data);
     } catch (error) {
       console.error("Erro ao fazer login:", error);
     }
@@ -85,12 +84,7 @@ export default function AuthPage() {
     const { confirmPassword, ...registerData } = data;
     
     try {
-      registerMutation.mutate(registerData, {
-        onSuccess: () => {
-          // Após registro bem-sucedido, mostrar o componente de verificação pendente
-          setVerificationEmail(registerData.email);
-        }
-      });
+      registerMutation.mutate(registerData);
     } catch (error) {
       console.error("Erro ao registrar:", error);
     }
@@ -105,13 +99,13 @@ export default function AuthPage() {
   }
 
   // Renderiza o componente de verificação pendente se necessário
-  if (verificationEmail) {
+  if (pendingVerification) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full">
           <VerificationPending
-            email={verificationEmail}
-            onBack={() => setVerificationEmail(null)}
+            email={pendingVerification.email}
+            onBack={() => setPendingVerification(null)}
           />
         </div>
       </div>
