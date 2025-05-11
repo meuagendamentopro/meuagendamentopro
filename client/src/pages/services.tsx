@@ -127,16 +127,16 @@ const ServicesPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="w-full overflow-x-hidden">
-              <Table className="w-full min-w-0 overflow-hidden">
+            <div className="w-full overflow-hidden">
+              <Table className="w-full min-w-0 table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-1/4">Nome</TableHead>
+                    <TableHead className="w-[25%]">Nome</TableHead>
                     <TableHead className="hidden md:table-cell">Descrição</TableHead>
-                    <TableHead className="w-1/6">Duração</TableHead>
-                    <TableHead className="w-1/6">Preço</TableHead>
-                    <TableHead className="w-16">Status</TableHead>
-                    <TableHead className="w-20 text-right">Ações</TableHead>
+                    <TableHead className="w-[18%] sm:w-[15%]">Duração</TableHead>
+                    <TableHead className="w-[18%] sm:w-[15%]">Preço</TableHead>
+                    <TableHead className="w-[18%] sm:w-[10%]">Status</TableHead>
+                    <TableHead className="w-[21%] sm:w-[15%] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,41 +155,43 @@ const ServicesPage: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditService(service)}
-                          className="mr-2"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Editar</span>
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditService(service)}
+                            className="p-1 h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Editar</span>
+                          </Button>
 
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-red-600">
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Excluir</span>
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir serviço</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir o serviço "{service.name}"? Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-red-600 hover:bg-red-700"
-                                onClick={() => handleDeleteService(service.id)}
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-red-600 p-1 h-8 w-8">
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Excluir</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir serviço</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir o serviço "{service.name}"? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={() => handleDeleteService(service.id)}
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

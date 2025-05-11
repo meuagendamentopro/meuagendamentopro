@@ -284,16 +284,16 @@ const AppointmentsPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="w-full overflow-x-hidden">
-              <Table className="w-full min-w-0 overflow-hidden">
+            <div className="w-full overflow-hidden">
+              <Table className="w-full min-w-0 table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-1/4">Cliente</TableHead>
-                    <TableHead className="w-1/6">Serviço</TableHead>
-                    <TableHead className="w-1/6">Data/Hora</TableHead>
-                    <TableHead className="w-1/6">Status</TableHead>
+                    <TableHead className="w-[25%] sm:w-[20%]">Cliente</TableHead>
+                    <TableHead className="hidden sm:table-cell w-[20%]">Serviço</TableHead>
+                    <TableHead className="w-[25%] sm:w-[15%]">Data/Hora</TableHead>
+                    <TableHead className="hidden sm:table-cell w-[15%]">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Observações</TableHead>
-                    <TableHead className="w-1/6">Ações</TableHead>
+                    <TableHead className="w-[50%] sm:w-[30%] md:w-[20%] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -307,15 +307,15 @@ const AppointmentsPage: React.FC = () => {
                     return (
                       <TableRow key={appointment.id}>
                         <TableCell>
-                          <div className="font-medium">{getClientName(appointment.clientId)}</div>
-                          <div className="text-sm text-gray-500">{getClientPhone(appointment.clientId)}</div>
+                          <div className="font-medium truncate max-w-[110px] sm:max-w-full">{getClientName(appointment.clientId)}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-[110px] sm:max-w-full">{getClientPhone(appointment.clientId)}</div>
                         </TableCell>
-                        <TableCell>{getServiceName(appointment.serviceId)}</TableCell>
+                        <TableCell className="hidden sm:table-cell truncate">{getServiceName(appointment.serviceId)}</TableCell>
                         <TableCell>
-                          <div>{formatDate(appointmentDate)}</div>
-                          <div className="text-sm text-gray-500">{formatTime(appointmentDate)}</div>
+                          <div className="truncate max-w-[110px] sm:max-w-full">{formatDate(appointmentDate)}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-[110px] sm:max-w-full">{formatTime(appointmentDate)}</div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                         {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
                           <TooltipProvider>
                             <Tooltip>
@@ -352,27 +352,27 @@ const AppointmentsPage: React.FC = () => {
                           <span className="text-sm text-gray-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap justify-end gap-1">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleEditAppointment(appointment)}
-                              className="px-2"
+                              className="p-1 h-8 w-8 sm:h-9 sm:w-auto sm:p-2"
                             >
-                              <span className="hidden md:inline">Editar</span>
-                              <Pencil className="h-4 w-4 md:hidden" />
+                              <span className="hidden sm:inline">Editar</span>
+                              <Pencil className="h-4 w-4 sm:hidden" />
                             </Button>
 
                             {isPending && (
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                className="text-success-600 border-success-600 hover:bg-success-50 px-2"
+                                className="text-success-600 hover:bg-success-50 p-1 h-8 w-8 sm:h-9 sm:w-auto sm:p-2"
                                 onClick={() => handleUpdateStatus(appointment.id, AppointmentStatus.CONFIRMED)}
                               >
-                                <span className="hidden md:inline">Confirmar</span>
-                                <Check className="h-4 w-4 md:hidden" />
+                                <span className="hidden sm:inline">Confirmar</span>
+                                <Check className="h-4 w-4 sm:hidden" />
                               </Button>
                             )}
 
@@ -380,12 +380,12 @@ const AppointmentsPage: React.FC = () => {
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
-                                    className="text-red-600 border-red-600 hover:bg-red-50 px-2"
+                                    className="text-red-600 hover:bg-red-50 p-1 h-8 w-8 sm:h-9 sm:w-auto sm:p-2"
                                   >
-                                    <span className="hidden md:inline">Cancelar</span>
-                                    <X className="h-4 w-4 md:hidden" />
+                                    <span className="hidden sm:inline">Cancelar</span>
+                                    <X className="h-4 w-4 sm:hidden" />
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
