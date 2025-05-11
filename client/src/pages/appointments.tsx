@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Search, RefreshCw } from "lucide-react";
+import { Plus, Calendar, Search, RefreshCw, Pencil, Check, X } from "lucide-react";
 import { formatDate, formatTime, getToday, addDays } from "@/lib/dates";
 import { getColorForStatus, getStatusTranslation, formatPhoneNumber } from "@/lib/utils";
 import { Appointment, AppointmentStatus, Client, Service } from "@shared/schema";
@@ -382,9 +382,10 @@ const AppointmentsPage: React.FC = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="text-red-600 border-red-600 hover:bg-red-50"
+                                    className="text-red-600 border-red-600 hover:bg-red-50 px-2"
                                   >
-                                    Cancelar
+                                    <span className="hidden md:inline">Cancelar</span>
+                                    <X className="h-4 w-4 md:hidden" />
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
