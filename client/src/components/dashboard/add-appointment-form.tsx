@@ -328,7 +328,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                           <SelectValue placeholder="Selecione um cliente" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="max-h-60">
+                      <SelectContent className="max-h-[35vh]">
                         {clientsLoading ? (
                           <SelectItem value="loading" disabled>
                             Carregando...
@@ -372,7 +372,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                     <SelectValue placeholder="Selecione um serviço" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent className="max-h-[35vh]">
                   {servicesLoading ? (
                     <SelectItem value="loading" disabled>
                       Carregando...
@@ -397,7 +397,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
         />
 
         {/* Date and Time Selection */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="date"
@@ -450,7 +450,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                       <SelectValue placeholder="Escolha um horário" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="max-h-[35vh]">
                     {timeSlots.map((time) => (
                       <SelectItem key={time} value={time}>
                         {time}
