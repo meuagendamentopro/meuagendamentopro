@@ -34,7 +34,7 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
         toast({
           title: "Sucesso",
           description: "Um novo email de verificação foi enviado. Verifique sua caixa de entrada.",
-          variant: "success"
+          variant: "default"
         });
       } else {
         toast({

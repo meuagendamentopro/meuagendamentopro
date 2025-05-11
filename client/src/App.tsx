@@ -12,6 +12,7 @@ import Clients from "@/pages/clients";
 import Booking from "@/pages/booking";
 import Settings from "@/pages/settings";
 import AuthPage from "@/pages/auth-page";
+import EmailVerificationPage from "@/pages/email-verification-page";
 import FinancialReport from "@/pages/financial-report";
 import AdminPage from "@/pages/admin-page";
 import UsersPage from "@/pages/admin/users-page";
@@ -214,8 +215,9 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* Rota pública para autenticação */}
+      {/* Rotas públicas para autenticação */}
       <Route path="/auth" component={AuthPage} />
+      <Route path="/verify-email/:token" component={EmailVerificationPage} />
       
       {/* Rotas públicas para agendamento de clientes (ambos formatos) */}
       <Route path="/booking" component={Booking} />

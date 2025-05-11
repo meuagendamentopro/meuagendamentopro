@@ -66,19 +66,54 @@ export default function AuthPage() {
   });
 
   const onLoginSubmit = async (data: LoginFormValues) => {
-    loginMutation.mutate(data);
+    try {
+      loginMutation.mutate(data, {
+        onError: (error: any) => {
+          // Verificar se é o erro de email não verificado
+          if (error.response?.status === 403 && error.response?.data?.needsVerification) {
+            setVerificationEmail(error.response.data.email);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao fazer login:", error);
+    }
   };
 
   const onRegisterSubmit = async (data: RegisterFormValues) => {
     // Remover confirmPassword antes de enviar para a API
     const { confirmPassword, ...registerData } = data;
-    registerMutation.mutate(registerData);
+    
+    try {
+      registerMutation.mutate(registerData, {
+        onSuccess: () => {
+          // Após registro bem-sucedido, mostrar o componente de verificação pendente
+          setVerificationEmail(registerData.email);
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao registrar:", error);
+    }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Renderiza o componente de verificação pendente se necessário
+  if (verificationEmail) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full">
+          <VerificationPending
+            email={verificationEmail}
+            onBack={() => setVerificationEmail(null)}
+          />
+        </div>
       </div>
     );
   }

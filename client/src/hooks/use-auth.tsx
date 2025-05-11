@@ -71,6 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/login", credentials);
       if (!res.ok) {
         const errorData = await res.json();
+        
+        // Verificar se é um erro de verificação de email
+        if (res.status === 403 && errorData.needsVerification) {
+          const error = new Error(errorData.error || "Email não verificado");
+          const customError: any = error;
+          customError.response = {
+            status: res.status,
+            data: errorData
+          };
+          throw customError;
+        }
+        
         throw new Error(errorData.error || "Falha no login");
       }
       return await res.json();
@@ -82,12 +94,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: `Bem-vindo(a), ${user.name}!`,
       });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Falha no login",
-        description: error.message,
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      // Se não for um erro de verificação de email, mostrar toast
+      if (!error.response?.data?.needsVerification) {
+        toast({
+          title: "Falha no login",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     },
   });
 

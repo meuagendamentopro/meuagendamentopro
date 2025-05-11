@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "wouter/use-location";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -9,9 +9,13 @@ import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function EmailVerificationPage() {
-  const [searchParams] = useSearchParams();
-  const email = searchParams.get("email");
-  const token = searchParams.get("token");
+  const [location] = useLocation();
+  // Extrair parâmetros da URL
+  const params = new URLSearchParams(location.split('?')[1] || '');
+  const email = params.get("email");
+  // O token está na URL como /verify-email/:token, então precisamos extraí-lo do caminho
+  const pathParts = location.split('/');
+  const token = pathParts[pathParts.length - 1].split('?')[0];
   const { toast } = useToast();
   
   const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
@@ -64,7 +68,7 @@ export default function EmailVerificationPage() {
         toast({
           title: "Sucesso",
           description: "Um novo email de verificação foi enviado. Verifique sua caixa de entrada.",
-          variant: "success"
+          variant: "default"
         });
       } else {
         toast({
