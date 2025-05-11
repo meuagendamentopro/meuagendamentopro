@@ -121,22 +121,42 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
+      // Verificar se o nome de usuário já existe
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ error: "Nome de usuário já existe" });
       }
+      
+      // Verificar se o email já está em uso
+      const existingEmail = await storage.getUserByEmail(req.body.email);
+      if (existingEmail) {
+        return res.status(400).json({ error: "Email já está em uso" });
+      }
 
+      // Calcular a data de expiração (3 dias a partir de hoje)
+      const trialPeriodDays = 3;
+      const subscriptionExpiry = new Date();
+      subscriptionExpiry.setDate(subscriptionExpiry.getDate() + trialPeriodDays);
+      
+      // Hash da senha
       const hashedPassword = await hashPassword(req.body.password);
+      
+      // Criar o usuário com a data de expiração
       const user = await storage.createUser({
         ...req.body,
         password: hashedPassword,
+        role: "provider", // Define papel como provider por padrão
+        subscriptionExpiry, // Define período de teste de 3 dias
+        neverExpires: false, // Assinatura expira por padrão
       });
 
+      // Fazer login automático após o registro
       req.login(user, (err) => {
         if (err) return next(err);
         res.status(201).json(user);
       });
     } catch (error) {
+      console.error("Erro no registro:", error);
       next(error);
     }
   });

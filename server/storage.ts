@@ -18,6 +18,7 @@ export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
@@ -186,15 +187,23 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(u => u.username === username);
   }
   
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(u => u.email === email);
+  }
+  
   async createUser(userData: InsertUser): Promise<User> {
     const id = ++this.userId;
     const newUser: User = {
       id,
       name: userData.name,
       username: userData.username,
+      email: userData.email || `${userData.username}@temp.com`,
       password: userData.password,
       role: userData.role || "provider",
       avatarUrl: userData.avatarUrl || null,
+      isActive: userData.isActive !== undefined ? userData.isActive : true,
+      subscriptionExpiry: userData.subscriptionExpiry || null, 
+      neverExpires: userData.neverExpires !== undefined ? userData.neverExpires : false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
