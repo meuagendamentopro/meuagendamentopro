@@ -22,6 +22,7 @@ import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword } from "./auth";
 import { WebSocketServer, WebSocket } from "ws";
+import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
@@ -207,6 +208,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Tornar a função broadcastUpdate disponível para outras partes do código
   (global as any).broadcastUpdate = broadcastUpdate;
+  
+  // Endpoint para verificação de email
+  app.post("/api/verify-email", async (req: Request, res: Response) => {
+    try {
+      const { email, token } = req.body;
+      
+      if (!email || !token) {
+        return res.status(400).json({ 
+          error: "Dados incompletos. Email e token são obrigatórios." 
+        });
+      }
+      
+      // Buscar o usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ 
+          error: "Usuário não encontrado com o email fornecido." 
+        });
+      }
+      
+      // Se o usuário já está verificado
+      if (user.isEmailVerified) {
+        return res.status(200).json({ 
+          message: "Email já verificado anteriormente. Você pode fazer login." 
+        });
+      }
+      
+      // Verifica se o token é válido
+      if (!verifyToken(user.id, token)) {
+        return res.status(400).json({ 
+          error: "Token inválido ou expirado. Solicite um novo link de verificação." 
+        });
+      }
+      
+      // Atualiza o usuário para marcar o email como verificado
+      await storage.updateUser(user.id, {
+        isEmailVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null
+      });
+      
+      // Envia um email de boas-vindas
+      try {
+        await sendWelcomeEmail(user);
+      } catch (emailError) {
+        console.error("Erro ao enviar email de boas-vindas:", emailError);
+        // Não interrompemos o fluxo se falhar o envio do email de boas-vindas
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Email verificado com sucesso!" 
+      });
+    } catch (error) {
+      console.error("Erro na verificação de email:", error);
+      return res.status(500).json({ 
+        error: "Erro ao processar a verificação de email. Tente novamente mais tarde." 
+      });
+    }
+  });
+  
+  // Endpoint para reenviar email de verificação
+  app.post("/api/resend-verification", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          error: "Email é obrigatório" 
+        });
+      }
+      
+      // Verifica se o serviço de email está configurado
+      if (!isEmailServiceConfigured()) {
+        return res.status(503).json({
+          error: "Serviço de email não configurado. Entre em contato com o administrador."
+        });
+      }
+      
+      // Buscar o usuário pelo email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Não revelamos se o email existe ou não por segurança
+        return res.status(200).json({ 
+          message: "Se o email estiver registrado, um link de verificação será enviado." 
+        });
+      }
+      
+      // Se o usuário já está verificado
+      if (user.isEmailVerified) {
+        return res.status(200).json({ 
+          message: "Este email já foi verificado. Você pode fazer login." 
+        });
+      }
+      
+      // Gera um novo token
+      const token = generateVerificationToken(user.id);
+      
+      // Atualiza o usuário com o novo token
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + 24); // Expira em 24 horas
+      
+      await storage.updateUser(user.id, {
+        verificationToken: token,
+        verificationTokenExpiry: expiryDate
+      });
+      
+      // Envia o email de verificação
+      const emailSent = await sendVerificationEmail(user, token);
+      
+      if (!emailSent) {
+        return res.status(500).json({
+          error: "Falha ao enviar o email de verificação. Tente novamente mais tarde."
+        });
+      }
+      
+      return res.status(200).json({
+        success: true,
+        message: "Um novo link de verificação foi enviado para seu email."
+      });
+    } catch (error) {
+      console.error("Erro ao reenviar verificação:", error);
+      return res.status(500).json({
+        error: "Erro ao processar a solicitação. Tente novamente mais tarde."
+      });
+    }
+  });
   
   // Middleware para verificar se o usuário é administrador
   const isAdmin = (req: Request, res: Response, next: NextFunction) => {

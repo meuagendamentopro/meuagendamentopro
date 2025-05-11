@@ -98,7 +98,21 @@ export function verifyToken(userId: number, token: string): boolean {
  */
 export async function sendVerificationEmail(user: User, token: string): Promise<boolean> {
   // Criando a URL de verificação - usando URL absoluta para garantir que funcione
-  const verificationUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/verify-email/${token}?email=${encodeURIComponent(user.email)}`;
+  // Determina a URL base a partir da solicitação ou usa um valor padrão
+  let baseUrl = process.env.BASE_URL;
+  if (!baseUrl) {
+    // Em desenvolvimento, usa localhost
+    if (process.env.NODE_ENV === 'development') {
+      baseUrl = 'http://localhost:5000';
+    } else {
+      // Em produção, tenta usar o domínio Replit
+      const replitDomain = process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` 
+        : 'http://localhost:5000';
+      baseUrl = replitDomain;
+    }
+  }
+  const verificationUrl = `${baseUrl}/verify-email/${token}?email=${encodeURIComponent(user.email)}`;
   
   // Template do email
   const html = `
