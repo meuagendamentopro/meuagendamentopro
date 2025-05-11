@@ -1015,7 +1015,6 @@ export default function UsersPage() {
                             <FormControl>
                               <Input 
                                 type="date" 
-                                min={new Date().toISOString().split('T')[0]} 
                                 {...field} 
                               />
                             </FormControl>

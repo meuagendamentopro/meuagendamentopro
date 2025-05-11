@@ -573,12 +573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
           
-          // Verificar se a data não é no passado
-          if (dateObj < new Date()) {
-            return res.status(400).json({ 
-              error: "A data de expiração não pode ser no passado" 
-            });
-          }
+          // Permitir qualquer data (inclusive no passado)
           
           // Definir hora para o final do dia
           dateObj.setHours(23, 59, 59, 999);
