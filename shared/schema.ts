@@ -8,15 +8,19 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   username: text("username").notNull().unique(),
+  email: text("email").notNull(),
   password: text("password").notNull(),
   role: text("role").default("provider").notNull(), // 'admin' ou 'provider'
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true).notNull(), // Para bloquear acesso ao sistema
+  subscriptionExpiry: timestamp("subscription_expiry"), // Data de expiração da assinatura (null para admin ou assinatura sem expiração)
+  neverExpires: boolean("never_expires").default(false), // Para assinaturas que nunca expiram
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
   return {
     usernameIdx: uniqueIndex("username_idx").on(table.username),
+    emailIdx: uniqueIndex("email_idx").on(table.email),
   }
 });
 
@@ -24,10 +28,13 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users).pick({
   name: true,
   username: true,
+  email: true,
   password: true,
   role: true,
   avatarUrl: true,
   isActive: true,
+  subscriptionExpiry: true,
+  neverExpires: true,
 });
 
 // Provider/Professional model (vinculado a um usuário)
@@ -312,6 +319,18 @@ export const loginSchema = z.object({
   password: z.string().min(6, "Senha é obrigatória")
 });
 
+// Schema de registro para novos usuários
+export const registerSchema = z.object({
+  name: z.string().min(3, "Nome completo é obrigatório"),
+  username: z.string().min(3, "Nome de usuário é obrigatório"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  confirmPassword: z.string().min(6, "Confirmação de senha é obrigatória")
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -336,3 +355,4 @@ export type InsertProviderClient = z.infer<typeof insertProviderClientSchema>;
 
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
+export type RegisterFormValues = z.infer<typeof registerSchema>;
