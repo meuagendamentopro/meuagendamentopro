@@ -341,8 +341,13 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     // Um agendamento ocorre no horário se:
     // 1. O horário de início do agendamento é exatamente este horário, OU
     // 2. O horário está entre o início e o fim do agendamento
+    // E o agendamento não está cancelado
     
     const result = appointments.find(apt => {
+      // Ignorar agendamentos cancelados
+      if (apt.status === AppointmentStatus.CANCELLED) {
+        return false;
+      }
       // Criar uma cópia da data do agendamento
       const startTime = new Date(apt.date);
       

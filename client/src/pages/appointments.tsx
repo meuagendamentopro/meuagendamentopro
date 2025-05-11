@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Search } from "lucide-react";
+import { Plus, Calendar, Search, RefreshCw } from "lucide-react";
 import { formatDate, formatTime, getToday, addDays } from "@/lib/dates";
 import { getColorForStatus, getStatusTranslation, formatPhoneNumber } from "@/lib/utils";
 import { Appointment, AppointmentStatus, Client, Service } from "@shared/schema";
@@ -419,6 +419,22 @@ const AppointmentsPage: React.FC = () => {
                                 onClick={() => handleUpdateStatus(appointment.id, AppointmentStatus.COMPLETED)}
                               >
                                 Marcar como concluído
+                              </Button>
+                            )}
+                            
+                            {/* Botão de Reagendar para agendamentos cancelados */}
+                            {appointment.status === AppointmentStatus.CANCELLED && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-indigo-600 border-indigo-600 hover:bg-indigo-50 ml-2"
+                                onClick={() => {
+                                  // Preencher os dados do agendamento atual para reagendamento
+                                  setSelectedAppointment(appointment);
+                                  setIsAddDialogOpen(true);
+                                }}
+                              >
+                                Reagendar
                               </Button>
                             )}
                           </div>
