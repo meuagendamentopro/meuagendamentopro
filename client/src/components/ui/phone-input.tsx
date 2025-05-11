@@ -10,10 +10,10 @@ interface PhoneInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
 export function PhoneInput({ value, onChange, ...props }: PhoneInputProps) {
   const [displayValue, setDisplayValue] = useState("");
   
-  // Format initial value on mount
+  // Format value when it changes or on mount
   useEffect(() => {
     setDisplayValue(formatPhoneNumber(value || ""));
-  }, []);
+  }, [value]);
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
