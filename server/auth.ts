@@ -279,11 +279,21 @@ export function setupAuth(app: Express) {
         // Continua com o login mesmo se houver erro na criação do perfil
       }
 
-      // Fazer login automático após o registro
-      req.login(user, (err) => {
-        if (err) return next(err);
-        res.status(201).json(user);
-      });
+      // Não fazer login automático se a verificação de email estiver ativada
+      if (isEmailServiceConfigured()) {
+        // Retornar informação indicando que o email precisa ser verificado
+        res.status(201).json({ 
+          ...user, 
+          needsVerification: true,
+          message: "Verifique seu email para ativar sua conta" 
+        });
+      } else {
+        // Se verificação de email não estiver ativada, fazer login automático
+        req.login(user, (err) => {
+          if (err) return next(err);
+          res.status(201).json(user);
+        });
+      }
     } catch (error) {
       console.error("Erro no registro:", error);
       next(error);
