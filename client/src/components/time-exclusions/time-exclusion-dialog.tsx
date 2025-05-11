@@ -51,7 +51,7 @@ export function TimeExclusionDialog({
 
   // Valores default para o formulário
   const defaultValues: FormValues = {
-    name: exclusion?.name || "Horário Indisponível",
+    name: exclusion?.name || "",
     startTime: exclusion?.startTime || "12:00",
     endTime: exclusion?.endTime || "13:00",
     dayOfWeek: exclusion?.dayOfWeek?.toString() || dayOfWeek?.toString() || "0", // Agora usamos "0" para "todos os dias"
@@ -91,6 +91,9 @@ export function TimeExclusionDialog({
       const parsedDayOfWeek = data.dayOfWeek !== "0" && data.dayOfWeek !== ""
         ? parseInt(data.dayOfWeek) 
         : null;
+        
+      // Se o nome estiver vazio, usar "Horário Indisponível" como padrão
+      const name = data.name.trim() || "Horário Indisponível";
 
       // Criar ou atualizar uma exclusão de horário
       if (isEditing && exclusion) {
@@ -98,7 +101,7 @@ export function TimeExclusionDialog({
         await updateExclusionMutation.mutateAsync({
           id: exclusion.id,
           data: {
-            name: data.name,
+            name: name,
             startTime: data.startTime,
             endTime: data.endTime,
             dayOfWeek: parsedDayOfWeek,
@@ -107,7 +110,7 @@ export function TimeExclusionDialog({
       } else {
         // Criar novo
         await createExclusionMutation.mutateAsync({
-          name: data.name,
+          name: name,
           startTime: data.startTime,
           endTime: data.endTime,
           dayOfWeek: parsedDayOfWeek,

@@ -379,12 +379,21 @@ const SettingsPage: React.FC = () => {
             <div>
               <Button 
                 onClick={() => {
-                  // Importar a função diretamente para o teste
-                  const { playNotificationSound } = require('@/lib/notification-sound');
-                  playNotificationSound();
-                  toast({
-                    title: "Som de notificação",
-                    description: "O som de notificação foi reproduzido com sucesso",
+                  // Importar dinamicamente o módulo para garantir que está atualizado
+                  import('@/lib/notification-sound').then(module => {
+                    const success = module.playNotificationSound();
+                    if (success) {
+                      toast({
+                        title: "Som de notificação",
+                        description: "O som de notificação foi reproduzido com sucesso",
+                      });
+                    } else {
+                      toast({
+                        title: "Erro",
+                        description: "Não foi possível reproduzir o som. Verifique se o áudio está habilitado no navegador.",
+                        variant: "destructive"
+                      });
+                    }
                   });
                 }}
                 variant="outline"
