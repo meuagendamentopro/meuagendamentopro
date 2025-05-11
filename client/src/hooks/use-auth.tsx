@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useState } from "react";
 import {
   useQuery,
   useMutation,
@@ -21,13 +21,21 @@ interface User {
   updatedAt: string;
 }
 
+// Respostas do servidor que incluem informações adicionais
+interface AuthResponse extends User {
+  needsVerification?: boolean;
+  message?: string;
+}
+
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
+  pendingVerification: {email: string} | null;
+  loginMutation: UseMutationResult<User | AuthResponse, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<User, Error, RegisterData>;
+  registerMutation: UseMutationResult<User | AuthResponse, Error, RegisterData>;
+  setPendingVerification: (value: {email: string} | null) => void;
 };
 
 type LoginData = {
@@ -47,6 +55,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [pendingVerification, setPendingVerification] = useState<{email: string} | null>(null);
   
   const {
     data: user,
@@ -95,8 +104,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: any) => {
-      // Se não for um erro de verificação de email, mostrar toast
-      if (!error.response?.data?.needsVerification) {
+      // Verificar se é um erro de verificação de email
+      if (error.response?.data?.needsVerification) {
+        // Salvar estado de verificação pendente
+        setPendingVerification({ email: error.response.data.email });
+        
+        toast({
+          title: "Email não verificado",
+          description: "Por favor, verifique seu email para ativar sua conta",
+          variant: "destructive",
+        });
+      } else {
+        // Outros erros de login
         toast({
           title: "Falha no login",
           description: error.message,
@@ -115,7 +134,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: async (user: User) => {
+    onSuccess: async (response: User | AuthResponse) => {
+      // Verificar se o registro exige verificação de email
+      if ('needsVerification' in response && response.needsVerification) {
+        // Não definir o usuário nos dados da query, pois precisamos de verificação
+        setPendingVerification({ email: response.email });
+        
+        toast({
+          title: "Registro realizado",
+          description: "Enviamos um email de verificação. Por favor, verifique sua caixa de entrada.",
+        });
+        
+        return; // Não prosseguir com o restante do fluxo
+      }
+      
+      // Caso não precise de verificação, continuar com o fluxo normal
+      const user = response as User;
       queryClient.setQueryData(["/api/user"], user);
 
       // Verificar se existe um perfil de prestador para este usuário
@@ -192,6 +226,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user || null,
         isLoading,
         error,
+        pendingVerification,
+        setPendingVerification,
         loginMutation,
         logoutMutation,
         registerMutation,
