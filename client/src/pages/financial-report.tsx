@@ -153,17 +153,17 @@ export default function FinancialReport() {
   }, {} as Record<string, GroupType>);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Relatório Financeiro</h1>
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-full">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Relatório Financeiro</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {/* Filtros */}
-        <Card className="col-span-1">
-          <CardHeader>
+        <Card className="col-span-1 max-w-full">
+          <CardHeader className="px-4 sm:px-6">
             <CardTitle>Filtros</CardTitle>
             <CardDescription>Selecione o período e serviço</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-4 sm:px-6">
             {/* Tipo de visualização */}
             <div>
               <label className="block text-sm font-medium mb-2">Tipo de Visualização</label>
@@ -307,8 +307,8 @@ export default function FinancialReport() {
         </Card>
 
         {/* Resumo Financeiro */}
-        <Card className="col-span-1 lg:col-span-2">
-          <CardHeader>
+        <Card className="col-span-1 lg:col-span-2 max-w-full">
+          <CardHeader className="px-4 sm:px-6">
             <CardTitle>Resumo Financeiro</CardTitle>
             <CardDescription>
               {viewType === "day" && (
@@ -331,8 +331,8 @@ export default function FinancialReport() {
               </div>
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="mb-6">
+          <CardContent className="px-4 sm:px-6">
+            <div className="mb-4 sm:mb-6">
               <h2 className="text-2xl font-bold text-primary">
                 R$ {totalRevenue.toFixed(2)}
               </h2>
@@ -367,8 +367,8 @@ export default function FinancialReport() {
       </div>
 
       {/* Tabela de Transações */}
-      <Card>
-        <CardHeader>
+      <Card className="max-w-full">
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle>Detalhes dos Atendimentos</CardTitle>
           <CardDescription>
             {viewType === "day" && (
