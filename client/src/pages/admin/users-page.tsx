@@ -70,8 +70,23 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 
 // Schema para gerenciar assinatura
 const subscriptionFormSchema = z.object({
-  extensionMonths: z.coerce.number().min(1, "Mínimo de 1 mês").max(36, "Máximo de 36 meses"),
+  method: z.enum(['extension', 'specific_date']).default('extension'),
+  extensionMonths: z.coerce.number().min(1, "Mínimo de 1 mês").max(36, "Máximo de 36 meses").optional(),
+  specificDate: z.string().optional(), // Data específica no formato yyyy-MM-dd
   neverExpires: z.boolean().optional(),
+}).refine((data) => {
+  // Se o método for extension, extensionMonths é obrigatório
+  if (data.method === 'extension' && !data.neverExpires) {
+    return !!data.extensionMonths;
+  }
+  // Se o método for specific_date, specificDate é obrigatório
+  if (data.method === 'specific_date' && !data.neverExpires) {
+    return !!data.specificDate;
+  }
+  return true;
+}, {
+  message: "Informe os meses de extensão ou uma data específica",
+  path: ['extensionMonths'],
 });
 
 type SubscriptionFormValues = z.infer<typeof subscriptionFormSchema>;
