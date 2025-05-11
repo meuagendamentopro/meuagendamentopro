@@ -35,8 +35,7 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
-    <div 
-         className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden" 
+    <div className="fixed inset-0 z-[9999] flex items-start justify-start overflow-auto" 
          style={{ 
            position: 'fixed', 
            top: 0, 
@@ -45,6 +44,7 @@ const DialogContent = React.forwardRef<
            bottom: 0, 
            width: '100vw', 
            height: '100vh',
+           paddingTop: '10vh'
          }}
          onClick={(e) => {
            // Impedir que cliques no container fechem o diálogo
@@ -53,18 +53,11 @@ const DialogContent = React.forwardRef<
     >
       <DialogPrimitive.Content
         ref={ref}
-        onOpenAutoFocus={(e) => {
-          // Importante: Reseta o scroll horizontal quando o diálogo abre
-          window.scrollTo(0, window.scrollY);
-          e.preventDefault();
-        }}
         style={{ 
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
+          position: 'relative', 
+          margin: 'auto',
           maxWidth: 'calc(100vw - 2rem)',
-          width: '100%',
+          width: '100%'
         }}
         className={cn(
           "relative z-[9999] grid w-full max-w-lg max-h-[80vh] gap-4 overflow-y-auto border bg-background p-4 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg sm:p-6",

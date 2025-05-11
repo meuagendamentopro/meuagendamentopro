@@ -16,11 +16,6 @@ const PopoverContent = React.forwardRef<
       ref={ref}
       align={align}
       sideOffset={sideOffset}
-      onOpenAutoFocus={(e) => {
-        // Importante: Reseta o scroll horizontal quando o popover abre
-        window.scrollTo(0, window.scrollY);
-        e.preventDefault();
-      }}
       style={{ 
         position: 'fixed', 
         maxWidth: 'calc(100vw - 2rem)',
