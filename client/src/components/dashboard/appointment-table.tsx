@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { 
   Table, 
   TableBody, 
@@ -18,6 +18,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { AppointmentStatus } from "@shared/schema";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AppointmentTableProps {
   providerId: number;
@@ -32,6 +35,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   showTitle = true,
   onAppointmentUpdated
 }) => {
+  const [cancellationReason, setCancellationReason] = useState("");
   const { data: appointments, isLoading: appointmentsLoading, refetch } = useQuery({
     queryKey: ['/api/providers', providerId, 'appointments'],
     queryFn: async ({ queryKey }) => {
@@ -59,10 +63,11 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     }
   });
 
-  const handleCancelAppointment = async (id: number) => {
+  const handleCancelAppointment = async (id: number, cancellationReason: string) => {
     try {
       await apiRequest('PATCH', `/api/appointments/${id}/status`, { 
-        status: AppointmentStatus.CANCELLED 
+        status: AppointmentStatus.CANCELLED,
+        cancellationReason
       });
       refetch();
       if (onAppointmentUpdated) {
@@ -114,11 +119,29 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   };
 
   // Filter appointments for today or later, and limit
+  // Incluímos agendamentos cancelados recentes também
   const filteredAppointments = React.useMemo(() => {
     if (!appointments) return [];
     
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
     return appointments
-      .filter(appointment => new Date(appointment.date) >= new Date(new Date().setHours(0, 0, 0, 0)))
+      .filter(appointment => {
+        const appointmentDate = new Date(appointment.date);
+        // Incluir agendamentos futuros de qualquer status
+        if (appointmentDate >= today) return true;
+        
+        // Incluir agendamentos cancelados recentes (últimos 7 dias)
+        if (appointment.status === AppointmentStatus.CANCELLED && appointmentDate >= sevenDaysAgo) {
+          return true;
+        }
+        
+        return false;
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, limit);
   }, [appointments, limit]);
@@ -210,12 +233,30 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100`}
-                      >
-                        {getStatusTranslation(appointment.status)}
-                      </Badge>
+                      {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="outline"
+                                className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100 cursor-help`}
+                              >
+                                {getStatusTranslation(appointment.status)}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p><strong>Motivo:</strong> {appointment.cancellationReason}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={`bg-${statusColor}-100 text-${statusColor}-600 hover:bg-${statusColor}-100`}
+                        >
+                          {getStatusTranslation(appointment.status)}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {appointment.status === AppointmentStatus.PENDING && (
@@ -244,15 +285,34 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
-                              <AlertDialogDescription>
+                              <AlertDialogDescription className="pb-4">
                                 Tem certeza que deseja cancelar o agendamento de {getClientName(appointment.clientId)} para {getServiceName(appointment.serviceId)}?
                               </AlertDialogDescription>
+                              
+                              <div className="mt-4 space-y-2">
+                                <Label htmlFor="cancellationReason" className="text-left">
+                                  Motivo do cancelamento
+                                </Label>
+                                <Input
+                                  id="cancellationReason"
+                                  placeholder="Explique o motivo do cancelamento"
+                                  value={cancellationReason}
+                                  onChange={(e) => setCancellationReason(e.target.value)}
+                                />
+                              </div>
                             </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Não, manter</AlertDialogCancel>
+                            <AlertDialogFooter className="mt-6">
+                              <AlertDialogCancel 
+                                onClick={() => setCancellationReason("")}
+                              >
+                                Não, manter
+                              </AlertDialogCancel>
                               <AlertDialogAction 
                                 className="bg-red-600 hover:bg-red-700"
-                                onClick={() => handleCancelAppointment(appointment.id)}
+                                onClick={() => {
+                                  handleCancelAppointment(appointment.id, cancellationReason);
+                                  setCancellationReason("");
+                                }}
                               >
                                 Sim, cancelar
                               </AlertDialogAction>
