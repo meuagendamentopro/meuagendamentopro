@@ -15,10 +15,10 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
-import { PageHeader } from "@/components/layout/page-header";
+import PageHeader from "@/components/layout/page-header";
 import { formatDuration } from "@/lib/dates";
 import { Service } from "@shared/schema";
-import { ServiceForm } from "@/components/services/service-form";
+import ServiceForm from "@/components/services/service-form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -276,15 +276,9 @@ export default function ServicesPage() {
             </DialogDescription>
           </DialogHeader>
           <ServiceForm
-            defaultValues={editingService || {
-              name: "",
-              description: "",
-              duration: 60,
-              price: 0,
-              active: true
-            }}
-            onSubmit={handleSubmit}
-            isLoading={createServiceMutation.isPending || updateServiceMutation.isPending}
+            service={editingService}
+            providerId={provider?.id}
+            onComplete={() => setIsDialogOpen(false)}
           />
         </DialogContent>
       </Dialog>
