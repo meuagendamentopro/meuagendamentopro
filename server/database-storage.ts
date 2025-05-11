@@ -349,16 +349,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Appointment methods
-  async getAppointments(providerId: number): Promise<Appointment[]> {
+  async getAppointments(providerId: number, includeCancelled: boolean = true): Promise<Appointment[]> {
+    // Se includeCancelled for falso, excluir os cancelados
+    const conditions = includeCancelled
+      ? [eq(appointments.providerId, providerId)]
+      : [
+          eq(appointments.providerId, providerId),
+          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
+        ];
+    
     return await db
       .select()
       .from(appointments)
-      .where(
-        and(
-          eq(appointments.providerId, providerId),
-          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
-        )
-      )
+      .where(and(...conditions))
       .orderBy(appointments.date);
   }
 
@@ -370,7 +373,7 @@ export class DatabaseStorage implements IStorage {
     return appointment;
   }
 
-  async getAppointmentsByDate(providerId: number, date: Date): Promise<Appointment[]> {
+  async getAppointmentsByDate(providerId: number, date: Date, includeCancelled: boolean = true): Promise<Appointment[]> {
     console.log(`Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
 
     // Obter o ano, mês e dia da data fornecida em hora local
@@ -387,17 +390,22 @@ export class DatabaseStorage implements IStorage {
     // Registra as datas para debug
     console.log(`Início do dia: ${startOfDay.toISOString()}, Fim do dia: ${endOfDay.toISOString()}`);
 
+    // Base de condições que sempre inclui o providerId e a faixa de data
+    const conditions = [
+      eq(appointments.providerId, providerId),
+      gte(appointments.date, startOfDay),
+      lte(appointments.date, endOfDay)
+    ];
+    
+    // Se não queremos incluir os cancelados, adiciona a condição
+    if (!includeCancelled) {
+      conditions.push(sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`);
+    }
+
     const result = await db
       .select()
       .from(appointments)
-      .where(
-        and(
-          eq(appointments.providerId, providerId),
-          gte(appointments.date, startOfDay),
-          lte(appointments.date, endOfDay),
-          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
-        )
-      )
+      .where(and(...conditions))
       .orderBy(appointments.date);
 
     console.log(`Total de ${result.length} agendamentos encontrados para ${date.toLocaleDateString()}`);
@@ -407,19 +415,25 @@ export class DatabaseStorage implements IStorage {
   async getAppointmentsByDateRange(
     providerId: number, 
     startDate: Date, 
-    endDate: Date
+    endDate: Date,
+    includeCancelled: boolean = true
   ): Promise<Appointment[]> {
+    // Base de condições que sempre inclui o providerId e a faixa de data
+    const conditions = [
+      eq(appointments.providerId, providerId),
+      gte(appointments.date, startDate),
+      lte(appointments.date, endDate)
+    ];
+    
+    // Se não queremos incluir os cancelados, adiciona a condição
+    if (!includeCancelled) {
+      conditions.push(sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`);
+    }
+    
     return await db
       .select()
       .from(appointments)
-      .where(
-        and(
-          eq(appointments.providerId, providerId),
-          gte(appointments.date, startDate),
-          lte(appointments.date, endDate),
-          sql`${appointments.status} != ${AppointmentStatus.CANCELLED}`
-        )
-      )
+      .where(and(...conditions))
       .orderBy(appointments.date);
   }
 
