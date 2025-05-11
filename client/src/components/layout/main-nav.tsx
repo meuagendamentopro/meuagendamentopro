@@ -19,7 +19,11 @@ const MainNav: React.FC = () => {
   
   // Adiciona a página de administração apenas para usuários admin
   if (user?.role === "admin") {
-    navItems.push({ href: "/admin", name: "Administração", active: location === "/admin" });
+    navItems.push({ 
+      href: "/admin", 
+      name: "Administração", 
+      active: location === "/admin" || location.startsWith("/admin/")
+    });
   }
 
   return (

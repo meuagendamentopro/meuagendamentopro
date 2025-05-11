@@ -362,6 +362,50 @@ export default function AdminPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Administração</h1>
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <CardHeader>
+            <CardTitle>Usuários</CardTitle>
+            <CardDescription>Gerenciar usuários e assinaturas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">
+              Crie, edite e gerencie usuários do sistema. Controle permissões e assinaturas.
+            </p>
+            <Button variant="outline" onClick={() => window.location.href = "/admin/users"}>
+              Gerenciar Usuários
+            </Button>
+          </CardContent>
+        </Card>
+        
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <CardHeader>
+            <CardTitle>Banco de Dados</CardTitle>
+            <CardDescription>Manutenção do banco de dados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">
+              Limpar dados do banco de dados. Utilize com cuidado, essa ação não pode ser desfeita.
+            </p>
+            <Button 
+              variant="outline" 
+              className="text-amber-600 border-amber-600 hover:bg-amber-50"
+              onClick={handleClearDatabase}
+              disabled={clearDatabaseMutation.isPending}
+            >
+              {clearDatabaseMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Limpar Banco de Dados"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Diálogo de edição */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

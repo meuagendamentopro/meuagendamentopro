@@ -315,11 +315,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nome de usuário já existe" });
       }
       
+      // Gerar um email temporário baseado no nome de usuário
+      const email = `${username}@temp.com`;
+      
       // Criar o usuário com senha hasheada
       const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         name,
         username,
+        email,
         password: hashedPassword,
         role,
       });
