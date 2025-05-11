@@ -30,7 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute } from "@/lib/protected-route";
+import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
 import { useAuth } from "@/hooks/use-auth";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
@@ -276,7 +276,7 @@ function Router() {
         } 
       />
       
-      <ProtectedRoute 
+      <AdminRoute 
         path="/admin" 
         element={
           <MainLayout>
@@ -285,7 +285,7 @@ function Router() {
         } 
       />
       
-      <ProtectedRoute 
+      <AdminRoute 
         path="/admin/users" 
         element={
           <MainLayout>
