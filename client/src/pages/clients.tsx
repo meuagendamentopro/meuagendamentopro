@@ -280,8 +280,9 @@ const ClientsPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto -mx-6">
+              <div className="inline-block min-w-full align-middle px-6">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Nome</TableHead>
@@ -360,6 +361,7 @@ const ClientsPage: React.FC = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           )}
         </CardContent>
