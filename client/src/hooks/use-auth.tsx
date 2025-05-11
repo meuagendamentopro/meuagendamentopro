@@ -11,8 +11,12 @@ interface User {
   id: number;
   name: string;
   username: string;
+  email: string;
   role: string;
   avatarUrl: string | null;
+  isActive: boolean;
+  subscriptionExpiry?: string | null;
+  neverExpires?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +38,7 @@ type LoginData = {
 type RegisterData = {
   name: string;
   username: string;
+  email: string;
   password: string;
   role?: string;
 };
@@ -47,9 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
-  } = useQuery<User | null, Error>({
+  } = useQuery({
     queryKey: ["/api/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
+    queryFn: async () => {
+      try {
+        const response = await fetch("/api/user");
+        if (response.status === 401) return null;
+        if (!response.ok) throw new Error("Erro ao buscar usuário");
+        return await response.json() as User;
+      } catch (error) {
+        throw error;
+      }
+    },
   });
 
   const loginMutation = useMutation({

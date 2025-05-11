@@ -20,6 +20,7 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
+  email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -56,6 +57,7 @@ export default function AuthPage() {
     defaultValues: {
       name: "",
       username: "",
+      email: "",
       password: "",
       confirmPassword: "",
     },
