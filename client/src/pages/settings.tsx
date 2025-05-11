@@ -30,6 +30,7 @@ import { Clock, Calendar, Phone, Smartphone } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import WhatsAppPopup from "@/components/whatsapp-popup";
+import { TimeExclusionManager } from "@/components/time-exclusions/time-exclusion-manager";
 
 // Schema para validação do formulário
 const settingsFormSchema = z.object({
@@ -345,6 +346,19 @@ const SettingsPage: React.FC = () => {
               </div>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+
+      {/* Seção de Períodos Indisponíveis */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Períodos Indisponíveis</CardTitle>
+          <CardDescription>
+            Configure horários em que você não estará disponível para atendimento
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TimeExclusionManager />
         </CardContent>
       </Card>
 
