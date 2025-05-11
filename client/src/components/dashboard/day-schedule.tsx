@@ -380,7 +380,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     if (result) {
       const aptDate = new Date(result.date);
       // Buscar a duração do serviço através da função getServiceDuration
-      const service = services?.find(s => s.id === result.serviceId);
+      const service = services?.find((s: Service) => s.id === result.serviceId);
       const serviceDuration = service ? service.duration : 30;
       
       const endTime = result.endTime ? new Date(result.endTime) : 

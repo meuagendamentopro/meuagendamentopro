@@ -463,7 +463,7 @@ const AppointmentsPage: React.FC = () => {
 
       {/* Add Appointment Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Novo Agendamento</DialogTitle>
           </DialogHeader>
@@ -482,7 +482,7 @@ const AppointmentsPage: React.FC = () => {
 
       {/* Edit Appointment Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Editar Agendamento</DialogTitle>
           </DialogHeader>
