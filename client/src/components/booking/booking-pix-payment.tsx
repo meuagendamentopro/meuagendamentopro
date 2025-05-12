@@ -329,13 +329,14 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
             </div>
           )}
           
-          {/* Adicionar depuração do código PIX */}
+          {/* Adicionar informação sobre o código PIX */}
           {pixData && (
             <div className="text-xs text-gray-500 border border-gray-200 bg-gray-50 p-2 rounded-md mb-4">
               <div><strong>Info do QR Code:</strong></div>
               <div>Base64: {pixData.qrCodeBase64 ? "✓ Presente" : "✗ Ausente"}</div>
               <div>Código PIX: {pixData.qrCode ? `✓ Presente (${pixData.qrCode.length} caracteres)` : "✗ Ausente"}</div>
               <div>ID da transação: {pixData.transactionId}</div>
+              <div className="mt-1 text-amber-600 font-medium">Após o pagamento, aguarde até 1 minuto para a confirmação automática</div>
             </div>
           )}
           
@@ -387,7 +388,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
               } as React.CSSProperties} 
             />
             <p className="text-xs text-gray-500 mt-1">
-              O pagamento será cancelado automaticamente após 5 minutos.
+              O pagamento será cancelado automaticamente após 30 minutos.
             </p>
           </div>
           
