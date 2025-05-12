@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, InfoIcon, ShieldIcon, X } from "lucide-react";
 
 import {
   Form,
@@ -19,12 +19,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoIcon, ShieldIcon } from "lucide-react";
 
 // Esquema para validação de atualização de perfil
 const updateProfileSchema = z.object({
@@ -80,6 +78,94 @@ export default function ProfilePage() {
       confirmPassword: ""
     }
   });
+  
+  // Handler para upload de avatar
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+  
+  // Mutation para upload de avatar
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append("avatar", file);
+      
+      const res = await fetch("/api/user/upload-avatar", {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Falha ao fazer upload da imagem");
+      }
+      
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Avatar atualizado",
+        description: "Sua foto de perfil foi atualizada com sucesso.",
+      });
+      // Atualizar o cache do usuário
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setIsUploading(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar avatar",
+        description: error.message,
+        variant: "destructive",
+      });
+      // Reset para o avatar anterior
+      setAvatarPreview(user?.avatarUrl || null);
+      setIsUploading(false);
+    },
+  });
+  
+  // Handler para quando um arquivo é selecionado
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Verificar tipo e tamanho do arquivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Formato inválido",
+        description: "Por favor, selecione um arquivo de imagem (JPG, PNG, etc).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast({
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido é 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Criar preview da imagem
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    // Enviar para o servidor
+    uploadAvatarMutation.mutate(file);
+  };
+  
+  // Remover avatar
+  const handleRemoveAvatar = () => {
+    // Implementar remoção de avatar (futuramente)
+    setAvatarPreview(null);
+    // uploadAvatarMutation.mutate(null); // Será implementado no backend futuramente
+  };
   
   // Mutation para atualizar perfil
   const updateProfileMutation = useMutation({
@@ -167,12 +253,45 @@ export default function ProfilePage() {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex flex-col items-center sm:flex-row sm:space-x-4 sm:items-start">
-              <Avatar className="h-24 w-24 mb-4 sm:mb-0">
-                {user.avatarUrl ? (
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
-                ) : null}
-                <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <div className="relative group">
+                  <Avatar className="h-24 w-24 mb-4 sm:mb-0 border-2 border-primary/20">
+                    {avatarPreview ? (
+                      <AvatarImage src={avatarPreview} alt={user.name} />
+                    ) : user.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.name} />
+                    ) : null}
+                    <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 rounded-full transition-opacity cursor-pointer"
+                    onClick={handleAvatarClick}
+                  >
+                    <Camera className="h-6 w-6" />
+                  </div>
+                  {avatarPreview && (
+                    <button 
+                      className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-1 shadow-md hover:bg-destructive/80 transition-colors"
+                      onClick={handleRemoveAvatar}
+                      type="button"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+                {isUploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+                    <div className="loading-spinner w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
               <div className="text-center sm:text-left">
                 <CardTitle className="text-2xl mb-1">{user.name}</CardTitle>
                 <CardDescription className="mb-2">{user.email}</CardDescription>
