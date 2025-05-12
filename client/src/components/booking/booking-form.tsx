@@ -13,6 +13,7 @@ import { formatDate, combineDateAndTime, isSameDay } from "@/lib/dates";
 import { generateTimeSlots } from "@/lib/utils";
 import { Service } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 interface BookingFormProps {
   providerId: number;
@@ -20,6 +21,7 @@ interface BookingFormProps {
 
 const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [step, setStep] = useState(1);
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -37,6 +39,27 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const [requiresPayment, setRequiresPayment] = useState(false);
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
+  
+  // Função para resetar o formulário
+  const resetForm = () => {
+    setStep(1);
+    setSelectedService(null);
+    setSelectedDate(new Date());
+    setSelectedTime("");
+    setAvailableTimes([]);
+    if (clientFormRef.current) {
+      clientFormRef.current = {
+        name: "",
+        phone: "",
+        notes: "",
+      };
+    }
+    setIsSubmitting(false);
+    setBookingComplete(false);
+    setRequiresPayment(false);
+    setAppointmentId(null);
+    setPaymentStep(false);
+  };
   
   // Garante que clientFormRef.current nunca é undefined
   if (!clientFormRef.current) {
@@ -403,7 +426,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     // Resetar formulário
     resetForm();
     // Voltar para a página inicial ou de serviços
-    router(`/booking/${providerId}`);
+    navigate(`/booking/${providerId}`);
   };
 
   // Get selected service details
