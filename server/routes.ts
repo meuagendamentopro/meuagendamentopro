@@ -3074,6 +3074,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Erro ao cancelar agendamento:", error);
+      
+      // Se for erro de chave estrangeira na tabela de notificações, vamos pular a notificação
+      // mas ainda cancelar o agendamento
+      if ((error as any)?.constraint === 'notifications_user_id_fkey') {
+        return res.status(200).json({ 
+          success: true, 
+          message: "Agendamento cancelado com sucesso, mas não foi possível criar notificação"
+        });
+      }
+      
       return res.status(500).json({ 
         success: false,
         error: (error as Error).message || "Erro ao cancelar agendamento"
