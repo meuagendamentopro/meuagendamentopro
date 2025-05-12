@@ -51,7 +51,7 @@ export class PaymentService {
       // Não precisamos converter para centavos, pois o valor já vem em reais
       const adjustedAmount = (params.amount * paymentPercentage) / 100;
 
-      // Criar pagamento
+      // Criar pagamento - usando o formato documentado pelo Mercado Pago
       const paymentData = {
         transaction_amount: adjustedAmount,
         description: `Agendamento: ${params.serviceDescription}`,
@@ -61,8 +61,8 @@ export class PaymentService {
           first_name: params.clientName.split(' ')[0],
           last_name: params.clientName.split(' ').slice(1).join(' ') || 'Sobrenome',
           identification: {
-            type: "CPF",
-            number: "12345678909" // CPF genérico para teste
+            type: "CPF", 
+            number: "12345678909"
           }
         },
         date_of_expiration: expiration.toISOString()
@@ -70,18 +70,33 @@ export class PaymentService {
 
       console.log("Enviando requisição para Mercado Pago:", JSON.stringify(paymentData, null, 2));
       
-      const result = await payment.create({ body: paymentData });
+      let result: any;
       
-      console.log("Resposta do Mercado Pago:", JSON.stringify({
-        id: result.id,
-        status: result.status,
-        hasQrCode: !!result.point_of_interaction?.transaction_data?.qr_code,
-        qrCodeLength: result.point_of_interaction?.transaction_data?.qr_code?.length || 0,
-      }, null, 2));
-      
-      if (!result.id || !result.point_of_interaction?.transaction_data?.qr_code) {
-        console.error("Erro completo do Mercado Pago:", JSON.stringify(result, null, 2));
-        throw new Error('Falha ao gerar QR code PIX');
+      try {
+        result = await payment.create({ body: paymentData });
+        
+        console.log("Resposta do Mercado Pago:", JSON.stringify({
+          id: result.id,
+          status: result.status,
+          hasQrCode: !!result.point_of_interaction?.transaction_data?.qr_code,
+          qrCodeLength: result.point_of_interaction?.transaction_data?.qr_code?.length || 0,
+        }, null, 2));
+        
+        if (!result.id) {
+          console.error("Erro: Sem ID na resposta do Mercado Pago");
+          throw new Error('Falha ao gerar pagamento PIX: Sem ID na resposta');
+        }
+        
+        if (!result.point_of_interaction?.transaction_data?.qr_code) {
+          console.error("Erro: QR code ausente na resposta do Mercado Pago:", JSON.stringify(result, null, 2));
+          throw new Error('Falha ao gerar QR code PIX');
+        }
+      } catch (error: any) {
+        console.error("Erro ao comunicar-se com Mercado Pago:", error.message, error.stack);
+        if (error.cause) {
+          console.error("Causa do erro:", JSON.stringify(error.cause, null, 2));
+        }
+        throw new Error(`Falha na integração com Mercado Pago: ${error.message}`);
       }
 
       console.log("Gerando resposta PIX com base em:", {
