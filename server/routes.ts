@@ -2464,53 +2464,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Horário indisponível" });
       }
       
-      // Obtém cliente existente pelo telefone ou cria um novo
-      let client = await storage.getClientByPhone(bookingData.phone);
-      
-      if (!client) {
-        // Se o cliente não existe, cria um novo
-        client = await storage.createClient({
-          name: bookingData.name,
-          phone: bookingData.phone,
-          email: "",
-          notes: bookingData.notes || ""
-        });
-      } else {
-        // Verifica se o cliente está bloqueado
-        if (client.isBlocked) {
-          return res.status(403).json({ 
-            message: "Cliente bloqueado", 
-            error: "Este cliente está impedido de realizar agendamentos"
-          });
-        }
-        
-        // Se o cliente já existe mas enviou um nome diferente ou notas diferentes,
-        // atualiza os dados do cliente para manter o cadastro atualizado
-        if (client.name !== bookingData.name || 
-            (bookingData.notes && client.notes !== bookingData.notes)) {
-          
-          console.log(`Cliente já existente com telefone ${bookingData.phone}.`);
-          console.log(`Nome no sistema: "${client.name}" - Nome informado: "${bookingData.name}"`);
-          
-          // Manteremos o telefone original, mas atualizaremos as notas se forem enviadas
-          await storage.updateClient(client.id, {
-            // Não atualizamos o nome para manter consistência com o cadastro original
-            notes: bookingData.notes || client.notes
-          });
-          
-          // Adicionamos uma nota sobre o nome diferente para referência futura
-          if (client.name !== bookingData.name) {
-            const notaAdicional = client.notes 
-              ? `${client.notes}. Cliente também conhecido como: ${bookingData.name}`
-              : `Cliente também conhecido como: ${bookingData.name}`;
-            
-            await storage.updateClient(client.id, {
-              notes: notaAdicional
-            });
-          }
-        }
-      }
-      
       // Verifica se o provedor requer pagamento PIX
       const serviceProvider = await storage.getProvider(service.providerId);
       
@@ -2528,7 +2481,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Valor a ser pago: ${paymentAmount} (${paymentPercentage}% de ${service.price})`);
       }
       
+      // Só obtém cliente existente pelo telefone, não cria um novo (ainda)
+      // O cliente só será criado após a confirmação do pagamento (se necessário)
+      // ou na confirmação do agendamento (se não requerer pagamento)
+      let client = await storage.getClientByPhone(bookingData.phone);
+      
+      // Se for cliente existente, verificamos se está bloqueado
+      if (client && client.isBlocked) {
+        return res.status(403).json({ 
+          message: "Cliente bloqueado", 
+          error: "Este cliente está impedido de realizar agendamentos"
+        });
+      }
+      
+      // Criar cliente temporário para o processamento, se não existir
+      // Este objeto será usado apenas para o fluxo e não será persistido no banco
+      // a menos que o agendamento seja confirmado
+      if (!client) {
+        client = {
+          id: 0,  // ID temporário
+          name: bookingData.name,
+          phone: bookingData.phone,
+          email: "",
+          notes: bookingData.notes || "",
+          isBlocked: false,
+          isActive: true,
+          createdAt: new Date()
+        };
+      }
+      
       // Cria o agendamento
+      let clientId = client.id;
+
+      // Se não existir cliente e não requerer pagamento, cria o cliente agora
+      if (clientId === 0 && !requiresPayment) {
+        // Agora sim criamos o cliente, já que o agendamento será confirmado
+        const newClient = await storage.createClient({
+          name: bookingData.name,
+          phone: bookingData.phone,
+          email: "",
+          notes: bookingData.notes || ""
+        });
+        clientId = newClient.id;
+        client = newClient;
+        console.log(`Cliente criado com ID ${clientId}`);
+      }
+      
       const appointment = await storage.createAppointment({
         providerId: service.providerId,
         clientId: client.id,
