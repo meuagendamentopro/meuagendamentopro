@@ -289,16 +289,26 @@ export class PaymentService {
       console.log(`Processando notificação de pagamento ID: ${webhookData.data.id}`);
 
       // Usar o token global para obter detalhes do pagamento
-      const paymentClient = getMercadoPagoClient(defaultAccessToken);
+      const accessToken = defaultAccessToken;
+      if (!accessToken) {
+        console.error("Token do Mercado Pago não disponível para consulta por webhook");
+        return false;
+      }
+      
+      const paymentClient = getMercadoPagoClient(accessToken);
       const result = await paymentClient.get({ id: webhookData.data.id });
       
-      console.log('Detalhes do pagamento:', JSON.stringify({
+      console.log('Detalhes do pagamento webhook:', JSON.stringify({
         id: result.id,
         status: result.status,
+        status_detail: result.status_detail,
         payment_method_id: result.payment_method_id,
+        payment_type_id: result.payment_type_id,
         transaction_amount: result.transaction_amount,
         date_approved: result.date_approved,
-        date_created: result.date_created
+        date_created: result.date_created,
+        date_last_updated: result.date_last_updated,
+        date_of_expiration: result.date_of_expiration
       }, null, 2));
       
       if (!result.id) {

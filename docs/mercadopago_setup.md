@@ -37,7 +37,7 @@ A aplicação já está configurada para:
 - Enviar valores monetários com formato correto (2 casas decimais)
 - Registrar a URL de notificação para webhooks
 - Processar webhooks de confirmação de pagamento
-- Expirar códigos PIX após 5 minutos
+- Expirar códigos PIX após 30 minutos (requisito mínimo do Mercado Pago)
 
 ## Solução de Problemas
 
@@ -57,8 +57,23 @@ A aplicação já está configurada para:
 - Confirmar que o CPF/CNPJ informado é válido
 - Verificar se a conta está habilitada para receber PIX
 
+### Erro de expiração da data
+- O Mercado Pago exige que a data de expiração do PIX seja de no mínimo 30 minutos
+- O sistema está configurado para usar o tempo mínimo exigido (30 minutos)
+- Certifique-se que o relógio do servidor está corretamente sincronizado
+
 ### Logs e Depuração
 Para verificar se o webhook está funcionando:
 1. Realize um pagamento de teste usando o QR Code
 2. Verifique nos logs do servidor se há registros de chamadas à rota `/api/payments/webhook`
 3. Confirme no painel do Mercado Pago se há notificações enviadas e seu status
+
+### Formato de data correto
+O Mercado Pago exige que a data de expiração seja enviada no formato ISO 8601 sem milissegundos:
+- Formato correto: `2025-05-12T23:37:10Z`
+- O sistema já está configurado para formatar a data corretamente
+
+### Tempo de processamento do pagamento
+- Após realizar o pagamento via PIX, pode levar até 1 minuto para o Mercado Pago enviar a notificação
+- O sistema verificará o status automaticamente, mas você também pode clicar no botão "Verificar pagamento"
+- Se após 2 minutos o pagamento não for confirmado, verifique se o webhook está configurado corretamente

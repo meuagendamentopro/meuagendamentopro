@@ -58,7 +58,11 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
   useEffect(() => {
     if (pixData?.transactionId && paymentStatus !== "paid") {
       // Configurar checagem a cada 5 segundos
-      const timer = setInterval(checkPaymentStatus, 5000);
+      console.log("Iniciando verificação automática de pagamento a cada 5 segundos...");
+      const timer = setInterval(() => {
+        console.log("Verificando status de pagamento automaticamente...");
+        checkPaymentStatus();
+      }, 5000);
       setCheckTimer(timer);
       
       return () => clearInterval(timer);
@@ -85,7 +89,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
             return 0;
           }
           const newValue = prev - 1;
-          setProgressValue((newValue / 300) * 100);
+          setProgressValue((newValue / 1800) * 100); // 1800 = 30 minutos em segundos
           return newValue;
         });
       }, 1000);
