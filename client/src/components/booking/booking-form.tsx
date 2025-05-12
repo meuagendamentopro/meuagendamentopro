@@ -8,6 +8,7 @@ import ServiceSelector from "./service-selector";
 import DateSelector from "./date-selector";
 import TimeSelector from "./time-selector";
 import ClientForm from "./client-form";
+import BookingPixPayment from "./booking-pix-payment";
 import { formatDate, combineDateAndTime, isSameDay } from "@/lib/dates";
 import { generateTimeSlots } from "@/lib/utils";
 import { Service } from "@shared/schema";
@@ -406,7 +407,20 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
 
   const selectedServiceDetails = getSelectedServiceDetails();
 
-  // Render success view
+  // Render payment view
+  if (paymentStep && appointmentId && selectedServiceDetails) {
+    return (
+      <BookingPixPayment
+        appointmentId={appointmentId}
+        providerId={providerId}
+        servicePrice={selectedServiceDetails.price}
+        serviceName={selectedServiceDetails.name}
+        onPaymentComplete={handlePaymentComplete}
+        onCancel={handlePaymentCancel}
+      />
+    );
+  }
+  
   if (bookingComplete) {
     // Criar link de WhatsApp baseado no número do provider
     const createWhatsAppLink = () => {
@@ -430,8 +444,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
           </div>
           <h2 className="text-xl font-semibold mb-2">Agendamento confirmado!</h2>
           <p className="text-gray-600 mb-4">
-            Seu agendamento foi confirmado com sucesso. Você receberá uma mensagem de confirmação
-            via WhatsApp em breve.
+            {requiresPayment 
+              ? "Seu agendamento foi registrado e aguarda confirmação de pagamento." 
+              : "Seu agendamento foi confirmado com sucesso. Você receberá uma mensagem de confirmação via WhatsApp em breve."}
           </p>
           {selectedServiceDetails && (
             <div className="bg-gray-50 p-4 rounded-lg w-full mb-4">
@@ -439,6 +454,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
               <p className="text-gray-600">
                 {formatDate(selectedDate)} às {selectedTime}
               </p>
+              {requiresPayment && (
+                <p className="text-amber-600 font-medium mt-2">
+                  Status: Aguardando pagamento
+                </p>
+              )}
             </div>
           )}
           

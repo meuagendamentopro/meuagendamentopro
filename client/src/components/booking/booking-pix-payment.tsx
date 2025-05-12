@@ -204,11 +204,12 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
                   style={{ maxWidth: "200px", height: "auto" }}
                 />
               ) : (
-                <QRCodeSVG 
-                  value={pixData.qrCode} 
-                  size={200}
-                  className="mx-auto"
-                />
+                <div className="flex justify-center">
+                  <QRCodeSVG 
+                    value={pixData.qrCode} 
+                    size={200}
+                  />
+                </div>
               )}
             </div>
           )}
