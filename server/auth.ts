@@ -142,11 +142,22 @@ export function setupAuth(app: Express) {
   // Deserializa o usuário com tratamento de erro mais robusto
   passport.deserializeUser(async (id: any, done) => {
     try {
-      // Certifica-se de que o ID é um número
-      const userId = typeof id === 'string' ? parseInt(id, 10) : id;
+      console.log("Deserializando usuário com ID:", id, "tipo:", typeof id);
+      
+      // Se o ID for um objeto (potencialmente um objeto de usuário completo), 
+      // extraímos o ID numérico a partir dele
+      let userId;
+      if (typeof id === 'object' && id !== null && 'id' in id) {
+        userId = id.id;
+        console.log("ID extraído do objeto:", userId);
+      } else {
+        // Certifica-se de que o ID é um número
+        userId = typeof id === 'string' ? parseInt(id, 10) : id;
+      }
       
       if (isNaN(userId)) {
-        return done(new Error(`ID de usuário inválido: ${id}`));
+        console.error(`ID de usuário inválido: ${JSON.stringify(id)}`);
+        return done(null, false);
       }
       
       const user = await storage.getUser(userId);

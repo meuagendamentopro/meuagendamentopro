@@ -42,14 +42,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user.id;
-      const { name, email, currentPassword, newPassword } = req.body;
+      const { name, email, currentPassword, newPassword, avatarUrl } = req.body;
       
       // Criar objeto com dados a atualizar
-      const updateData: Partial<{ name: string, email: string, password: string }> = {};
+      const updateData: Partial<{ 
+        name: string, 
+        email: string, 
+        password: string,
+        avatarUrl: string 
+      }> = {};
       
       // Validar e adicionar campos a serem atualizados
       if (name) updateData.name = name;
       if (email) updateData.email = email;
+      if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
       
       // Se está tentando alterar a senha
       if (newPassword && currentPassword) {
@@ -83,15 +89,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Retornar o usuário atualizado (sem a senha)
       const { password: _, ...userWithoutPassword } = updatedUser;
       
-      // Atualizar a sessão com os novos dados do usuário
-      if (req.session) {
-        req.session.passport = { user: userWithoutPassword };
-      }
-      
-      res.status(200).json(userWithoutPassword);
+      // Atualizar a sessão com os novos dados do usuário via login
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Erro ao atualizar sessão:", err);
+        }
+        res.status(200).json(userWithoutPassword);
+      });
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       res.status(500).json({ error: "Erro ao atualizar perfil" });
+    }
+  });
+  
+  // Rota para upload de imagem em base64
+  app.post("/api/user/upload-avatar", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      const { imageData } = req.body;
+      
+      if (!imageData || typeof imageData !== 'string') {
+        return res.status(400).json({ error: "Dados da imagem não fornecidos ou inválidos" });
+      }
+      
+      // Validar se é uma string base64 válida
+      if (!imageData.startsWith('data:image/')) {
+        return res.status(400).json({ error: "Formato de imagem inválido" });
+      }
+      
+      // Atualizar o usuário com a URL da imagem (neste caso, a própria string base64)
+      const updatedUser = await storage.updateUser(userId, { avatarUrl: imageData });
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao atualizar avatar" });
+      }
+      
+      // Atualizar a sessão com os novos dados do usuário via login
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Erro ao atualizar sessão:", err);
+        }
+        
+        res.status(200).json({ 
+          success: true, 
+          avatarUrl: imageData,
+          user: userWithoutPassword
+        });
+      });
+    } catch (error) {
+      console.error("Erro ao fazer upload do avatar:", error);
+      res.status(500).json({ error: "Erro ao processar o upload da imagem" });
     }
   });
   
