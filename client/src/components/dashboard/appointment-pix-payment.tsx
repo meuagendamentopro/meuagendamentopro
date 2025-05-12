@@ -42,7 +42,7 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
       
       return data;
     },
-    refetchInterval: refreshInterval ? refreshInterval : false,
+    refetchInterval: refreshInterval !== null ? refreshInterval : false,
     enabled: !!appointmentId
   });
 
