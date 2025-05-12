@@ -117,7 +117,7 @@ const BookingPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center text-primary-500 text-2xl font-bold mb-3">
-                  {provider.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                  {provider.name.split(' ').filter(n => n).map(n => n[0] || '').join('').toUpperCase().substring(0, 2)}
                 </div>
               )}
             </div>
