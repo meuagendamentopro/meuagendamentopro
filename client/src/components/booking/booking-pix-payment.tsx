@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import QRCode from "qrcode.react";
+import { QRCodeSVG } from "qrcode.react";
 
 interface BookingPixPaymentProps {
   appointmentId: number;
@@ -204,7 +204,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
                   style={{ maxWidth: "200px", height: "auto" }}
                 />
               ) : (
-                <QRCode 
+                <QRCodeSVG 
                   value={pixData.qrCode} 
                   size={200}
                   className="mx-auto"

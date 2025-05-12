@@ -2485,16 +2485,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verifica se o provedor requer pagamento PIX
-      const provider = await storage.getProvider(service.providerId);
+      const serviceProvider = await storage.getProvider(service.providerId);
       
       // Configurar dados de pagamento se o provedor tiver PIX habilitado e requerer pagamento
-      const requiresPayment = provider && provider.pixEnabled && provider.pixRequirePayment;
-      const paymentPercentage = requiresPayment ? (provider.pixPaymentPercentage || 100) : null;
+      const requiresPayment = serviceProvider && serviceProvider.pixEnabled && serviceProvider.pixRequirePayment;
+      const paymentPercentage = requiresPayment ? (serviceProvider.pixPaymentPercentage || 100) : 0;
       
       // Calcular o valor do pagamento, se aplicável
       const paymentAmount = requiresPayment 
         ? Math.round((service.price * paymentPercentage) / 100) 
-        : null;
+        : 0;
       
       console.log(`Verificação de pagamento PIX: ${requiresPayment ? 'Requerido' : 'Não requerido'}`);
       if (requiresPayment) {
@@ -2519,7 +2519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Enviar atualização em tempo real via WebSocket
       broadcastUpdate('appointment_created', appointment);
-      if (provider && provider.userId) {
+      if (serviceProvider && serviceProvider.userId) {
         try {
           // Formatar a data para o padrão DD/MM/YYYY
           const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
@@ -2533,16 +2533,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Criar notificação e obter a notificação criada
           const notification = await storage.createNotification({
-            userId: provider.userId,
+            userId: serviceProvider.userId,
             title: "Novo agendamento",
             message: `${client.name} agendou ${service.name} para ${formattedDate}`,
             type: 'appointment',
             appointmentId: appointment.id
           });
-          console.log(`Notificação criada para o usuário ${provider.userId}`, notification);
+          console.log(`Notificação criada para o usuário ${serviceProvider.userId}`, notification);
           
           // Também enviar atualização em tempo real sobre a nova notificação
-          broadcastUpdate('notification_created', { notification, userId: provider.userId });
+          broadcastUpdate('notification_created', { notification, userId: serviceProvider.userId });
         } catch (error) {
           console.error("Erro ao criar notificação:", error);
         }

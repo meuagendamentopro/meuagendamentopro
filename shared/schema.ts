@@ -264,6 +264,15 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
     endTime: true,
     status: true,
     notes: true,
+    // Campos de pagamento PIX
+    requiresPayment: true,
+    paymentStatus: true,
+    paymentAmount: true,
+    paymentPercentage: true,
+    pixTransactionId: true,
+    pixQrCode: true,
+    pixQrCodeExpiration: true,
+    pixPaymentDate: true,
   })
   .transform((data) => {
     // Garantir que status e notes nunca são undefined

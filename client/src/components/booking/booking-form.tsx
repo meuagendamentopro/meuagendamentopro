@@ -32,6 +32,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingComplete, setBookingComplete] = useState(false);
+  // Adicionar estados para o fluxo de pagamento PIX
+  const [requiresPayment, setRequiresPayment] = useState(false);
+  const [appointmentId, setAppointmentId] = useState<number | null>(null);
+  const [paymentStep, setPaymentStep] = useState(false);
   
   // Garante que clientFormRef.current nunca é undefined
   if (!clientFormRef.current) {
@@ -340,11 +344,25 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       const result = await response.json();
 
       if (result.success) {
-        setBookingComplete(true);
-        toast({
-          title: "Agendamento confirmado!",
-          description: result.message,
-        });
+        // Verificar se o agendamento requer pagamento PIX
+        if (result.appointment && result.appointment.requiresPayment) {
+          console.log("Agendamento requer pagamento PIX");
+          setRequiresPayment(true);
+          setAppointmentId(result.appointment.id);
+          setPaymentStep(true);
+          
+          toast({
+            title: "Pagamento necessário",
+            description: "Para confirmar seu agendamento, realize o pagamento via PIX.",
+          });
+        } else {
+          // Finalizar o agendamento sem pagamento
+          setBookingComplete(true);
+          toast({
+            title: "Agendamento confirmado!",
+            description: result.message,
+          });
+        }
       }
     } catch (error) {
       console.error("Booking error:", error);
@@ -356,6 +374,28 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  // Função para lidar com a conclusão do pagamento
+  const handlePaymentComplete = () => {
+    setPaymentStep(false);
+    setBookingComplete(true);
+    toast({
+      title: "Pagamento confirmado!",
+      description: "Seu agendamento foi confirmado com sucesso.",
+    });
+  };
+  
+  // Função para cancelar o pagamento
+  const handlePaymentCancel = () => {
+    setPaymentStep(false);
+    toast({
+      title: "Pagamento cancelado",
+      description: "Seu agendamento foi criado, mas está aguardando pagamento para ser confirmado.",
+      variant: "destructive",
+    });
+    // Mesmo sem pagamento, considerar o agendamento concluído, só que pendente
+    setBookingComplete(true);
   };
 
   // Get selected service details
