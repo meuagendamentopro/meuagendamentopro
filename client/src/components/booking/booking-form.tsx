@@ -396,12 +396,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const handlePaymentCancel = () => {
     setPaymentStep(false);
     toast({
-      title: "Pagamento cancelado",
-      description: "Seu agendamento foi criado, mas está aguardando pagamento para ser confirmado.",
+      title: "Agendamento cancelado",
+      description: "Você cancelou o pagamento e o agendamento foi cancelado.",
       variant: "destructive",
     });
-    // Mesmo sem pagamento, considerar o agendamento concluído, só que pendente
-    setBookingComplete(true);
+    // Resetar formulário
+    resetForm();
+    // Voltar para a página inicial ou de serviços
+    router(`/booking/${providerId}`);
   };
 
   // Get selected service details
