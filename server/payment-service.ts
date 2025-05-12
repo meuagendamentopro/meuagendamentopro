@@ -85,10 +85,13 @@ export class PaymentService {
       // Mercado Pago exige mínimo de 30 min, mas vamos dar margem de segurança
       const futureDate = new Date();
       futureDate.setHours(futureDate.getHours() + 2);
-      // Formato ISO8601 sem milissegundos: YYYY-MM-DDTHH:MM:SSZ
-      const isoDateString = futureDate.toISOString().split('.')[0] + 'Z';
+      // Existe um problema com a formatação de data que impede o funcionamento
+      // Como solução temporária, vamos remover o campo de data_of_expiration
+      // Por padrão, o Mercado Pago define a expiração para 24 horas
+      // Embora não seja ideal (nosso objetivo eram 2 horas), isso vai permitir
+      // que os códigos PIX sejam gerados novamente.
       
-      console.log("Data de expiração gerada para o PIX:", isoDateString);
+      console.log("Removendo campo de expiração para evitar problemas de formatação");
       
       const paymentData = {
         transaction_amount: formattedAmount,
@@ -103,8 +106,10 @@ export class PaymentService {
             number: identificationNumber
           }
         },
-        // Campo essencial para PIX
-        date_of_expiration: isoDateString, // Formato ISO sem milissegundos
+        // Removendo campo de expiração como solução temporária
+        // O Mercado Pago usará seu padrão (24 horas)
+        // date_of_expiration: isoDateString,
+        
         // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };
