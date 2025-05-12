@@ -106,7 +106,9 @@ export class PaymentService {
           status: result.status,
           hasQrCode: !!result.point_of_interaction?.transaction_data?.qr_code,
           qrCodeLength: result.point_of_interaction?.transaction_data?.qr_code?.length || 0,
-          tokenType: accessToken.substring(0, 7) // Verificar se começa com APP_USR
+          tokenType: accessToken.substring(0, 7), // Verificar se começa com APP_USR
+          transaction_amount: result.transaction_amount,
+          transaction_details: result.transaction_details
         }, null, 2));
         
         if (!result.id) {
