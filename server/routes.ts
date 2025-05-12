@@ -2981,11 +2981,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pixResponse = await paymentService.generatePix({
         appointmentId,
         providerId: provider.id,
-        amount: amount * 100, // Converter para centavos
+        amount, // Valor já está em reais
         clientName: client.name,
-        clientEmail: client.email || '',
+        clientEmail: client.email || 'cliente@example.com',
         serviceDescription: service.name,
-        expireInMinutes: 60 // Expira em 1 hora
+        expireInMinutes: 5 // Expira em 5 minutos para corresponder ao timer do frontend
       });
 
       return res.status(200).json(pixResponse);

@@ -151,11 +151,15 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
     setError(null);
     
     try {
+      console.log("Gerando PIX para agendamento:", appointmentId, "no valor:", servicePrice / 100);
+
       const response = await apiRequest('POST', '/api/payments/generate-pix', {
         appointmentId,
         amount: servicePrice / 100, // Convertendo de centavos para reais
         providerId,
       });
+      
+      console.log("Resposta do servidor PIX:", response.status);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -163,8 +167,21 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       }
       
       const data = await response.json();
+      console.log("Dados PIX recebidos:", {
+        transactionId: data.transactionId,
+        hasQrCode: !!data.qrCode,
+        hasQrCodeBase64: !!data.qrCodeBase64,
+        qrCodeLength: data.qrCode?.length || 0,
+      });
+      
       setPixData(data);
       setPaymentStatus("pending");
+      
+      // Gerar QR code localmente quando não recebemos do Mercado Pago
+      if (data.qrCode && !data.qrCodeBase64) {
+        generateQRCode(data.qrCode);
+      }
+      
       toast({
         title: "Código PIX gerado",
         description: "Escaneie o QR Code para realizar o pagamento.",
@@ -283,26 +300,40 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
           {pixData && (
             <div className="bg-white p-4 rounded-lg border mb-4">
               {pixData.qrCodeBase64 ? (
+                <>
                 <img 
                   src={`data:image/png;base64,${pixData.qrCodeBase64}`} 
                   alt="QR Code PIX" 
                   className="mx-auto"
                   style={{ maxWidth: "200px", height: "auto" }}
                 />
+                <p className="text-xs text-center mt-1 text-gray-500">QR code original do Mercado Pago</p>
+                </>
               ) : qrCodeUrl ? (
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center">
                   <img 
                     src={qrCodeUrl} 
                     alt="QR Code PIX" 
                     className="mx-auto"
                     style={{ maxWidth: "200px", height: "auto" }}
                   />
+                  <p className="text-xs text-center mt-1 text-gray-500">QR code gerado localmente</p>
                 </div>
               ) : (
                 <div className="flex justify-center items-center h-[200px] w-[200px] bg-gray-100 mx-auto rounded">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* Adicionar depuração do código PIX */}
+          {pixData && (
+            <div className="text-xs text-gray-500 border border-gray-200 bg-gray-50 p-2 rounded-md mb-4">
+              <div><strong>Info do QR Code:</strong></div>
+              <div>Base64: {pixData.qrCodeBase64 ? "✓ Presente" : "✗ Ausente"}</div>
+              <div>Código PIX: {pixData.qrCode ? `✓ Presente (${pixData.qrCode.length} caracteres)` : "✗ Ausente"}</div>
+              <div>ID da transação: {pixData.transactionId}</div>
             </div>
           )}
           

@@ -48,26 +48,46 @@ export class PaymentService {
       
       // Ajustar o valor com base na porcentagem configurada pelo provedor
       const paymentPercentage = provider.pixPaymentPercentage || 100;
-      const adjustedAmount = Math.round((params.amount * paymentPercentage) / 100);
+      // Não precisamos converter para centavos, pois o valor já vem em reais
+      const adjustedAmount = (params.amount * paymentPercentage) / 100;
 
       // Criar pagamento
       const paymentData = {
-        transaction_amount: adjustedAmount / 100, // Converter centavos para reais
+        transaction_amount: adjustedAmount,
         description: `Agendamento: ${params.serviceDescription}`,
         payment_method_id: 'pix',
         payer: {
           email: params.clientEmail || 'cliente@example.com',
           first_name: params.clientName.split(' ')[0],
-          last_name: params.clientName.split(' ').slice(1).join(' ') || ' ',
+          last_name: params.clientName.split(' ').slice(1).join(' ') || 'Sobrenome',
+          identification: {
+            type: "CPF",
+            number: "12345678909" // CPF genérico para teste
+          }
         },
         date_of_expiration: expiration.toISOString()
       };
 
+      console.log("Enviando requisição para Mercado Pago:", JSON.stringify(paymentData, null, 2));
+      
       const result = await payment.create({ body: paymentData });
       
+      console.log("Resposta do Mercado Pago:", JSON.stringify({
+        id: result.id,
+        status: result.status,
+        hasQrCode: !!result.point_of_interaction?.transaction_data?.qr_code,
+        qrCodeLength: result.point_of_interaction?.transaction_data?.qr_code?.length || 0,
+      }, null, 2));
+      
       if (!result.id || !result.point_of_interaction?.transaction_data?.qr_code) {
+        console.error("Erro completo do Mercado Pago:", JSON.stringify(result, null, 2));
         throw new Error('Falha ao gerar QR code PIX');
       }
+
+      console.log("Gerando resposta PIX com base em:", {
+        qr_code: typeof result.point_of_interaction.transaction_data.qr_code,
+        qr_code_base64: typeof result.point_of_interaction.transaction_data.qr_code_base64
+      });
 
       const response: PixResponse = {
         transactionId: result.id.toString(),
@@ -75,6 +95,8 @@ export class PaymentService {
         qrCodeBase64: result.point_of_interaction.transaction_data.qr_code_base64 || '',
         expiresAt: expiration
       };
+      
+      console.log("QR code no response:", response.qrCode ? `Presente (${response.qrCode.length} caracteres)` : "Ausente");
 
       // Atualizar o agendamento com as informações de pagamento
       await db.update(appointments)
