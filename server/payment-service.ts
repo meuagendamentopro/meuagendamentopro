@@ -60,6 +60,18 @@ export class PaymentService {
       // Definindo expiração para 30 minutos (mínimo recomendado)
       expiration.setMinutes(expiration.getMinutes() + 30);
       
+      // Garantir que esteja no fuso horário UTC
+      const expirationUTC = new Date(
+        Date.UTC(
+          expiration.getUTCFullYear(),
+          expiration.getUTCMonth(),
+          expiration.getUTCDate(),
+          expiration.getUTCHours(),
+          expiration.getUTCMinutes(),
+          expiration.getUTCSeconds()
+        )
+      );
+      
       // Ajustar o valor com base na porcentagem configurada pelo provedor
       const paymentPercentage = provider.pixPaymentPercentage || 100;
       // Calcular o valor ajustado com base na porcentagem
@@ -94,7 +106,7 @@ export class PaymentService {
         // Campos essenciais para PIX
         // Ajustar formato da data - ISO 8601 para UTC (sem milissegundos)
         // Mercado Pago exige o formato correto: '2025-05-12T23:37:10Z'
-        date_of_expiration: new Date(expiration.getTime()).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        date_of_expiration: expirationUTC.toISOString().replace(/\.\d{3}Z$/, 'Z'),
         // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };
@@ -145,7 +157,7 @@ export class PaymentService {
         transactionId: result.id.toString(),
         qrCode: result.point_of_interaction.transaction_data.qr_code,
         qrCodeBase64: result.point_of_interaction.transaction_data.qr_code_base64 || '',
-        expiresAt: expiration
+        expiresAt: expirationUTC
       };
       
       console.log("QR code no response:", response.qrCode ? `Presente (${response.qrCode.length} caracteres)` : "Ausente");
