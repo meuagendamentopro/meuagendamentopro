@@ -308,6 +308,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
                   style={{ maxWidth: "200px", height: "auto" }}
                 />
                 <p className="text-xs text-center mt-1 text-gray-500">QR code original do Mercado Pago</p>
+                <p className="text-xs text-center mt-1 text-amber-600 font-medium">É necessário ter configurado o webhook no painel Mercado Pago</p>
                 </>
               ) : qrCodeUrl ? (
                 <div className="flex flex-col items-center">
@@ -318,6 +319,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
                     style={{ maxWidth: "200px", height: "auto" }}
                   />
                   <p className="text-xs text-center mt-1 text-gray-500">QR code gerado localmente</p>
+                  <p className="text-xs text-center mt-1 text-amber-600 font-medium">É necessário ter configurado o webhook no painel Mercado Pago</p>
                 </div>
               ) : (
                 <div className="flex justify-center items-center h-[200px] w-[200px] bg-gray-100 mx-auto rounded">
