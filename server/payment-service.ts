@@ -75,6 +75,7 @@ export class PaymentService {
       console.log(`Valor formatado para API: ${formattedAmount} (tipo: ${typeof formattedAmount})`);
       
       // Criar pagamento - usando o formato documentado pelo Mercado Pago
+      // https://www.mercadopago.com.br/developers/pt/docs/checkout-api/integration-configuration/integrate-with-pix
       const paymentData = {
         transaction_amount: formattedAmount,
         description: `Agendamento: ${params.serviceDescription}`,
@@ -88,6 +89,7 @@ export class PaymentService {
             number: identificationNumber
           }
         },
+        // Campos essenciais para PIX
         date_of_expiration: expiration.toISOString(),
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };

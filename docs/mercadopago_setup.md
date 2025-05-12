@@ -8,22 +8,28 @@ Para que o sistema de pagamento PIX funcione corretamente no Mercado Pago, é ne
 - O token de acesso deve começar com `APP_USR-` (produção), não com `TEST-` (teste)
 - A conta deve estar verificada no Mercado Pago
 
-### 2. Configurar Webhook no Mercado Pago
+### 2. Integração com PIX (Obrigatório)
+De acordo com a [documentação oficial](https://www.mercadopago.com.br/developers/pt/docs/checkout-api/integration-configuration/integrate-with-pix):
+
+1. Certifique-se que sua Conta Mercado Pago está verificada e é do tipo Vendedor
+2. Cadastre uma chave PIX na sua conta Mercado Pago:
+   - Acesse "Seu perfil" > "Sua conta" > "PIX" > "Suas chaves"
+   - Cadastre ao menos uma chave (aleatória, CPF, email ou telefone)
+3. Configure sua integração como "Empresa" no Mercado Pago
+   - Isso é essencial para que o PIX seja ativado na sua conta
+   - Acesse "Seu perfil" > "Configurações" > "Dados da empresa"
+
+### 3. Configurar Webhook no Mercado Pago (Obrigatório)
 Para receber notificações de pagamentos, é necessário configurar um webhook no painel do Mercado Pago:
 
 1. Faça login na sua conta Mercado Pago
-2. Acesse: Dashboard > Configurações > Webhooks
+2. Acesse: "Seu perfil" > "Configurações" > "Webhooks" (ou "Notificações")
 3. Clique em "Adicionar Webhook"
 4. Adicione a URL: `https://meuagendamento.replit.app/api/payments/webhook`
 5. Selecione apenas os eventos de tipo "payment" (pagamento)
 6. Salve as configurações
 
-### 3. Modo de Homologação PIX
-Para utilizar o PIX em produção, é necessário que a chave PIX esteja homologada:
-
-1. Acesse o Mercado Pago e verifique se sua conta tem uma chave PIX cadastrada
-2. Certifique-se de que sua conta é uma conta vendedor e está verificada
-3. Se necessário, solicite a homologação do PIX ao Mercado Pago
+> **IMPORTANTE**: Sem o webhook configurado, o sistema não será notificado quando um pagamento for concluído.
 
 ### 4. Verificações na Aplicação
 A aplicação já está configurada para:
@@ -39,6 +45,7 @@ A aplicação já está configurada para:
 - Verificar se está usando o token de **produção** (APP_USR-...)
 - Confirmar se a conta tem uma chave PIX cadastrada
 - Verificar se a conta está verificada no Mercado Pago
+- Confirmar se sua conta está configurada como "Empresa" na integração
 
 ### Pagamento não é confirmado automaticamente
 - Verificar se o webhook está configurado corretamente
@@ -49,3 +56,9 @@ A aplicação já está configurada para:
 - Verificar se a conta Mercado Pago tem saldo suficiente
 - Confirmar que o CPF/CNPJ informado é válido
 - Verificar se a conta está habilitada para receber PIX
+
+### Logs e Depuração
+Para verificar se o webhook está funcionando:
+1. Realize um pagamento de teste usando o QR Code
+2. Verifique nos logs do servidor se há registros de chamadas à rota `/api/payments/webhook`
+3. Confirme no painel do Mercado Pago se há notificações enviadas e seu status
