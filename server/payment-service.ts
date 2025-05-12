@@ -81,6 +81,15 @@ export class PaymentService {
       
       // Criar pagamento - usando o formato documentado pelo Mercado Pago
       // https://www.mercadopago.com.br/developers/pt/docs/checkout-api/integration-configuration/integrate-with-pix
+      // Calcular uma data 2 horas no futuro para a expiração do PIX
+      // Mercado Pago exige mínimo de 30 min, mas vamos dar margem de segurança
+      const futureDate = new Date();
+      futureDate.setHours(futureDate.getHours() + 2);
+      // Formato ISO8601 sem milissegundos: YYYY-MM-DDTHH:MM:SSZ
+      const isoDateString = futureDate.toISOString().split('.')[0] + 'Z';
+      
+      console.log("Data de expiração gerada para o PIX:", isoDateString);
+      
       const paymentData = {
         transaction_amount: formattedAmount,
         description: `Agendamento: ${params.serviceDescription}`,
@@ -94,9 +103,8 @@ export class PaymentService {
             number: identificationNumber
           }
         },
-        // Campos essenciais para PIX
-        // Vamos tentar remover completamente o campo date_of_expiration
-        // e deixar o Mercado Pago usar o valor padrão
+        // Campo essencial para PIX
+        date_of_expiration: isoDateString, // Formato ISO sem milissegundos
         // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };
@@ -143,15 +151,28 @@ export class PaymentService {
         qr_code_base64: typeof result.point_of_interaction.transaction_data.qr_code_base64
       });
 
-      // Calcular um prazo de expiração padrão de 30 minutos a partir de agora
-      const defaultExpiration = new Date();
-      defaultExpiration.setMinutes(defaultExpiration.getMinutes() + 30);
+      // Extrair a data de expiração do resultado ou usar o padrão de 30 min
+      let expiresAt = new Date();
+      if (result.date_of_expiration) {
+        try {
+          expiresAt = new Date(result.date_of_expiration);
+          console.log("Usando data de expiração retornada pelo Mercado Pago:", expiresAt);
+        } catch (error) {
+          // Se não conseguir converter a data, usar o padrão
+          expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+          console.log("Usando data de expiração padrão (30 min):", expiresAt);
+        }
+      } else {
+        // Se não tiver data de expiração na resposta, usar o padrão
+        expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+        console.log("Usando data de expiração padrão (30 min):", expiresAt);
+      }
       
       const response: PixResponse = {
         transactionId: result.id.toString(),
         qrCode: result.point_of_interaction.transaction_data.qr_code,
         qrCodeBase64: result.point_of_interaction.transaction_data.qr_code_base64 || '',
-        expiresAt: defaultExpiration
+        expiresAt: expiresAt
       };
       
       console.log("QR code no response:", response.qrCode ? `Presente (${response.qrCode.length} caracteres)` : "Ausente");

@@ -70,8 +70,10 @@ Para verificar se o webhook está funcionando:
 
 ### Formato de data correto
 O Mercado Pago exige que a data de expiração seja enviada no formato ISO 8601 sem milissegundos:
-- Formato correto: `2025-05-12T23:37:10Z`
-- O sistema já está configurado para formatar a data corretamente
+- Formato correto: `2025-05-12T23:37:10Z` (não pode ter a parte de milissegundos)
+- Formato incorreto: `2025-05-12T23:37:10.123Z` (com milissegundos)
+- A data deve estar no futuro e respeitar o tempo mínimo de 30 minutos
+- O sistema está configurado para usar 2 horas (120 minutos) como prazo de expiração para maior segurança
 
 ### Tempo de processamento do pagamento
 - Após realizar o pagamento via PIX, pode levar até 1 minuto para o Mercado Pago enviar a notificação

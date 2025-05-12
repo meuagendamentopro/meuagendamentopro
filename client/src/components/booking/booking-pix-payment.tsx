@@ -40,7 +40,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
   const [checkTimer, setCheckTimer] = useState<NodeJS.Timeout | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(1800); // 30 minutos em segundos
+  const [timeRemaining, setTimeRemaining] = useState<number>(7200); // 2 horas em segundos
   const [progressValue, setProgressValue] = useState<number>(100);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
@@ -380,7 +380,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
               <div className="flex items-center">
                 <Clock className="h-4 w-4 mr-1 text-yellow-600" />
                 <span className="text-sm font-medium">
-                  Tempo restante: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                  Tempo restante: {Math.floor(timeRemaining / 3600) > 0 ? `${Math.floor(timeRemaining / 3600)}:` : ''}{Math.floor((timeRemaining % 3600) / 60).toString().padStart(2, '0')}:{(timeRemaining % 60).toString().padStart(2, '0')}
                 </span>
               </div>
             </div>
