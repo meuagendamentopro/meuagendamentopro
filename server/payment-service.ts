@@ -114,11 +114,14 @@ export class PaymentService {
       console.log("QR code no response:", response.qrCode ? `Presente (${response.qrCode.length} caracteres)` : "Ausente");
 
       // Atualizar o agendamento com as informações de pagamento
+      // Converter para centavos (valor inteiro) ao salvar no banco
+      const amountInCents = Math.round(adjustedAmount * 100);
+      
       await db.update(appointments)
         .set({
           requiresPayment: true,
           paymentStatus: PaymentStatus.PENDING,
-          paymentAmount: adjustedAmount,
+          paymentAmount: amountInCents, // Valor em centavos (inteiro)
           paymentPercentage: paymentPercentage,
           pixTransactionId: response.transactionId,
           pixQrCode: response.qrCode,
