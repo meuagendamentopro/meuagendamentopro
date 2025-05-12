@@ -7,11 +7,14 @@ import { providers, appointments, PaymentStatus } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import { storage } from './storage';
 
-// Configurar o SDK do Mercado Pago
-const mercadopago = new MercadoPagoConfig({ 
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN as string 
-});
-const payment = new Payment(mercadopago);
+// Token global fallback para compatibilidade
+const defaultAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN as string;
+
+// Função para obter uma instância do Mercado Pago com o token apropriado
+const getMercadoPagoClient = (accessToken: string) => {
+  const config = new MercadoPagoConfig({ accessToken });
+  return new Payment(config);
+};
 
 interface GeneratePixParams {
   appointmentId: number;
@@ -42,6 +45,15 @@ export class PaymentService {
         throw new Error('Provedor não encontrado');
       }
 
+      // Obter token do Mercado Pago específico do provider ou usar o global
+      const accessToken = provider.pixMercadoPagoToken || defaultAccessToken;
+      if (!accessToken) {
+        throw new Error('Token do Mercado Pago não configurado. Configure nas configurações de PIX.');
+      }
+      
+      // Criar cliente do Mercado Pago com o token específico
+      const paymentClient = getMercadoPagoClient(accessToken);
+
       // Criar preferência de pagamento
       const expiration = new Date();
       expiration.setMinutes(expiration.getMinutes() + (params.expireInMinutes || 60));
@@ -50,6 +62,9 @@ export class PaymentService {
       const paymentPercentage = provider.pixPaymentPercentage || 100;
       // Não precisamos converter para centavos, pois o valor já vem em reais
       const adjustedAmount = (params.amount * paymentPercentage) / 100;
+
+      // Usar número de CPF/CNPJ do provider se disponível
+      const identificationNumber = provider.pixIdentificationNumber || "12345678909";
 
       // Criar pagamento - usando o formato documentado pelo Mercado Pago
       const paymentData = {
@@ -62,7 +77,7 @@ export class PaymentService {
           last_name: params.clientName.split(' ').slice(1).join(' ') || 'Sobrenome',
           identification: {
             type: "CPF", 
-            number: "12345678909"
+            number: identificationNumber
           }
         },
         date_of_expiration: expiration.toISOString()
@@ -73,7 +88,7 @@ export class PaymentService {
       let result: any;
       
       try {
-        result = await payment.create({ body: paymentData });
+        result = await paymentClient.create({ body: paymentData });
         
         console.log("Resposta do Mercado Pago:", JSON.stringify({
           id: result.id,
@@ -139,9 +154,13 @@ export class PaymentService {
   /**
    * Verifica o status de um pagamento PIX
    */
-  async checkPaymentStatus(transactionId: string): Promise<{ status: string; paid: boolean }> {
+  async checkPaymentStatus(transactionId: string, providerToken?: string): Promise<{ status: string; paid: boolean }> {
     try {
-      const result = await payment.get({ id: parseInt(transactionId) });
+      // Criar cliente do Mercado Pago com o token específico ou o padrão
+      const accessToken = providerToken || defaultAccessToken;
+      const paymentClient = getMercadoPagoClient(accessToken);
+      
+      const result = await paymentClient.get({ id: parseInt(transactionId) });
       
       let status = 'pending';
       let paid = false;
@@ -173,9 +192,13 @@ export class PaymentService {
       if (!appointment || !appointment.pixTransactionId) {
         return false;
       }
+      
+      // Buscar o provider para obter o token específico
+      const provider = await storage.getProvider(appointment.providerId);
+      const providerToken = provider?.pixMercadoPagoToken;
 
-      // Verificar status do pagamento
-      const paymentStatus = await this.checkPaymentStatus(appointment.pixTransactionId);
+      // Verificar status do pagamento com o token do provider se disponível
+      const paymentStatus = await this.checkPaymentStatus(appointment.pixTransactionId, providerToken);
       
       // Atualizar o status no banco de dados
       if (paymentStatus.paid) {
