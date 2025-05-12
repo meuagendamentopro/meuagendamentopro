@@ -64,6 +64,8 @@ export const providers = pgTable("providers", {
   pixCompanyName: text("pix_company_name"), // Nome que aparecerá no pagamento
   pixMerchantId: text("pix_merchant_id"),   // ID do mercador na API de pagamento (se aplicável)
   pixWebhookSecret: text("pix_webhook_secret"), // Segredo para validação de webhooks
+  pixMercadoPagoToken: text("pix_mercadopago_token"), // Token de acesso do Mercado Pago específico do provedor
+  pixIdentificationNumber: text("pix_identification_number"), // Número de CPF/CNPJ para identificação no Mercado Pago
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -124,6 +126,8 @@ export const insertProviderSchema = createInsertSchema(providers).pick({
   pixCompanyName: true,
   pixMerchantId: true,
   pixWebhookSecret: true,
+  pixMercadoPagoToken: true,
+  pixIdentificationNumber: true,
 });
 
 // Service model
