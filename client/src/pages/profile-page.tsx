@@ -306,12 +306,13 @@ export default function ProfilePage() {
                   </div>
                   {(avatarPreview || user.avatarUrl) && (
                     <button 
-                      className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-2 shadow-md hover:bg-destructive/80 transition-colors"
+                      className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 shadow-lg hover:bg-red-700 transition-colors"
                       onClick={handleRemoveAvatar}
                       type="button"
                       title="Remover foto"
+                      aria-label="Remover foto"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <X className="h-5 w-5 stroke-[3]" />
                     </button>
                   )}
                 </div>
