@@ -1,0 +1,230 @@
+profile-page.tsx:94 
+            
+            
+           POST https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/api/user/upload-avatar 400 (Bad Request)
+window.fetch @ Network.js:219
+mutationFn @ profile-page.tsx:94
+fn @ @tanstack_react-query.js?v=5407ffab:1189
+run @ @tanstack_react-query.js?v=5407ffab:494
+start @ @tanstack_react-query.js?v=5407ffab:536
+execute @ @tanstack_react-query.js?v=5407ffab:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=5407ffab:2630
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:3295
+handleFileChange @ profile-page.tsx:160
+callCallback2 @ chunk-RPCDYKBN.js?v=5407ffab:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=5407ffab:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=5407ffab:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=5407ffab:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=5407ffab:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=5407ffab:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=5407ffab:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=5407ffab:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=5407ffab:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=5407ffab:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=5407ffab:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=5407ffab:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=5407ffab:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=5407ffab:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=5407ffab:5449Understand this error
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+profile-page.tsx:94 
+            
+            
+           POST https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/api/user/upload-avatar net::ERR_CONNECTION_RESET 400 (Bad Request)
+window.fetch @ Network.js:219
+mutationFn @ profile-page.tsx:94
+fn @ @tanstack_react-query.js?v=5407ffab:1189
+run @ @tanstack_react-query.js?v=5407ffab:494
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+start @ @tanstack_react-query.js?v=5407ffab:536
+execute @ @tanstack_react-query.js?v=5407ffab:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=5407ffab:2630
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:3295
+handleFileChange @ profile-page.tsx:160
+callCallback2 @ chunk-RPCDYKBN.js?v=5407ffab:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=5407ffab:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=5407ffab:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=5407ffab:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=5407ffab:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=5407ffab:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=5407ffab:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=5407ffab:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=5407ffab:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=5407ffab:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=5407ffab:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=5407ffab:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=5407ffab:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=5407ffab:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=5407ffab:5449Understand this error
+profile-page.tsx:94 
+            
+            
+           POST https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/api/user/upload-avatar net::ERR_CONNECTION_RESET 400 (Bad Request)
+window.fetch @ Network.js:219
+mutationFn @ profile-page.tsx:94
+fn @ @tanstack_react-query.js?v=5407ffab:1189
+run @ @tanstack_react-query.js?v=5407ffab:494
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+start @ @tanstack_react-query.js?v=5407ffab:536
+execute @ @tanstack_react-query.js?v=5407ffab:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=5407ffab:2630
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:3295
+handleFileChange @ profile-page.tsx:160
+callCallback2 @ chunk-RPCDYKBN.js?v=5407ffab:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=5407ffab:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=5407ffab:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=5407ffab:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=5407ffab:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=5407ffab:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=5407ffab:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=5407ffab:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=5407ffab:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=5407ffab:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=5407ffab:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=5407ffab:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=5407ffab:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=5407ffab:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=5407ffab:5449Understand this error
+request.js:148 Uncaught (in promise) TypeError: Failed to fetch
+    at request.js:148:17
+(anonymous) @ request.js:148
+Promise.then
+t.send @ request.js:145
+window.fetch @ Network.js:220
+mutationFn @ profile-page.tsx:94
+fn @ @tanstack_react-query.js?v=5407ffab:1189
+run @ @tanstack_react-query.js?v=5407ffab:494
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+start @ @tanstack_react-query.js?v=5407ffab:536
+execute @ @tanstack_react-query.js?v=5407ffab:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=5407ffab:2630
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:3295
+handleFileChange @ profile-page.tsx:160
+callCallback2 @ chunk-RPCDYKBN.js?v=5407ffab:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=5407ffab:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=5407ffab:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=5407ffab:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=5407ffab:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=5407ffab:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=5407ffab:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=5407ffab:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=5407ffab:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=5407ffab:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=5407ffab:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=5407ffab:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=5407ffab:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=5407ffab:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=5407ffab:5449Understand this error
+profile-page.tsx:94 
+            
+            
+           POST https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/api/user/upload-avatar net::ERR_CONNECTION_RESET 400 (Bad Request)
+window.fetch @ Network.js:219
+mutationFn @ profile-page.tsx:94
+fn @ @tanstack_react-query.js?v=5407ffab:1189
+run @ @tanstack_react-query.js?v=5407ffab:494
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+start @ @tanstack_react-query.js?v=5407ffab:536
+execute @ @tanstack_react-query.js?v=5407ffab:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=5407ffab:2630
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:3295
+handleFileChange @ profile-page.tsx:160
+callCallback2 @ chunk-RPCDYKBN.js?v=5407ffab:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=5407ffab:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=5407ffab:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=5407ffab:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=5407ffab:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=5407ffab:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=5407ffab:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=5407ffab:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=5407ffab:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=5407ffab:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=5407ffab:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=5407ffab:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=5407ffab:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=5407ffab:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=5407ffab:5449Understand this error
+profile-page.tsx:94 
+            
+            
+           POST https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/api/user/upload-avatar net::ERR_CONNECTION_RESET 400 (Bad Request)
+window.fetch @ Network.js:219
+mutationFn @ profile-page.tsx:94
+fn @ @tanstack_react-query.js?v=5407ffab:1189
+run @ @tanstack_react-query.js?v=5407ffab:494
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:519
+Promise.then
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:515
+Promise.catch
+run @ @tanstack_react-query.js?v=5407ffab:498
+start @ @tanstack_react-query.js?v=5407ffab:536
+execute @ @tanstack_react-query.js?v=5407ffab:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=5407ffab:2630
+(anonymous) @ @tanstack_react-query.js?v=5407ffab:3295
+handleFileChange @ profile-page.tsx:160
+callCallback2 @ chunk-RPCDYKBN.js?v=5407ffab:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=5407ffab:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=5407ffab:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=5407ffab:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=5407ffab:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=5407ffab:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=5407ffab:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=5407ffab:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=5407ffab:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=5407ffab:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=5407ffab:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=5407ffab:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=5407ffab:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=5407ffab:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=5407ffab:5449Understand this error
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+Console.js:61 Usando conexão WebSocket existente
+Console.js:61 Usuário 40 identificado no WebSocket (conexão existente)
+request.js:148 Uncaught (in promise) TypeError: Failed to fetch
+    at request.js:148:17

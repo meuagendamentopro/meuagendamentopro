@@ -2,6 +2,9 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
+import multer from "multer";
+import path from "path";
+import { WebSocketServer, WebSocket } from "ws";
 import { 
   insertServiceSchema, 
   insertClientSchema, 
@@ -21,7 +24,6 @@ import {
 import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword } from "./auth";
-import { WebSocketServer, WebSocket } from "ws";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
