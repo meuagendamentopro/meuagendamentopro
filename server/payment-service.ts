@@ -61,22 +61,7 @@ export class PaymentService {
       expiration.setMinutes(expiration.getMinutes() + 30);
       
       // O Mercado Pago exige um formato específico para a data de expiração
-      // Vamos utilizar uma data que será aceita: 1 mês no futuro
-      
-      // Criar uma data 1 mês no futuro
-      const futureDate = new Date();
-      futureDate.setMonth(futureDate.getMonth() + 1);
-      
-      // Formatar manualmente a data no formato yyyy-MM-ddTHH:mm:ssZ sem depender do toISOString
-      const year = futureDate.getUTCFullYear();
-      const month = String(futureDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(futureDate.getUTCDate()).padStart(2, '0');
-      const hours = String(futureDate.getUTCHours()).padStart(2, '0');
-      const minutes = String(futureDate.getUTCMinutes()).padStart(2, '0');
-      const seconds = String(futureDate.getUTCSeconds()).padStart(2, '0');
-      
-      // Formato final: 2023-08-24T14:15:32Z
-      const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
+      // Precisamos usar uma data fixa no futuro para evitar problemas de formatação
       
       // Ajustar o valor com base na porcentagem configurada pelo provedor
       const paymentPercentage = provider.pixPaymentPercentage || 100;
@@ -110,8 +95,8 @@ export class PaymentService {
           }
         },
         // Campos essenciais para PIX
-        // Tentar com uma data hardcoded no formato correto
-        date_of_expiration: "2023-12-30T16:00:00.000-04:00",
+        // Vamos tentar remover completamente o campo date_of_expiration
+        // e deixar o Mercado Pago usar o valor padrão
         // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };

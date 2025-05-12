@@ -138,10 +138,12 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
   // Função para gerar o QR Code usando a biblioteca qrcode
   const generateQRCode = async (text: string) => {
     try {
+      console.log("Gerando QR code para texto:", text);
       const url = await QRCode.toDataURL(text, {
         width: 200,
         margin: 2
       });
+      console.log("QR code gerado com sucesso");
       setQrCodeUrl(url);
     } catch (error) {
       console.error("Erro ao gerar QR Code:", error);
