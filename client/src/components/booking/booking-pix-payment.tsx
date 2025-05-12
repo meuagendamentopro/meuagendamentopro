@@ -56,7 +56,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
 
   // Verificar status de pagamento periodicamente
   useEffect(() => {
-    if (pixData?.transactionId && paymentStatus !== "paid") {
+    if (pixData?.transactionId && paymentStatus !== "confirmed" && paymentStatus !== "paid") {
       // Configurar checagem a cada 5 segundos
       console.log("Iniciando verificação automática de pagamento a cada 5 segundos...");
       const timer = setInterval(() => {
@@ -211,14 +211,18 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
     if (!pixData?.transactionId || paymentStatus === "paid") return;
     
     try {
+      console.log("Verificando pagamento da transação:", pixData.transactionId);
       const response = await apiRequest('GET', `/api/payments/${appointmentId}/status`);
       const data = await response.json();
       
       console.log("Resposta da verificação de pagamento:", data);
-      setPaymentStatus(data.paymentStatus);
       
-      // Se o pagamento foi concluído
-      if (data.paymentStatus === "paid") {
+      // Atualizar status do pagamento
+      const newStatus = data.paymentStatus;
+      setPaymentStatus(newStatus);
+      
+      // Se o pagamento foi concluído (confirmed ou paid)
+      if (newStatus === "confirmed" || newStatus === "paid") {
         if (checkTimer) clearInterval(checkTimer);
         toast({
           title: "Pagamento confirmado!",
@@ -228,6 +232,11 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       }
     } catch (error) {
       console.error("Erro ao verificar status do pagamento:", error);
+      toast({
+        title: "Erro ao verificar pagamento",
+        description: "Não foi possível verificar o status do pagamento. Tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -395,7 +404,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
               } as React.CSSProperties} 
             />
             <p className="text-xs text-gray-500 mt-1">
-              O pagamento será cancelado automaticamente após 30 minutos.
+              O pagamento será cancelado automaticamente após 2 horas.
             </p>
           </div>
           
