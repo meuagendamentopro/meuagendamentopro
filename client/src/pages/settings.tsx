@@ -48,6 +48,10 @@ const settingsFormSchema = z.object({
   pixCompanyName: z.string().optional(),
   pixRequirePayment: z.boolean().default(false),
   pixPaymentPercentage: z.coerce.number().int().min(1).max(100).default(100),
+  
+  // Configurações do Mercado Pago
+  pixMercadoPagoToken: z.string().optional(),
+  pixIdentificationNumber: z.string().optional(),
 }).refine(data => data.workingHoursEnd > data.workingHoursStart, {
   message: "O horário de término deve ser maior que o horário de início",
   path: ["workingHoursEnd"]
@@ -87,6 +91,8 @@ const SettingsPage: React.FC = () => {
       pixCompanyName: "",
       pixRequirePayment: false,
       pixPaymentPercentage: 100,
+      pixMercadoPagoToken: "",
+      pixIdentificationNumber: "",
     },
   });
 
@@ -105,6 +111,9 @@ const SettingsPage: React.FC = () => {
         pixCompanyName: provider.pixCompanyName || "",
         pixRequirePayment: provider.pixRequirePayment || false,
         pixPaymentPercentage: provider.pixPaymentPercentage || 100,
+        // Configurações do Mercado Pago
+        pixMercadoPagoToken: provider.pixMercadoPagoToken || "",
+        pixIdentificationNumber: provider.pixIdentificationNumber || "",
       });
     }
   }, [provider, form]);
@@ -543,6 +552,53 @@ const SettingsPage: React.FC = () => {
                         </div>
                         <FormDescription>
                           Porcentagem do valor do serviço que o cliente deve pagar antecipadamente (100% = pagamento total)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Separator className="my-6" />
+                  <h3 className="text-lg font-medium mb-2">Configurações do Mercado Pago</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Configure seu token de acesso do Mercado Pago para processar pagamentos PIX.
+                  </p>
+
+                  <FormField
+                    control={form.control}
+                    name="pixMercadoPagoToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Token de Acesso do Mercado Pago</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="APP_USR-0000000000000000-000000-00000000000000000000000000000000-000000000"
+                            type="password"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Token de acesso para processar pagamentos (começa com APP_USR-). Obtenha em mercadopago.com.br/developers
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="pixIdentificationNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>CPF/CNPJ para identificação</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="00000000000"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          CPF ou CNPJ usado para identificação no Mercado Pago (apenas números)
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

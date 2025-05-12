@@ -195,7 +195,8 @@ export class PaymentService {
       
       // Buscar o provider para obter o token específico
       const provider = await storage.getProvider(appointment.providerId);
-      const providerToken = provider?.pixMercadoPagoToken;
+      // Garantir que o token não seja null (apenas undefined ou string)
+      const providerToken = provider?.pixMercadoPagoToken || undefined;
 
       // Verificar status do pagamento com o token do provider se disponível
       const paymentStatus = await this.checkPaymentStatus(appointment.pixTransactionId, providerToken);
@@ -241,8 +242,9 @@ export class PaymentService {
         return false;
       }
 
-      // Buscar detalhes do pagamento
-      const result = await payment.get({ id: webhookData.data.id });
+      // Usar o token global para obter detalhes do pagamento
+      const paymentClient = getMercadoPagoClient(defaultAccessToken);
+      const result = await paymentClient.get({ id: webhookData.data.id });
       
       if (!result.id) {
         console.log('ID da transação não encontrado na resposta');
