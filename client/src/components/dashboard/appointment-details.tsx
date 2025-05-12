@@ -230,6 +230,56 @@ export const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({
                         <CreditCard className="h-4 w-4 text-gray-500" />
                         <span>{formatCurrency(service?.price)}</span>
                       </div>
+
+                      {/* Detalhes do pagamento quando pagamento parcial é utilizado */}
+                      {appointment.requiresPayment && appointment.paymentPercentage && appointment.paymentPercentage < 100 && (
+                        <>
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Valor pago: {formatCurrency(appointment.paymentAmount)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-amber-600">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>Valor restante: {formatCurrency(service?.price && appointment.paymentAmount 
+                              ? service.price - appointment.paymentAmount 
+                              : 0)}</span>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Status do pagamento */}
+                      {appointment.requiresPayment && (
+                        <div className={`flex items-center gap-2 font-medium mt-1 ${
+                          appointment.paymentStatus === 'confirmed' || appointment.paymentStatus === 'paid' || appointment.paymentStatus === 'approved'
+                            ? 'text-green-600'
+                            : appointment.paymentStatus === 'pending'
+                            ? 'text-amber-600'
+                            : appointment.paymentStatus === 'failed'
+                            ? 'text-red-600'
+                            : 'text-gray-600'
+                        }`}>
+                          {appointment.paymentStatus === 'confirmed' || appointment.paymentStatus === 'paid' || appointment.paymentStatus === 'approved' ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : appointment.paymentStatus === 'pending' ? (
+                            <Clock className="h-4 w-4" />
+                          ) : appointment.paymentStatus === 'failed' ? (
+                            <X className="h-4 w-4" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4" />
+                          )}
+                          <span>
+                            {appointment.paymentStatus === 'confirmed' || appointment.paymentStatus === 'paid' || appointment.paymentStatus === 'approved'
+                              ? 'Pagamento confirmado'
+                              : appointment.paymentStatus === 'pending'
+                              ? 'Aguardando pagamento'
+                              : appointment.paymentStatus === 'failed'
+                              ? 'Pagamento falhou'
+                              : appointment.paymentStatus === 'not_required'
+                              ? 'Pagamento na hora'
+                              : 'Status desconhecido'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
