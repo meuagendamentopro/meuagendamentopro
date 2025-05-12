@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, InfoIcon, ShieldIcon, X } from "lucide-react";
+import { Camera, InfoIcon, ShieldIcon, Trash2, X } from "lucide-react";
 
 import {
   Form,
@@ -176,8 +176,13 @@ export default function ProfilePage() {
         description: "Sua foto de perfil foi removida com sucesso",
       });
       
-      // Atualizar o cache do usuário
-      queryClient.setQueryData(["/api/user"], data);
+      // Atualizar o cache do usuário com os dados atualizados
+      // Mantenha os dados do usuário existentes e apenas atualize a propriedade avatarUrl
+      queryClient.setQueryData(["/api/user"], (oldData: any) => {
+        return { ...oldData, avatarUrl: null };
+      });
+      
+      // Limpar a prévia
       setAvatarPreview(null);
     },
     onError: (error: Error) => {
@@ -262,12 +267,15 @@ export default function ProfilePage() {
   }
   
   // Gerar iniciais para o avatar
-  const initials = user.name
-    .split(' ')
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const initials = user?.name 
+    ? user.name
+        .split(' ')
+        .filter(n => n)
+        .map(n => n[0] || '')
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : "U";
 
   return (
     <div className="space-y-6">
@@ -298,11 +306,12 @@ export default function ProfilePage() {
                   </div>
                   {(avatarPreview || user.avatarUrl) && (
                     <button 
-                      className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-1 shadow-md hover:bg-destructive/80 transition-colors"
+                      className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-2 shadow-md hover:bg-destructive/80 transition-colors"
                       onClick={handleRemoveAvatar}
                       type="button"
+                      title="Remover foto"
                     >
-                      <X className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
