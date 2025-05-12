@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Verificar se a senha atual está correta
-        const isPasswordCorrect = await require("./auth").comparePasswords(currentPassword, user.password);
+        const isPasswordCorrect = await comparePasswords(currentPassword, user.password);
         if (!isPasswordCorrect) {
           return res.status(400).json({ error: "Senha atual incorreta" });
         }
