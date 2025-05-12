@@ -105,25 +105,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Rota para upload de imagem em base64
-  app.post("/api/user/upload-avatar", async (req: Request, res: Response) => {
+  // Configuração do multer para upload de arquivos
+  const avatarStorage = multer.memoryStorage();
+  const avatarUpload = multer({
+    storage: avatarStorage,
+    limits: {
+      fileSize: 5 * 1024 * 1024, // limite de 5MB
+    },
+    fileFilter: (req, file, cb) => {
+      // Aceitar apenas arquivos de imagem
+      if (!file.mimetype.startsWith('image/')) {
+        return cb(new Error('Apenas imagens são permitidas'));
+      }
+      cb(null, true);
+    }
+  });
+
+  app.post("/api/user/upload-avatar", avatarUpload.single('avatar'), async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Não autenticado" });
     }
     
     try {
       const userId = req.user.id;
-      const { imageData } = req.body;
       
-      if (!imageData || typeof imageData !== 'string') {
-        return res.status(400).json({ error: "Dados da imagem não fornecidos ou inválidos" });
+      // Verificar se o arquivo foi enviado
+      if (!req.file) {
+        return res.status(400).json({ error: "Dados da imagem não fornecidos" });
       }
       
-      // Validar se é uma string base64 válida
-      if (!imageData.startsWith('data:image/')) {
-        return res.status(400).json({ error: "Formato de imagem inválido" });
-      }
+      // Converter a imagem para base64
+      const imageBuffer = req.file.buffer;
+      const contentType = req.file.mimetype;
+      const imageData = `data:${contentType};base64,${imageBuffer.toString('base64')}`;
       
-      // Atualizar o usuário com a URL da imagem (neste caso, a própria string base64)
+      // Atualizar o usuário com a URL da imagem
       const updatedUser = await storage.updateUser(userId, { avatarUrl: imageData });
       if (!updatedUser) {
         return res.status(500).json({ error: "Falha ao atualizar avatar" });
