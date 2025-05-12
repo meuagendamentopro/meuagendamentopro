@@ -88,6 +88,9 @@ export class PaymentService {
       let result: any;
       
       try {
+        console.log("Token do Mercado Pago (últimos 6 caracteres):", 
+          accessToken.length > 10 ? "..." + accessToken.substring(accessToken.length - 6) : "Token inválido");
+        
         result = await paymentClient.create({ body: paymentData });
         
         console.log("Resposta do Mercado Pago:", JSON.stringify({
@@ -95,6 +98,7 @@ export class PaymentService {
           status: result.status,
           hasQrCode: !!result.point_of_interaction?.transaction_data?.qr_code,
           qrCodeLength: result.point_of_interaction?.transaction_data?.qr_code?.length || 0,
+          tokenType: accessToken.substring(0, 7) // Verificar se começa com APP_USR
         }, null, 2));
         
         if (!result.id) {
