@@ -99,6 +99,13 @@ const SettingsPage: React.FC = () => {
   // Atualizar o formulário quando os dados do provedor forem carregados
   React.useEffect(() => {
     if (provider) {
+      console.log("Carregando dados do provedor para o formulário:", {
+        id: provider.id,
+        hasMercadoPagoToken: !!provider.pixMercadoPagoToken,
+        hasIdentificationNumber: !!provider.pixIdentificationNumber,
+        pixEnabled: provider.pixEnabled,
+      });
+      
       form.reset({
         workingHoursStart: provider.workingHoursStart || 8,
         workingHoursEnd: provider.workingHoursEnd || 18,
