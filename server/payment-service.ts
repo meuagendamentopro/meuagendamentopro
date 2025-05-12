@@ -88,7 +88,8 @@ export class PaymentService {
             number: identificationNumber
           }
         },
-        date_of_expiration: expiration.toISOString()
+        date_of_expiration: expiration.toISOString(),
+        notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };
 
       console.log("Enviando requisição para Mercado Pago:", JSON.stringify(paymentData, null, 2));
@@ -250,15 +251,28 @@ export class PaymentService {
    */
   async processWebhook(webhookData: any): Promise<boolean> {
     try {
+      console.log('Recebido webhook do Mercado Pago:', JSON.stringify(webhookData, null, 2));
+      
       // Verificar se é um evento de pagamento
       if (webhookData.type !== 'payment' || !webhookData.data || !webhookData.data.id) {
         console.log('Evento de webhook ignorado (não é pagamento):', webhookData.type);
         return false;
       }
 
+      console.log(`Processando notificação de pagamento ID: ${webhookData.data.id}`);
+
       // Usar o token global para obter detalhes do pagamento
       const paymentClient = getMercadoPagoClient(defaultAccessToken);
       const result = await paymentClient.get({ id: webhookData.data.id });
+      
+      console.log('Detalhes do pagamento:', JSON.stringify({
+        id: result.id,
+        status: result.status,
+        payment_method_id: result.payment_method_id,
+        transaction_amount: result.transaction_amount,
+        date_approved: result.date_approved,
+        date_created: result.date_created
+      }, null, 2));
       
       if (!result.id) {
         console.log('ID da transação não encontrado na resposta');
@@ -277,8 +291,13 @@ export class PaymentService {
         return false;
       }
 
+      console.log(`Agendamento encontrado: #${appointment.id}, status atual: ${appointment.paymentStatus}`);
+
       // Atualizar status do agendamento
-      return await this.updateAppointmentPaymentStatus(appointment.id);
+      const updated = await this.updateAppointmentPaymentStatus(appointment.id);
+      console.log(`Status de pagamento atualizado: ${updated ? 'sucesso' : 'sem alterações'}`);
+      
+      return updated;
     } catch (error) {
       console.error('Erro ao processar webhook:', error);
       return false;
