@@ -28,6 +28,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
   setupAuth(app);
   
+  // Rota para obter dados do usuário atual
+  app.get("/api/user", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    res.json(req.user);
+  });
+  
+  // Rota para atualizar perfil do usuário
+  app.patch("/api/user/profile", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      const { name, email, currentPassword, newPassword } = req.body;
+      
+      // Criar objeto com dados a atualizar
+      const updateData: Partial<{ name: string, email: string, password: string }> = {};
+      
+      // Validar e adicionar campos a serem atualizados
+      if (name) updateData.name = name;
+      if (email) updateData.email = email;
+      
+      // Se está tentando alterar a senha
+      if (newPassword && currentPassword) {
+        // Buscar o usuário com a senha atual (hash)
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+        
+        // Verificar se a senha atual está correta
+        const isPasswordCorrect = await require("./auth").comparePasswords(currentPassword, user.password);
+        if (!isPasswordCorrect) {
+          return res.status(400).json({ error: "Senha atual incorreta" });
+        }
+        
+        // Hashear a nova senha
+        updateData.password = await hashPassword(newPassword);
+      }
+      
+      // Se não há nada para atualizar
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "Nenhuma informação fornecida para atualização" });
+      }
+      
+      // Atualizar usuário
+      const updatedUser = await storage.updateUser(userId, updateData);
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao atualizar perfil" });
+      }
+      
+      // Retornar o usuário atualizado (sem a senha)
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      // Atualizar a sessão com os novos dados do usuário
+      if (req.session) {
+        req.session.passport = { user: userWithoutPassword };
+      }
+      
+      res.status(200).json(userWithoutPassword);
+    } catch (error) {
+      console.error("Erro ao atualizar perfil:", error);
+      res.status(500).json({ error: "Erro ao atualizar perfil" });
+    }
+  });
+  
   const httpServer = createServer(app);
   
   // Configuração do WebSocket para atualizações em tempo real
