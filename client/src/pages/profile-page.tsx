@@ -21,9 +21,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PageHeader } from "@/components/layout/page-header";
+import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InfoCircledIcon, ShieldCheckIcon } from "@radix-ui/react-icons";
+import { InfoIcon, ShieldIcon } from "lucide-react";
 
 // Esquema para validação de atualização de perfil
 const updateProfileSchema = z.object({
@@ -181,7 +181,7 @@ export default function ProfilePage() {
           <CardContent>
             <div className="space-y-4">
               <Alert variant="default" className="bg-muted">
-                <InfoCircledIcon className="h-4 w-4 mr-2" />
+                <InfoIcon className="h-4 w-4 mr-2" />
                 <AlertTitle>Informações da Conta</AlertTitle>
                 <AlertDescription className="mt-2">
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -198,7 +198,7 @@ export default function ProfilePage() {
                       <>
                         <div className="text-muted-foreground">Assinatura:</div>
                         <div className="flex items-center">
-                          <ShieldCheckIcon className="h-4 w-4 mr-2 text-green-500" />
+                          <ShieldIcon className="h-4 w-4 mr-2 text-green-500" />
                           {user.neverExpires
                             ? 'Sem expiração'
                             : user.subscriptionExpiry

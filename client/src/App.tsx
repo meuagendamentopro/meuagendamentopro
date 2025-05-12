@@ -11,6 +11,7 @@ import Appointments from "@/pages/appointments";
 import Clients from "@/pages/clients";
 import Booking from "@/pages/booking";
 import Settings from "@/pages/settings";
+import ProfilePage from "@/pages/profile-page";
 import AuthPage from "@/pages/auth-page";
 import EmailVerificationPage from "@/pages/email-verification-page";
 import FinancialReport from "@/pages/financial-report";
@@ -229,6 +230,15 @@ function Router() {
         element={
           <MainLayout>
             <Dashboard />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/profile" 
+        element={
+          <MainLayout>
+            <ProfilePage />
           </MainLayout>
         } 
       />
