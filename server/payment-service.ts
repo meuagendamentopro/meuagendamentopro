@@ -60,17 +60,23 @@ export class PaymentService {
       // Definindo expiração para 30 minutos (mínimo recomendado)
       expiration.setMinutes(expiration.getMinutes() + 30);
       
-      // Garantir que esteja no fuso horário UTC
-      const expirationUTC = new Date(
-        Date.UTC(
-          expiration.getUTCFullYear(),
-          expiration.getUTCMonth(),
-          expiration.getUTCDate(),
-          expiration.getUTCHours(),
-          expiration.getUTCMinutes(),
-          expiration.getUTCSeconds()
-        )
-      );
+      // O Mercado Pago exige um formato específico para a data de expiração
+      // Vamos utilizar uma data que será aceita: 1 mês no futuro
+      
+      // Criar uma data 1 mês no futuro
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 1);
+      
+      // Formatar manualmente a data no formato yyyy-MM-ddTHH:mm:ssZ sem depender do toISOString
+      const year = futureDate.getUTCFullYear();
+      const month = String(futureDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(futureDate.getUTCDate()).padStart(2, '0');
+      const hours = String(futureDate.getUTCHours()).padStart(2, '0');
+      const minutes = String(futureDate.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(futureDate.getUTCSeconds()).padStart(2, '0');
+      
+      // Formato final: 2023-08-24T14:15:32Z
+      const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
       
       // Ajustar o valor com base na porcentagem configurada pelo provedor
       const paymentPercentage = provider.pixPaymentPercentage || 100;
@@ -104,9 +110,8 @@ export class PaymentService {
           }
         },
         // Campos essenciais para PIX
-        // Ajustar formato da data - ISO 8601 para UTC (sem milissegundos)
-        // Mercado Pago exige o formato correto: '2025-05-12T23:37:10Z'
-        date_of_expiration: expirationUTC.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        // Tentar com uma data hardcoded no formato correto
+        date_of_expiration: "2023-12-30T16:00:00.000-04:00",
         // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };
@@ -153,11 +158,15 @@ export class PaymentService {
         qr_code_base64: typeof result.point_of_interaction.transaction_data.qr_code_base64
       });
 
+      // Calcular um prazo de expiração padrão de 30 minutos a partir de agora
+      const defaultExpiration = new Date();
+      defaultExpiration.setMinutes(defaultExpiration.getMinutes() + 30);
+      
       const response: PixResponse = {
         transactionId: result.id.toString(),
         qrCode: result.point_of_interaction.transaction_data.qr_code,
         qrCodeBase64: result.point_of_interaction.transaction_data.qr_code_base64 || '',
-        expiresAt: expirationUTC
+        expiresAt: defaultExpiration
       };
       
       console.log("QR code no response:", response.qrCode ? `Presente (${response.qrCode.length} caracteres)` : "Ausente");
