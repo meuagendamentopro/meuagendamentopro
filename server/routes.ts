@@ -1252,6 +1252,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Validar campos do PIX se ele estiver habilitado
+      if (pixEnabled === true) {
+        if (!pixKeyType || !pixKey) {
+          return res.status(400).json({
+            message: "Missing PIX configuration",
+            errors: ["PIX key type and PIX key are required when PIX is enabled"]
+          });
+        }
+        
+        // Validar porcentagem de pagamento se for informada
+        if (pixPaymentPercentage !== undefined && 
+            (typeof pixPaymentPercentage !== 'number' || 
+             pixPaymentPercentage < 1 || 
+             pixPaymentPercentage > 100)) {
+          return res.status(400).json({
+            message: "Invalid payment percentage",
+            errors: ["Payment percentage must be a number between 1 and 100"]
+          });
+        }
+      }
+      
       // Validação dos dias de trabalho (se fornecido)
       if (workingDays !== undefined) {
         if (typeof workingDays !== 'string') {
@@ -1292,6 +1313,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         providerData.phone = phone;
       }
       
+      // Adicionar configurações de PIX se fornecidas
+      if (pixEnabled !== undefined) {
+        providerData.pixEnabled = pixEnabled;
+        
+        // Se o PIX estiver habilitado, salvar as informações relacionadas
+        if (pixEnabled === true) {
+          if (pixKeyType) providerData.pixKeyType = pixKeyType;
+          if (pixKey) providerData.pixKey = pixKey;
+          if (pixCompanyName) providerData.pixCompanyName = pixCompanyName;
+          if (pixRequirePayment !== undefined) providerData.pixRequirePayment = pixRequirePayment;
+          if (pixPaymentPercentage) providerData.pixPaymentPercentage = pixPaymentPercentage;
+        }
+      }
+      
+      console.log("Atualizando provedor com dados:", providerData);
       const updatedProvider = await storage.updateProvider(id, providerData);
       if (!updatedProvider) {
         return res.status(500).json({ message: "Falha ao atualizar as configurações do provedor" });
