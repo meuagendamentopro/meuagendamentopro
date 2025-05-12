@@ -26,22 +26,38 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import PageHeader from "@/components/layout/page-header";
-import { Clock, Calendar, Phone, Smartphone } from "lucide-react";
+import { Clock, Calendar, Phone, Smartphone, CreditCard, DollarSign, Percent } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import WhatsAppPopup from "@/components/whatsapp-popup";
 import { TimeExclusionManager } from "@/components/time-exclusions/time-exclusion-manager";
+import { Switch } from "@/components/ui/switch";
 
 // Schema para validação do formulário
 const settingsFormSchema = z.object({
+  // Configurações de horário de trabalho
   workingHoursStart: z.coerce.number().int().min(0).max(23),
   workingHoursEnd: z.coerce.number().int().min(1).max(24),
   workingDays: z.string(),
   phone: z.string().optional(),
+  
+  // Configurações de pagamento PIX
+  pixEnabled: z.boolean().default(false),
+  pixKeyType: z.string().optional(),
+  pixKey: z.string().optional(),
+  pixCompanyName: z.string().optional(),
+  pixRequirePayment: z.boolean().default(false),
+  pixPaymentPercentage: z.coerce.number().int().min(1).max(100).default(100),
 }).refine(data => data.workingHoursEnd > data.workingHoursStart, {
   message: "O horário de término deve ser maior que o horário de início",
   path: ["workingHoursEnd"]
-});
+}).refine(
+  data => !data.pixEnabled || (data.pixEnabled && data.pixKey && data.pixKeyType),
+  {
+    message: "Tipo de chave e chave PIX são obrigatórios quando o pagamento PIX está habilitado",
+    path: ["pixKey"]
+  }
+);
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
@@ -65,6 +81,12 @@ const SettingsPage: React.FC = () => {
       workingHoursStart: 8,
       workingHoursEnd: 18,
       workingDays: "1,2,3,4,5",
+      pixEnabled: false,
+      pixKeyType: "",
+      pixKey: "",
+      pixCompanyName: "",
+      pixRequirePayment: false,
+      pixPaymentPercentage: 100,
     },
   });
 
