@@ -348,6 +348,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         // Verificar se o agendamento requer pagamento PIX
         if (result.appointment && result.appointment.requiresPayment) {
           console.log("Agendamento requer pagamento PIX");
+          
+          // Definir os estados para ir para a tela de pagamento
           setRequiresPayment(true);
           setAppointmentId(result.appointment.id);
           setPaymentStep(true);
@@ -356,14 +358,17 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
             title: "Pagamento necessário",
             description: "Para confirmar seu agendamento, realize o pagamento via PIX.",
           });
-        } else {
-          // Finalizar o agendamento sem pagamento
-          setBookingComplete(true);
-          toast({
-            title: "Agendamento confirmado!",
-            description: result.message,
-          });
-        }
+          
+          // Importante: retornar aqui para não executar o código abaixo
+          return;
+        } 
+        
+        // Se não requer pagamento, finalizar o agendamento normalmente
+        setBookingComplete(true);
+        toast({
+          title: "Agendamento confirmado!",
+          description: result.message,
+        });
       }
     } catch (error) {
       console.error("Booking error:", error);
