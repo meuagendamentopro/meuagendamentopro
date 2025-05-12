@@ -98,6 +98,13 @@ const SettingsPage: React.FC = () => {
         workingHoursEnd: provider.workingHoursEnd || 18,
         workingDays: provider.workingDays || "1,2,3,4,5",
         phone: provider.phone || "",
+        // Configurações PIX
+        pixEnabled: provider.pixEnabled || false,
+        pixKeyType: provider.pixKeyType || "",
+        pixKey: provider.pixKey || "",
+        pixCompanyName: provider.pixCompanyName || "",
+        pixRequirePayment: provider.pixRequirePayment || false,
+        pixPaymentPercentage: provider.pixPaymentPercentage || 100,
       });
     }
   }, [provider, form]);
@@ -370,6 +377,183 @@ const SettingsPage: React.FC = () => {
               <div className="flex justify-end">
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? "Salvando..." : "Salvar alterações"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {/* Seção de Configurações de Pagamento PIX */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Configurações de Pagamento PIX</CardTitle>
+          <CardDescription>
+            Configure o recebimento de pagamentos via PIX
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="pixEnabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Habilitar pagamento via PIX</FormLabel>
+                      <FormDescription>
+                        Ative para permitir que seus clientes paguem via PIX ao agendar
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("pixEnabled") && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="pixKeyType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Chave PIX</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <div className="flex items-center">
+                                  <CreditCard className="h-4 w-4 mr-2 text-gray-400" />
+                                  <SelectValue placeholder="Selecione o tipo de chave" />
+                                </div>
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="CPF">CPF</SelectItem>
+                              <SelectItem value="CNPJ">CNPJ</SelectItem>
+                              <SelectItem value="EMAIL">E-mail</SelectItem>
+                              <SelectItem value="TELEFONE">Telefone</SelectItem>
+                              <SelectItem value="ALEATORIA">Chave Aleatória</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Selecione o tipo de chave PIX que você utiliza
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="pixKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Chave PIX</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Informe sua chave PIX"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Chave PIX para recebimento dos pagamentos
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="pixCompanyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome no Recebimento</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Seu nome ou nome da empresa"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Nome que será exibido para o cliente durante o pagamento
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="pixRequirePayment"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Exigir pagamento antecipado</FormLabel>
+                          <FormDescription>
+                            Ative para exigir que o cliente pague ao agendar para garantir a reserva
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="pixPaymentPercentage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Porcentagem de Pagamento</FormLabel>
+                        <div className="flex items-center space-x-4">
+                          <FormControl className="flex-1">
+                            <div className="relative rounded-md">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Percent className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={100}
+                                placeholder="100"
+                                className="pl-10"
+                                {...field}
+                              />
+                              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span className="text-gray-500">%</span>
+                              </div>
+                            </div>
+                          </FormControl>
+                        </div>
+                        <FormDescription>
+                          Porcentagem do valor do serviço que o cliente deve pagar antecipadamente (100% = pagamento total)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Salvando..." : "Salvar configurações de PIX"}
                 </Button>
               </div>
             </form>

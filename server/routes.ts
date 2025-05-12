@@ -1210,7 +1210,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       // Extrair os campos da requisição
-      const { workingHoursStart, workingHoursEnd, workingDays, phone } = req.body;
+      const { 
+        workingHoursStart, 
+        workingHoursEnd, 
+        workingDays, 
+        phone,
+        // Campos de configuração PIX
+        pixEnabled,
+        pixKeyType,
+        pixKey,
+        pixCompanyName,
+        pixRequirePayment,
+        pixPaymentPercentage
+      } = req.body;
       
       if (workingHoursStart === undefined || workingHoursEnd === undefined) {
         return res.status(400).json({ 
