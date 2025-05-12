@@ -40,7 +40,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
   const [checkTimer, setCheckTimer] = useState<NodeJS.Timeout | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 minutos em segundos
+  const [timeRemaining, setTimeRemaining] = useState<number>(1800); // 30 minutos em segundos
   const [progressValue, setProgressValue] = useState<number>(100);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
 

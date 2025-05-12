@@ -55,8 +55,10 @@ export class PaymentService {
       const paymentClient = getMercadoPagoClient(accessToken);
 
       // Criar preferência de pagamento
+      // Ajustar a expiração - Mercado Pago exige tempo mínimo de 30 minutos e máximo de 30 dias
       const expiration = new Date();
-      expiration.setMinutes(expiration.getMinutes() + (params.expireInMinutes || 60));
+      // Definindo expiração para 30 minutos (mínimo recomendado)
+      expiration.setMinutes(expiration.getMinutes() + 30);
       
       // Ajustar o valor com base na porcentagem configurada pelo provedor
       const paymentPercentage = provider.pixPaymentPercentage || 100;
@@ -90,7 +92,9 @@ export class PaymentService {
           }
         },
         // Campos essenciais para PIX
-        date_of_expiration: expiration.toISOString(),
+        // Ajustar formato da data - ISO 8601 para UTC (sem milissegundos)
+        date_of_expiration: expiration.toISOString().split('.')[0]+"Z",
+        // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };
 
@@ -173,11 +177,30 @@ export class PaymentService {
    */
   async checkPaymentStatus(transactionId: string, providerToken?: string): Promise<{ status: string; paid: boolean }> {
     try {
+      console.log(`Verificando status de pagamento para transação ID: ${transactionId}`);
+      
       // Criar cliente do Mercado Pago com o token específico ou o padrão
       const accessToken = providerToken || defaultAccessToken;
+      if (!accessToken) {
+        console.error("Token do Mercado Pago não disponível para consulta de status");
+        return { status: 'error', paid: false };
+      }
+      
       const paymentClient = getMercadoPagoClient(accessToken);
       
       const result = await paymentClient.get({ id: parseInt(transactionId) });
+      
+      console.log(`Resposta do Mercado Pago para status do pagamento:`, JSON.stringify({
+        id: result.id,
+        status: result.status,
+        status_detail: result.status_detail,
+        payment_method_id: result.payment_method_id,
+        payment_type_id: result.payment_type_id,
+        date_approved: result.date_approved,
+        date_created: result.date_created,
+        date_last_updated: result.date_last_updated,
+        date_of_expiration: result.date_of_expiration
+      }, null, 2));
       
       let status = 'pending';
       let paid = false;
@@ -185,10 +208,11 @@ export class PaymentService {
       if (result.status === 'approved') {
         status = 'confirmed';
         paid = true;
-      } else if (result.status && ['rejected', 'cancelled', 'refunded'].includes(result.status)) {
+      } else if (result.status && ['rejected', 'cancelled', 'refunded', 'cancelled'].includes(result.status)) {
         status = 'failed';
       }
 
+      console.log(`Status processado: ${status}, Pago: ${paid}`);
       return { status, paid };
     } catch (error) {
       console.error('Erro ao verificar status do pagamento:', error);
