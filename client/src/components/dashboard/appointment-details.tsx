@@ -38,7 +38,8 @@ import {
   AlertCircle 
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDate, formatTime, formatPhoneNumber } from '@/lib/formatters';
+import { formatDate, formatTime } from '@/lib/dates';
+import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from "@/hooks/use-toast";
 import { AppointmentPixPayment } from "./appointment-pix-payment";
 

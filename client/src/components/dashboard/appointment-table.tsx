@@ -21,7 +21,8 @@ import { AppointmentStatus } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, CreditCard } from "lucide-react";
+import { AppointmentDetails } from "./appointment-details";
 
 interface AppointmentTableProps {
   providerId: number;
@@ -37,6 +38,8 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   onAppointmentUpdated
 }) => {
   const [cancellationReason, setCancellationReason] = useState("");
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const { data: appointments, isLoading: appointmentsLoading, refetch } = useQuery({
     queryKey: ['/api/providers', providerId, 'appointments'],
     queryFn: async ({ queryKey }) => {
@@ -297,6 +300,18 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-600 hover:text-gray-900 mr-2"
+                        onClick={() => {
+                          setSelectedAppointment(appointment);
+                          setShowDetails(true);
+                        }}
+                      >
+                        Detalhes
+                      </Button>
+
                       {appointment.status === AppointmentStatus.PENDING && (
                         <Button 
                           variant="ghost" 
@@ -371,6 +386,44 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
         )}
       </CardContent>
     </Card>
+    
+    {/* Componente de detalhes do agendamento */}
+    {selectedAppointment && (
+      <AppointmentDetails
+        appointment={selectedAppointment}
+        isOpen={showDetails}
+        onClose={() => {
+          setShowDetails(false);
+          setSelectedAppointment(null);
+          // Atualizar a lista de agendamentos
+          refetch();
+          if (onAppointmentUpdated) {
+            onAppointmentUpdated();
+          }
+        }}
+        clients={clients}
+        services={services}
+        onStatusChange={(id, status, reason) => {
+          if (status === AppointmentStatus.CANCELLED) {
+            handleCancelAppointment(id, reason || "");
+          } else if (status === AppointmentStatus.CONFIRMED) {
+            handleConfirmAppointment(id);
+          } else {
+            // Para outros status, usamos a mesma lógica
+            apiRequest('PATCH', `/api/appointments/${id}/status`, { status })
+              .then(() => {
+                refetch();
+                if (onAppointmentUpdated) {
+                  onAppointmentUpdated();
+                }
+              })
+              .catch(error => {
+                console.error('Failed to update appointment status:', error);
+              });
+          }
+        }}
+      />
+    )}
   );
 };
 
