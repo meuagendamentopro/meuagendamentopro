@@ -2529,16 +2529,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Cliente criado com ID ${clientId} (agendamento sem pagamento)`);
       }
       
-      // Guardamos as informações do cliente temporário nos metadados do agendamento
-      // para recuperá-las mais tarde quando confirmar o pagamento
-      const clientMetadata = !client || client.id === 0 ? {
-        clientName: bookingData.name,
-        clientPhone: bookingData.phone,
-        clientEmail: "",
-        clientNotes: bookingData.notes || ""
-      } : null;
-      
-      const appointment = await storage.createAppointment({
+      // Criar o objeto com dados base do agendamento
+      const appointmentData: any = {
+        // Se o cliente for temporário (ID = 0), armazenamos os dados do cliente
+        // no agendamento para recuperá-los quando o pagamento for confirmado
+        ...((!client || client.id === 0) ? {
+          clientName: bookingData.name,
+          clientPhone: bookingData.phone,
+          clientEmail: "",
+          clientNotes: bookingData.notes || ""
+        } : {}),
         providerId: service.providerId,
         clientId: clientId, // Agora usamos clientId que é 0 ou ID real
         serviceId: bookingData.serviceId,
@@ -2551,7 +2551,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus: requiresPayment ? PaymentStatus.PENDING : PaymentStatus.NOT_REQUIRED,
         paymentAmount: paymentAmount,
         paymentPercentage: paymentPercentage
-      });
+      };
+      
+      // Agora sim, criamos o agendamento
+      const appointment = await storage.createAppointment(appointmentData);
       
       // Enviar atualização em tempo real via WebSocket
       broadcastUpdate('appointment_created', appointment);
@@ -2571,7 +2574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const notification = await storage.createNotification({
             userId: serviceProvider.userId,
             title: "Novo agendamento",
-            message: `${client.name} agendou ${service.name} para ${formattedDate}`,
+            message: `${client?.name || bookingData.name} agendou ${service.name} para ${formattedDate}`,
             type: 'appointment',
             appointmentId: appointment.id
           });
@@ -2585,7 +2588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Aqui enviaríamos uma confirmação via WhatsApp
-      console.log(`Agendamento ${appointment.id} criado com sucesso! Confirmação seria enviada para ${client.phone}.`);
+      console.log(`Agendamento ${appointment.id} criado com sucesso! Confirmação seria enviada para ${client?.phone || bookingData.phone}.`);
       
       res.status(201).json({
         success: true,
