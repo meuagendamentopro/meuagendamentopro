@@ -11,6 +11,7 @@ import {
   insertAppointmentSchema, 
   bookingFormSchema,
   AppointmentStatus,
+  PaymentStatus,
   services,
   clients,
   providerClients,
@@ -25,6 +26,7 @@ import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
+import { paymentService } from "./payment-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação

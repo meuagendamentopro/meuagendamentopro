@@ -1,16 +1,17 @@
 /**
  * Serviço de pagamento PIX usando Mercado Pago
  */
-import mercadopago from 'mercadopago';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { db } from './db';
 import { providers, appointments, PaymentStatus } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import { storage } from './storage';
 
 // Configurar o SDK do Mercado Pago
-mercadopago.configure({
-  access_token: process.env.MERCADOPAGO_ACCESS_TOKEN as string
+const mercadopago = new MercadoPagoConfig({ 
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN as string 
 });
+const payment = new Payment(mercadopago);
 
 interface GeneratePixParams {
   appointmentId: number;
@@ -62,16 +63,16 @@ export class PaymentService {
         date_of_expiration: expiration.toISOString()
       };
 
-      const payment = await mercadopago.payment.create(paymentData);
+      const result = await payment.create({ body: paymentData });
       
-      if (!payment.body.id || !payment.body.point_of_interaction?.transaction_data?.qr_code) {
+      if (!result.id || !result.point_of_interaction?.transaction_data?.qr_code) {
         throw new Error('Falha ao gerar QR code PIX');
       }
 
       const response: PixResponse = {
-        transactionId: payment.body.id.toString(),
-        qrCode: payment.body.point_of_interaction.transaction_data.qr_code,
-        qrCodeBase64: payment.body.point_of_interaction.transaction_data.qr_code_base64 || '',
+        transactionId: result.id.toString(),
+        qrCode: result.point_of_interaction.transaction_data.qr_code,
+        qrCodeBase64: result.point_of_interaction.transaction_data.qr_code_base64 || '',
         expiresAt: expiration
       };
 
