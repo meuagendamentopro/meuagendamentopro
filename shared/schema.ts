@@ -55,6 +55,15 @@ export const providers = pgTable("providers", {
   workingHoursStart: integer("working_hours_start").default(8), // Horário de início em horas (padrão: 8h)
   workingHoursEnd: integer("working_hours_end").default(18),    // Horário de término em horas (padrão: 18h) 
   workingDays: text("working_days").default("1,2,3,4,5").notNull(), // Dias de trabalho (1=Segunda, 7=Domingo), padrão: segunda a sexta
+  // Configurações de pagamento PIX
+  pixEnabled: boolean("pix_enabled").default(false).notNull(),  // Habilitar pagamento via PIX
+  pixKeyType: text("pix_key_type"),  // Tipo de chave PIX: CPF, CNPJ, EMAIL, TELEFONE, ALEATORIA
+  pixKey: text("pix_key"),           // Chave PIX do provedor
+  pixRequirePayment: boolean("pix_require_payment").default(false).notNull(), // Se o pagamento é obrigatório para confirmar agendamento
+  pixPaymentPercentage: integer("pix_payment_percentage").default(100), // Percentual do valor a ser pago (padrão: 100%)
+  pixCompanyName: text("pix_company_name"), // Nome que aparecerá no pagamento
+  pixMerchantId: text("pix_merchant_id"),   // ID do mercador na API de pagamento (se aplicável)
+  pixWebhookSecret: text("pix_webhook_secret"), // Segredo para validação de webhooks
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -172,6 +181,15 @@ export const AppointmentStatus = {
   COMPLETED: "completed",
 } as const;
 
+// Status de pagamento
+export const PaymentStatus = {
+  NOT_REQUIRED: "not_required", // Pagamento não é necessário
+  PENDING: "pending",          // Aguardando pagamento
+  CONFIRMED: "confirmed",      // Pagamento confirmado
+  FAILED: "failed",            // Falha no pagamento
+  REFUNDED: "refunded",        // Pagamento reembolsado
+} as const;
+
 // Appointment model
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
@@ -183,6 +201,15 @@ export const appointments = pgTable("appointments", {
   status: text("status").notNull().default(AppointmentStatus.PENDING),
   notes: text("notes"),
   cancellationReason: text("cancellation_reason"),
+  // Campos para pagamento PIX
+  requiresPayment: boolean("requires_payment").default(false).notNull(),
+  paymentStatus: text("payment_status").default(PaymentStatus.NOT_REQUIRED),
+  paymentAmount: integer("payment_amount"), // Valor em centavos
+  paymentPercentage: integer("payment_percentage"), // Percentual do valor total
+  pixTransactionId: text("pix_transaction_id"), // ID da transação PIX
+  pixQrCode: text("pix_qr_code"), // QR Code para pagamento
+  pixQrCodeExpiration: timestamp("pix_qr_code_expiration"), // Expiração do QR Code
+  pixPaymentDate: timestamp("pix_payment_date"), // Data do pagamento
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
