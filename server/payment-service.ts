@@ -218,43 +218,6 @@ export class PaymentService {
       
       // Atualizar o status no banco de dados
       if (paymentStatus.paid) {
-        // Primeiro vamos verificar se o cliente existe na tabela de clientes e criá-lo se necessário
-        // Isso garante que só registramos clientes com pagamento confirmado
-        
-        // Verificar se o agendamento tem ID de cliente temporário (valor 0)
-        // e criar cliente real se necessário
-        if (appointment.clientId === 0) {
-          // Obter dados do cliente do appointment
-          const appointmentData = await storage.getAppointment(appointmentId);
-          
-          if (appointmentData) {
-            // Verificar se temos os dados do cliente armazenados nos metadados
-            const clientName = appointmentData.clientName;
-            const clientPhone = appointmentData.clientPhone;
-            
-            // Só criar cliente se tivermos nome e telefone
-            if (clientName && clientPhone) {
-              console.log(`Criando cliente confirmado para agendamento ${appointmentId}`);
-              
-              // Criar o cliente para persistir no banco
-              const newClient = await storage.createClient({
-                name: clientName,
-                phone: clientPhone,
-                email: appointmentData.clientEmail || "",
-                notes: appointmentData.clientNotes || ""
-              });
-              
-              // Atualizar o agendamento com o ID correto do cliente
-              await db.update(appointments)
-                .set({ clientId: newClient.id })
-                .where(eq(appointments.id, appointmentId));
-                
-              console.log(`Cliente ${newClient.id} criado e vinculado ao agendamento ${appointmentId}`);
-            }
-          }
-        }
-      
-        // Atualizar status de pagamento
         await db.update(appointments)
           .set({
             paymentStatus: PaymentStatus.CONFIRMED,
