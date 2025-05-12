@@ -3012,7 +3012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName: client.name,
         clientEmail: client.email || 'cliente@example.com',
         serviceDescription: service.name,
-        expireInMinutes: 5 // Expira em 5 minutos para corresponder ao timer do frontend
+        expireInMinutes: 30 // Expira em 30 minutos (mínimo exigido pelo Mercado Pago)
       });
 
       return res.status(200).json(pixResponse);

@@ -93,7 +93,8 @@ export class PaymentService {
         },
         // Campos essenciais para PIX
         // Ajustar formato da data - ISO 8601 para UTC (sem milissegundos)
-        date_of_expiration: expiration.toISOString().split('.')[0]+"Z",
+        // Mercado Pago exige o formato correto: '2025-05-12T23:37:10Z'
+        date_of_expiration: new Date(expiration.getTime()).toISOString().replace(/\.\d{3}Z$/, 'Z'),
         // A URL de notificação é obrigatória
         notification_url: `${process.env.APP_URL || 'https://meuagendamento.replit.app'}/api/payments/webhook`
       };

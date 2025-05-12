@@ -208,6 +208,7 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       const response = await apiRequest('GET', `/api/payments/${appointmentId}/status`);
       const data = await response.json();
       
+      console.log("Resposta da verificação de pagamento:", data);
       setPaymentStatus(data.paymentStatus);
       
       // Se o pagamento foi concluído
