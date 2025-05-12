@@ -4,7 +4,7 @@ import BookingForm from "@/components/booking/booking-form";
 import { Calendar } from "lucide-react";
 import { useLocation } from "wouter";
 
-// Interface para o provider incluindo o avatarUrl
+// Interface para o provider incluindo o avatarUrl e configurações PIX
 interface Provider {
   id: number;
   name: string;
@@ -17,6 +17,10 @@ interface Provider {
   avatarUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  // Campos de configuração PIX
+  pixEnabled?: boolean;
+  pixRequirePayment?: boolean;
+  pixPaymentPercentage?: number;
 }
 
 const BookingPage: React.FC = () => {

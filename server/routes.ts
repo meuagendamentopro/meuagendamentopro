@@ -2484,6 +2484,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Verifica se o provedor requer pagamento PIX
+      const provider = await storage.getProvider(service.providerId);
+      
+      // Configurar dados de pagamento se o provedor tiver PIX habilitado e requerer pagamento
+      const requiresPayment = provider && provider.pixEnabled && provider.pixRequirePayment;
+      const paymentPercentage = requiresPayment ? (provider.pixPaymentPercentage || 100) : null;
+      
+      // Calcular o valor do pagamento, se aplicável
+      const paymentAmount = requiresPayment 
+        ? Math.round((service.price * paymentPercentage) / 100) 
+        : null;
+      
+      console.log(`Verificação de pagamento PIX: ${requiresPayment ? 'Requerido' : 'Não requerido'}`);
+      if (requiresPayment) {
+        console.log(`Valor a ser pago: ${paymentAmount} (${paymentPercentage}% de ${service.price})`);
+      }
+      
       // Cria o agendamento
       const appointment = await storage.createAppointment({
         providerId: service.providerId,
@@ -2492,14 +2509,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: appointmentDate,
         endTime: endTime,
         status: AppointmentStatus.PENDING,
-        notes: bookingData.notes || ""
+        notes: bookingData.notes || "",
+        // Informações de pagamento
+        requiresPayment: requiresPayment,
+        paymentStatus: requiresPayment ? PaymentStatus.PENDING : PaymentStatus.NOT_REQUIRED,
+        paymentAmount: paymentAmount,
+        paymentPercentage: paymentPercentage
       });
       
       // Enviar atualização em tempo real via WebSocket
       broadcastUpdate('appointment_created', appointment);
-      
-      // Criar uma notificação para o prestador de serviço
-      const provider = await storage.getProvider(service.providerId);
       if (provider && provider.userId) {
         try {
           // Formatar a data para o padrão DD/MM/YYYY
