@@ -173,12 +173,30 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateProvider(id: number, providerData: Partial<InsertProvider>): Promise<Provider | undefined> {
-    const [updatedProvider] = await db
-      .update(providers)
-      .set(providerData)
-      .where(eq(providers.id, id))
-      .returning();
-    return updatedProvider;
+    console.log(`DatabaseStorage: Atualizando provider ${id} com campos:`, Object.keys(providerData));
+    
+    // Log específico para os dados do Mercado Pago (valores sensíveis não serão logados)
+    if (providerData.pixMercadoPagoToken !== undefined) {
+      console.log(`Atualizando token do Mercado Pago para provider ${id}`);
+    }
+    
+    if (providerData.pixIdentificationNumber !== undefined) {
+      console.log(`Atualizando número de identificação CPF/CNPJ para provider ${id}`);
+    }
+    
+    try {
+      const [updatedProvider] = await db
+        .update(providers)
+        .set(providerData)
+        .where(eq(providers.id, id))
+        .returning();
+      
+      console.log(`Provider ${id} atualizado com sucesso. Campos retornados:`, Object.keys(updatedProvider || {}));
+      return updatedProvider;
+    } catch (error) {
+      console.error(`Erro ao atualizar provider ${id}:`, error);
+      throw error;
+    }
   }
 
   // Service methods

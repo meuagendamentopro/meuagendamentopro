@@ -1327,11 +1327,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log("Atualizando provedor com dados:", providerData);
+      // Adicionar configurações do Mercado Pago se fornecidas
+      if (req.body.pixMercadoPagoToken !== undefined) {
+        providerData.pixMercadoPagoToken = req.body.pixMercadoPagoToken;
+      }
+      
+      if (req.body.pixIdentificationNumber !== undefined) {
+        providerData.pixIdentificationNumber = req.body.pixIdentificationNumber;
+      }
+      
+      // Removendo dados sensíveis do log, mas mostrando quais campos estão sendo atualizados
+      const fieldsToUpdate = Object.keys(providerData);
+      console.log(`Atualizando provedor ${id} com campos:`, fieldsToUpdate);
+      
+      if (fieldsToUpdate.includes('pixMercadoPagoToken')) {
+        console.log("Incluindo token do Mercado Pago na atualização (valor mascarado por segurança)");
+      }
+      
+      if (fieldsToUpdate.includes('pixIdentificationNumber')) {
+        console.log("Incluindo CPF/CNPJ na atualização (valor mascarado por segurança)");
+      }
+      
       const updatedProvider = await storage.updateProvider(id, providerData);
       if (!updatedProvider) {
         return res.status(500).json({ message: "Falha ao atualizar as configurações do provedor" });
       }
+      
+      console.log("Provider atualizado com sucesso:", {
+        id: updatedProvider.id,
+        pixEnabled: updatedProvider.pixEnabled,
+        hasMercadoPagoToken: !!updatedProvider.pixMercadoPagoToken,
+        hasIdentificationNumber: !!updatedProvider.pixIdentificationNumber
+      });
       
       res.json(updatedProvider);
     } catch (error) {
