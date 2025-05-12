@@ -105,21 +105,15 @@ const BookingPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 pt-8 pb-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
-          {provider && (
+          {provider && provider.avatarUrl && (
             <div className="flex flex-col items-center justify-center mb-4">
-              {provider.avatarUrl ? (
-                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-primary-100 mb-3">
-                  <img 
-                    src={provider.avatarUrl}
-                    alt={`Foto de ${provider.name}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center text-primary-500 text-2xl font-bold mb-3">
-                  {provider.name.split(' ').filter(n => n).map(n => n[0] || '').join('').toUpperCase().substring(0, 2)}
-                </div>
-              )}
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-primary-100 mb-3">
+                <img 
+                  src={provider.avatarUrl}
+                  alt={`Foto de ${provider.name}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
           )}
           <h1 className="text-3xl font-bold text-gray-900">

@@ -165,6 +165,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rota para remover avatar
+  app.delete("/api/user/avatar", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const userId = req.user.id;
+      
+      // Atualizar o usuário para remover o avatar
+      const updatedUser = await storage.updateUser(userId, { avatarUrl: null });
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao remover avatar" });
+      }
+      
+      // Atualizar a sessão com os novos dados do usuário via login
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Erro ao atualizar sessão:", err);
+        }
+        
+        res.status(200).json({ 
+          success: true, 
+          user: userWithoutPassword
+        });
+      });
+    } catch (error) {
+      console.error("Erro ao remover avatar:", error);
+      res.status(500).json({ error: "Erro ao remover a imagem de perfil" });
+    }
+  });
+  
   const httpServer = createServer(app);
   
   // Configuração do WebSocket para atualizações em tempo real

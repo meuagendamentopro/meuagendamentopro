@@ -160,11 +160,38 @@ export default function ProfilePage() {
     uploadAvatarMutation.mutate(file);
   };
   
+  // Mutation para remover avatar
+  const removeAvatarMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/user/avatar", {});
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Falha ao remover foto");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Foto removida",
+        description: "Sua foto de perfil foi removida com sucesso",
+      });
+      
+      // Atualizar o cache do usuário
+      queryClient.setQueryData(["/api/user"], data);
+      setAvatarPreview(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao remover foto",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Remover avatar
   const handleRemoveAvatar = () => {
-    // Implementar remoção de avatar (futuramente)
-    setAvatarPreview(null);
-    // uploadAvatarMutation.mutate(null); // Será implementado no backend futuramente
+    removeAvatarMutation.mutate();
   };
   
   // Mutation para atualizar perfil
