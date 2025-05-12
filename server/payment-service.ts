@@ -83,15 +83,11 @@ export class PaymentService {
       // https://www.mercadopago.com.br/developers/pt/docs/checkout-api/integration-configuration/integrate-with-pix
       // Calcular uma data 2 horas no futuro para a expiração do PIX
       // Mercado Pago exige mínimo de 30 min, mas vamos dar margem de segurança
-      const futureDate = new Date();
-      futureDate.setHours(futureDate.getHours() + 2);
-      // Existe um problema com a formatação de data que impede o funcionamento
-      // Como solução temporária, vamos remover o campo de data_of_expiration
-      // Por padrão, o Mercado Pago define a expiração para 24 horas
-      // Embora não seja ideal (nosso objetivo eram 2 horas), isso vai permitir
-      // que os códigos PIX sejam gerados novamente.
+      // Nota: O tempo padrão de expiração do Mercado Pago é 24 horas,
+      // conforme visto na resposta: "date_of_expiration": "2025-05-13T19:34:40.000-04:00"
+      // Isso é mais do que o tempo de 2 horas que originalmente pretendíamos configurar
       
-      console.log("Removendo campo de expiração para evitar problemas de formatação");
+      console.log("Usando tempo de expiração padrão do Mercado Pago (24 horas)");
       
       const paymentData = {
         transaction_amount: formattedAmount,
