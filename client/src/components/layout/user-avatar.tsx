@@ -23,12 +23,15 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ name, email, imageUrl }) => {
   const { logoutMutation } = useAuth();
   
   // Extract initials from name
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .substring(0, 2);
+  const initials = name 
+    ? name
+        .split(" ")
+        .filter(n => n) // Remove empty strings
+        .map((n) => n[0] || '')
+        .join("")
+        .toUpperCase()
+        .substring(0, 2)
+    : "U";
     
   const handleNavigateToProfile = () => {
     navigate("/profile");

@@ -296,7 +296,7 @@ export default function ProfilePage() {
                   >
                     <Camera className="h-6 w-6" />
                   </div>
-                  {avatarPreview && (
+                  {(avatarPreview || user.avatarUrl) && (
                     <button 
                       className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-1 shadow-md hover:bg-destructive/80 transition-colors"
                       onClick={handleRemoveAvatar}
