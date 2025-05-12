@@ -18,7 +18,18 @@ export interface PixResponse {
   qrCode: string;
   qrCodeBase64: string;
   expiresAt: string;
+  paymentAmount?: number;
+  paymentPercentage?: number;
 }
+
+// Função utilitária para formatar valores em Reais
+const formatCurrency = (valueInCents: number) => {
+  const valueInReais = valueInCents / 100;
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(valueInReais);
+};
 
 export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId, servicePrice, serviceName }) => {
   const [refreshInterval, setRefreshInterval] = useState<number | null>(5000); // Atualiza a cada 5 segundos
@@ -86,13 +97,7 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
     generatePixMutation.mutate();
   };
 
-  // Formatar valor para exibição (R$ 99,99)
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value / 100);
-  };
+  // Usando a função formatCurrency definida acima
 
   // Verificar se o pagamento já foi realizado
   const isPaid = paymentStatus?.paymentStatus === 'paid';
@@ -139,7 +144,16 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
                 className="w-48 h-48 object-contain"
               />
               <span className="text-sm text-gray-500 mt-2">
-                Valor: {formatCurrency(servicePrice)}
+                {paymentStatus.paymentPercentage && paymentStatus.paymentPercentage < 100 && paymentStatus.paymentAmount ? (
+                  <>
+                    Valor: {formatCurrency(paymentStatus.paymentAmount)} 
+                    <span className="text-xs ml-1">
+                      ({paymentStatus.paymentPercentage}% do total: {formatCurrency(servicePrice)})
+                    </span>
+                  </>
+                ) : (
+                  <>Valor: {formatCurrency(servicePrice)}</>
+                )}
               </span>
             </div>
             

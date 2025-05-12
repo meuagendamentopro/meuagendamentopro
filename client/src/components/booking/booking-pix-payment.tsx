@@ -224,12 +224,16 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       setPaymentStatus(newStatus);
       
       // Atualizar informações de valor e porcentagem se disponíveis
-      if (data.paymentAmount && !pixData.adjustedAmount) {
-        setPixData(prev => ({
-          ...prev,
+      if (data.paymentAmount && pixData) {
+        const updatedPixData = {
+          transactionId: pixData.transactionId,
+          qrCode: pixData.qrCode,
+          qrCodeBase64: pixData.qrCodeBase64,
+          expiresAt: pixData.expiresAt,
           adjustedAmount: data.paymentAmount,
           paymentPercentage: data.paymentPercentage || 100
-        }));
+        };
+        setPixData(updatedPixData);
       }
       
       // Se o pagamento foi concluído (confirmed ou paid)
