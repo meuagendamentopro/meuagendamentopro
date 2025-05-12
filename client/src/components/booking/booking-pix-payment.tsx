@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { QRCodeSVG } from "qrcode.react";
+import QRCode from "qrcode";
 
 interface BookingPixPaymentProps {
   appointmentId: number;
@@ -37,6 +37,8 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
   const [paymentStatus, setPaymentStatus] = useState<string>("pending");
   const [error, setError] = useState<string | null>(null);
   const [checkTimer, setCheckTimer] = useState<NodeJS.Timeout | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Gerar código PIX ao carregar o componente
   useEffect(() => {
@@ -58,6 +60,27 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       return () => clearInterval(timer);
     }
   }, [pixData, paymentStatus]);
+  
+  // Gerar QR Code quando o pixData for atualizado
+  useEffect(() => {
+    if (pixData?.qrCode) {
+      generateQRCode(pixData.qrCode);
+    }
+  }, [pixData]);
+  
+  // Função para gerar o QR Code usando a biblioteca qrcode
+  const generateQRCode = async (text: string) => {
+    try {
+      const url = await QRCode.toDataURL(text, {
+        width: 200,
+        margin: 2
+      });
+      setQrCodeUrl(url);
+    } catch (error) {
+      console.error("Erro ao gerar QR Code:", error);
+      setError("Não foi possível gerar o QR Code");
+    }
+  };
 
   // Gerar um novo código PIX
   const generatePixCode = async () => {
@@ -203,12 +226,18 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
                   className="mx-auto"
                   style={{ maxWidth: "200px", height: "auto" }}
                 />
-              ) : (
+              ) : qrCodeUrl ? (
                 <div className="flex justify-center">
-                  <QRCodeSVG 
-                    value={pixData.qrCode} 
-                    size={200}
+                  <img 
+                    src={qrCodeUrl} 
+                    alt="QR Code PIX" 
+                    className="mx-auto"
+                    style={{ maxWidth: "200px", height: "auto" }}
                   />
+                </div>
+              ) : (
+                <div className="flex justify-center items-center h-[200px] w-[200px] bg-gray-100 mx-auto rounded">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               )}
             </div>
