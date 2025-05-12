@@ -2505,15 +2505,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: "",
           notes: bookingData.notes || "",
           isBlocked: false,
-          isActive: true,
+          active: true,
           createdAt: new Date()
         };
       }
       
       // Cria o agendamento
-      let clientId = client.id;
+      // Usamos o ID do cliente, que pode ser 0 (temporário)
+      let clientId = client?.id || 0;
 
       // Se não existir cliente e não requerer pagamento, cria o cliente agora
+      // Se requerer pagamento, o cliente só será criado após confirmação do pagamento (em payment-service.ts)
       if (clientId === 0 && !requiresPayment) {
         // Agora sim criamos o cliente, já que o agendamento será confirmado
         const newClient = await storage.createClient({
@@ -2524,12 +2526,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         clientId = newClient.id;
         client = newClient;
-        console.log(`Cliente criado com ID ${clientId}`);
+        console.log(`Cliente criado com ID ${clientId} (agendamento sem pagamento)`);
       }
+      
+      // Guardamos as informações do cliente temporário nos metadados do agendamento
+      // para recuperá-las mais tarde quando confirmar o pagamento
+      const clientMetadata = !client || client.id === 0 ? {
+        clientName: bookingData.name,
+        clientPhone: bookingData.phone,
+        clientEmail: "",
+        clientNotes: bookingData.notes || ""
+      } : null;
       
       const appointment = await storage.createAppointment({
         providerId: service.providerId,
-        clientId: client.id,
+        clientId: clientId, // Agora usamos clientId que é 0 ou ID real
         serviceId: bookingData.serviceId,
         date: appointmentDate,
         endTime: endTime,
