@@ -3121,11 +3121,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Buscar agendamento atualizado
       const updatedAppointment = await storage.getAppointment(appointmentId);
       
+      // Incluir informações de valor e porcentagem quando aplicável
       return res.status(200).json({
         paymentStatus: updatedAppointment?.paymentStatus || 'unknown',
         pixQrCode: updatedAppointment?.pixQrCode,
         pixQrCodeExpiration: updatedAppointment?.pixQrCodeExpiration,
-        pixPaymentDate: updatedAppointment?.pixPaymentDate
+        pixPaymentDate: updatedAppointment?.pixPaymentDate,
+        paymentAmount: updatedAppointment?.paymentAmount,
+        paymentPercentage: updatedAppointment?.paymentPercentage || 100
       });
     } catch (error: any) {
       console.error("Erro ao verificar status de pagamento:", error);

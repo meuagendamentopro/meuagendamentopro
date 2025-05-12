@@ -21,6 +21,8 @@ interface PixResponse {
   qrCode: string;
   qrCodeBase64: string;
   expiresAt: string;
+  adjustedAmount?: number;
+  paymentPercentage?: number;
 }
 
 const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
@@ -221,6 +223,15 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       const newStatus = data.paymentStatus;
       setPaymentStatus(newStatus);
       
+      // Atualizar informações de valor e porcentagem se disponíveis
+      if (data.paymentAmount && !pixData.adjustedAmount) {
+        setPixData(prev => ({
+          ...prev,
+          adjustedAmount: data.paymentAmount,
+          paymentPercentage: data.paymentPercentage || 100
+        }));
+      }
+      
       // Se o pagamento foi concluído (confirmed ou paid)
       if (newStatus === "confirmed" || newStatus === "paid") {
         if (checkTimer) clearInterval(checkTimer);
@@ -380,7 +391,20 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
           <div className="text-sm text-gray-600 mb-4">
             <p>Após o pagamento, o sistema verificará automaticamente.</p>
             <p className="mt-2">
-              Valor: <span className="font-medium">R$ {(servicePrice / 100).toFixed(2)}</span>
+              {pixData?.paymentPercentage && pixData.paymentPercentage < 100 ? (
+                <>
+                  Valor: <span className="font-medium">
+                    R$ {((pixData.adjustedAmount || 0) / 100).toFixed(2)}
+                  </span>
+                  <span className="text-xs ml-1">
+                    ({pixData.paymentPercentage}% do total: R$ {(servicePrice / 100).toFixed(2)})
+                  </span>
+                </>
+              ) : (
+                <>
+                  Valor: <span className="font-medium">R$ {(servicePrice / 100).toFixed(2)}</span>
+                </>
+              )}
             </p>
           </div>
 
