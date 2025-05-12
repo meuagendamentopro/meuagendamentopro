@@ -60,15 +60,23 @@ export class PaymentService {
       
       // Ajustar o valor com base na porcentagem configurada pelo provedor
       const paymentPercentage = provider.pixPaymentPercentage || 100;
-      // Não precisamos converter para centavos, pois o valor já vem em reais
+      // Calcular o valor ajustado com base na porcentagem
       const adjustedAmount = (params.amount * paymentPercentage) / 100;
+      
+      console.log(`Valor original: ${params.amount}, Porcentagem: ${paymentPercentage}%, Valor ajustado: ${adjustedAmount}`);
 
       // Usar número de CPF/CNPJ do provider se disponível
       const identificationNumber = provider.pixIdentificationNumber || "12345678909";
 
+      // O Mercado Pago espera um número com 2 casas decimais (ponto como separador decimal)
+      // Converter para o formato correto com precisão de 2 casas decimais
+      const formattedAmount = parseFloat(adjustedAmount.toFixed(2));
+      
+      console.log(`Valor formatado para API: ${formattedAmount} (tipo: ${typeof formattedAmount})`);
+      
       // Criar pagamento - usando o formato documentado pelo Mercado Pago
       const paymentData = {
-        transaction_amount: adjustedAmount,
+        transaction_amount: formattedAmount,
         description: `Agendamento: ${params.serviceDescription}`,
         payment_method_id: 'pix',
         payer: {
