@@ -115,6 +115,15 @@ export const insertProviderSchema = createInsertSchema(providers).pick({
   workingHoursStart: true,
   workingHoursEnd: true,
   workingDays: true,
+  // Campos de pagamento PIX
+  pixEnabled: true,
+  pixKeyType: true,
+  pixKey: true,
+  pixRequirePayment: true,
+  pixPaymentPercentage: true,
+  pixCompanyName: true,
+  pixMerchantId: true,
+  pixWebhookSecret: true,
 });
 
 // Service model

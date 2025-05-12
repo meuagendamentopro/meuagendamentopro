@@ -101,15 +101,15 @@ export class PaymentService {
    */
   async checkPaymentStatus(transactionId: string): Promise<{ status: string; paid: boolean }> {
     try {
-      const payment = await mercadopago.payment.get(parseInt(transactionId));
+      const result = await payment.get({ id: parseInt(transactionId) });
       
       let status = 'pending';
       let paid = false;
 
-      if (payment.body.status === 'approved') {
+      if (result.status === 'approved') {
         status = 'confirmed';
         paid = true;
-      } else if (['rejected', 'cancelled', 'refunded'].includes(payment.body.status)) {
+      } else if (result.status && ['rejected', 'cancelled', 'refunded'].includes(result.status)) {
         status = 'failed';
       }
 
@@ -179,8 +179,14 @@ export class PaymentService {
       }
 
       // Buscar detalhes do pagamento
-      const payment = await mercadopago.payment.get(webhookData.data.id);
-      const transactionId = payment.body.id.toString();
+      const result = await payment.get({ id: webhookData.data.id });
+      
+      if (!result.id) {
+        console.log('ID da transação não encontrado na resposta');
+        return false;
+      }
+      
+      const transactionId = result.id.toString();
 
       // Buscar agendamento pelo ID de transação
       const [appointment] = await db.select()

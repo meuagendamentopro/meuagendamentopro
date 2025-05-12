@@ -2872,5 +2872,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rotas de pagamento PIX
+  // Rota para gerar código PIX para um agendamento
+  app.post("/api/payments/generate-pix", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      const { appointmentId, amount } = req.body;
+      
+      if (!appointmentId || !amount) {
+        return res.status(400).json({ error: "appointmentId e amount são obrigatórios" });
+      }
+
+      // Buscar agendamento
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Verificar se o usuário é o provedor do agendamento
+      const provider = await storage.getProviderByUserId(req.user.id);
+      if (!provider || provider.id !== appointment.providerId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      // Buscar cliente 
+      const client = await storage.getClient(appointment.clientId);
+      if (!client) {
+        return res.status(404).json({ error: "Cliente não encontrado" });
+      }
+
+      // Buscar serviço
+      const service = await storage.getService(appointment.serviceId);
+      if (!service) {
+        return res.status(404).json({ error: "Serviço não encontrado" });
+      }
+
+      // Gerar código PIX
+      const pixResponse = await paymentService.generatePix({
+        appointmentId,
+        providerId: provider.id,
+        amount: amount * 100, // Converter para centavos
+        clientName: client.name,
+        clientEmail: client.email || '',
+        serviceDescription: service.name,
+        expireInMinutes: 60 // Expira em 1 hora
+      });
+
+      return res.status(200).json(pixResponse);
+    } catch (error: any) {
+      console.error("Erro ao gerar código PIX:", error);
+      return res.status(500).json({ error: error.message || "Erro ao gerar código PIX" });
+    }
+  });
+
+  // Rota para verificar status de pagamento
+  app.get("/api/payments/:appointmentId/status", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      const appointmentId = parseInt(req.params.appointmentId);
+      
+      // Buscar agendamento
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Verificar se o usuário é o provedor do agendamento ou o cliente (no futuro)
+      const provider = await storage.getProviderByUserId(req.user.id);
+      if (!provider || provider.id !== appointment.providerId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+
+      if (!appointment.pixTransactionId) {
+        return res.status(400).json({ error: "Agendamento não possui pagamento PIX" });
+      }
+
+      // Verificar status na API do Mercado Pago
+      await paymentService.updateAppointmentPaymentStatus(appointmentId);
+      
+      // Buscar agendamento atualizado
+      const updatedAppointment = await storage.getAppointment(appointmentId);
+      
+      return res.status(200).json({
+        paymentStatus: updatedAppointment?.paymentStatus || 'unknown',
+        pixQrCode: updatedAppointment?.pixQrCode,
+        pixQrCodeExpiration: updatedAppointment?.pixQrCodeExpiration,
+        pixPaymentDate: updatedAppointment?.pixPaymentDate
+      });
+    } catch (error: any) {
+      console.error("Erro ao verificar status de pagamento:", error);
+      return res.status(500).json({ error: error.message || "Erro ao verificar status de pagamento" });
+    }
+  });
+
+  // Webhook do Mercado Pago para notificações de pagamento
+  app.post("/api/payments/webhook", async (req: Request, res: Response) => {
+    try {
+      console.log("Webhook do Mercado Pago recebido:", req.body);
+      
+      // Processar webhook
+      const success = await paymentService.processWebhook(req.body);
+      
+      return res.status(success ? 200 : 422).send();
+    } catch (error: any) {
+      console.error("Erro ao processar webhook:", error);
+      return res.status(500).json({ error: error.message || "Erro ao processar webhook" });
+    }
+  });
+
+  // Rota para obter configurações de pagamento do provider
+  app.get("/api/payments/provider-settings", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      const provider = await storage.getProviderByUserId(req.user.id);
+      if (!provider) {
+        return res.status(404).json({ error: "Provedor não encontrado" });
+      }
+
+      return res.status(200).json({
+        pixEnabled: provider.pixEnabled,
+        pixKeyType: provider.pixKeyType,
+        pixRequirePayment: provider.pixRequirePayment,
+        pixPaymentPercentage: provider.pixPaymentPercentage,
+        pixCompanyName: provider.pixCompanyName
+      });
+    } catch (error: any) {
+      console.error("Erro ao obter configurações de pagamento:", error);
+      return res.status(500).json({ error: error.message || "Erro ao obter configurações de pagamento" });
+    }
+  });
+
+  // Rota para atualizar configurações de pagamento do provider
+  app.patch("/api/payments/provider-settings", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+
+    try {
+      const provider = await storage.getProviderByUserId(req.user.id);
+      if (!provider) {
+        return res.status(404).json({ error: "Provedor não encontrado" });
+      }
+
+      const { 
+        pixEnabled, 
+        pixKeyType, 
+        pixKey, 
+        pixRequirePayment, 
+        pixPaymentPercentage, 
+        pixCompanyName 
+      } = req.body;
+
+      const updatedProvider = await storage.updateProvider(provider.id, {
+        pixEnabled: pixEnabled !== undefined ? pixEnabled : provider.pixEnabled,
+        pixKeyType: pixKeyType || provider.pixKeyType,
+        pixKey: pixKey || provider.pixKey,
+        pixRequirePayment: pixRequirePayment !== undefined ? pixRequirePayment : provider.pixRequirePayment,
+        pixPaymentPercentage: pixPaymentPercentage || provider.pixPaymentPercentage,
+        pixCompanyName: pixCompanyName || provider.pixCompanyName
+      });
+
+      return res.status(200).json({
+        pixEnabled: updatedProvider?.pixEnabled,
+        pixKeyType: updatedProvider?.pixKeyType,
+        pixRequirePayment: updatedProvider?.pixRequirePayment,
+        pixPaymentPercentage: updatedProvider?.pixPaymentPercentage,
+        pixCompanyName: updatedProvider?.pixCompanyName
+      });
+    } catch (error: any) {
+      console.error("Erro ao atualizar configurações de pagamento:", error);
+      return res.status(500).json({ error: error.message || "Erro ao atualizar configurações de pagamento" });
+    }
+  });
+
   return httpServer;
 }
