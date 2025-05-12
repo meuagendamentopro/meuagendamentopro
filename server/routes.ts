@@ -2996,6 +2996,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rota para verificar status de pagamento
+  // Cancelar pagamento e agendamento para clientes
+  app.post("/api/payments/:appointmentId/cancel", async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.appointmentId);
+      if (isNaN(appointmentId)) {
+        return res.status(400).json({ error: "ID de agendamento inválido" });
+      }
+
+      // Buscar agendamento
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Agendamento não encontrado" });
+      }
+
+      // Cancelar o agendamento
+      const updatedAppointment = await storage.updateAppointmentStatus(
+        appointmentId, 
+        AppointmentStatus.CANCELLED, 
+        "Pagamento cancelado pelo cliente"
+      );
+      
+      if (!updatedAppointment) {
+        return res.status(500).json({ error: "Erro ao cancelar agendamento" });
+      }
+
+      // Enviar atualização em tempo real via WebSocket
+      broadcastUpdate('appointment_updated', updatedAppointment);
+      
+      // Criar notificação para o provider
+      const notification = await storage.createNotification({
+        userId: updatedAppointment.providerId,
+        title: "Agendamento cancelado",
+        message: `O cliente cancelou o agendamento #${appointmentId} por não realizar o pagamento`,
+        type: "appointment",
+        appointmentId: appointmentId
+      });
+      
+      // Notificar via WebSocket
+      if (notification) {
+        broadcastUpdate('notification_created', { 
+          notificationId: notification.id, 
+          userId: notification.userId 
+        });
+      }
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Agendamento cancelado com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao cancelar agendamento:", error);
+      return res.status(500).json({ 
+        success: false,
+        error: (error as Error).message || "Erro ao cancelar agendamento"
+      });
+    }
+  });
+
   app.get("/api/payments/:appointmentId/status", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Não autenticado" });

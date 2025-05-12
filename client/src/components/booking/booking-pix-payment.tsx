@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, RefreshCw, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import QRCode from "qrcode";
+import { Progress } from "@/components/ui/progress";
 
 interface BookingPixPaymentProps {
   appointmentId: number;
@@ -39,6 +40,9 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
   const [checkTimer, setCheckTimer] = useState<NodeJS.Timeout | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 minutos em segundos
+  const [progressValue, setProgressValue] = useState<number>(100);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
   // Gerar código PIX ao carregar o componente
   useEffect(() => {
@@ -67,6 +71,65 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
       generateQRCode(pixData.qrCode);
     }
   }, [pixData]);
+
+  // Timer de expiração para o PIX
+  useEffect(() => {
+    // Iniciar temporizador de 5 minutos quando o código PIX é gerado
+    if (pixData && paymentStatus !== "paid") {
+      const countdownTimer = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownTimer);
+            // Quando o timer chegar a zero, cancelar o agendamento automaticamente
+            handleCancelPayment();
+            return 0;
+          }
+          const newValue = prev - 1;
+          setProgressValue((newValue / 300) * 100);
+          return newValue;
+        });
+      }, 1000);
+
+      return () => clearInterval(countdownTimer);
+    }
+  }, [pixData, paymentStatus]);
+  
+  // Função para cancelar o pagamento
+  const handleCancelPayment = async () => {
+    if (isCancelling) return;
+    
+    setIsCancelling(true);
+    try {
+      // Faz a requisição para a API de cancelamento
+      const response = await apiRequest('POST', `/api/payments/${appointmentId}/cancel`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao cancelar agendamento');
+      }
+      
+      toast({
+        title: "Agendamento cancelado",
+        description: "Você cancelou o pagamento e o agendamento foi cancelado",
+        variant: "destructive",
+      });
+      
+      // Chama a função de callback para o componente pai
+      onCancel();
+    } catch (error: any) {
+      console.error("Erro ao cancelar agendamento:", error);
+      toast({
+        title: "Erro ao cancelar",
+        description: error.message || "Ocorreu um erro ao cancelar o agendamento.",
+        variant: "destructive",
+      });
+      
+      // Mesmo com erro, voltar para o fluxo anterior
+      onCancel();
+    } finally {
+      setIsCancelling(false);
+    }
+  };
   
   // Função para gerar o QR Code usando a biblioteca qrcode
   const generateQRCode = async (text: string) => {
@@ -270,6 +333,30 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
               Valor: <span className="font-medium">R$ {(servicePrice / 100).toFixed(2)}</span>
             </p>
           </div>
+
+          <div className="w-full mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center">
+                <Clock className="h-4 w-4 mr-1 text-yellow-600" />
+                <span className="text-sm font-medium">
+                  Tempo restante: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+            <Progress value={progressValue} className="h-2" 
+              style={{
+                background: "#f1f5f9",
+                "--progress-background": progressValue > 50 
+                  ? "var(--primary)" 
+                  : progressValue > 20 
+                    ? "orange" 
+                    : "red"
+              } as React.CSSProperties} 
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              O pagamento será cancelado automaticamente após 5 minutos.
+            </p>
+          </div>
           
           <Button 
             variant="outline" 
@@ -283,8 +370,19 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
         </div>
       </CardContent>
       <CardFooter className="flex justify-between pb-6">
-        <Button variant="outline" onClick={onCancel}>
-          Cancelar
+        <Button 
+          variant="outline" 
+          onClick={handleCancelPayment}
+          disabled={isCancelling}
+        >
+          {isCancelling ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Cancelando...
+            </>
+          ) : (
+            "Cancelar"
+          )}
         </Button>
         <Button 
           variant="ghost" 
