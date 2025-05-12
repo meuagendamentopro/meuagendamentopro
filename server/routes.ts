@@ -1744,6 +1744,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (provider) {
         console.log(`Provider encontrado: ${provider.name} (ID: ${provider.id})`);
+        
+        // Buscar informações do usuário para incluir o avatar
+        const user = await storage.getUser(provider.userId);
+        if (user) {
+          // Adicionar o avatarUrl do usuário ao provider
+          const providerWithAvatar = {
+            ...provider,
+            avatarUrl: user.avatarUrl
+          };
+          return res.json(providerWithAvatar);
+        }
+        
         return res.json(provider);
       }
       
