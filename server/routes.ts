@@ -39,6 +39,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
   setupAuth(app);
   
+  // Rotas para templates de mensagens
+  app.get("/api/message-templates", getMessageTemplates);
+  app.post("/api/message-templates", saveMessageTemplates);
+  
   // Rota para obter dados do usuário atual
   app.get("/api/user", (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

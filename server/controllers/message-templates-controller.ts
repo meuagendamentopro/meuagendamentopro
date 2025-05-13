@@ -31,8 +31,10 @@ export async function getMessageTemplates(req: Request, res: Response) {
       });
     }
 
-    // Se existirem templates, parsear o campo templates e retornar
-    return res.status(200).json(JSON.parse(templates[0].templates));
+    // Se existirem templates, retornar os dados
+    // O campo templates é um tipo de string no banco mas contém JSON
+    const templatesData = templates[0].templates.toString();
+    return res.status(200).json(JSON.parse(templatesData));
   } catch (error) {
     console.error("Erro ao buscar templates de mensagem:", error);
     return res.status(500).json({ error: "Erro ao buscar templates de mensagem" });
@@ -62,7 +64,9 @@ export async function saveMessageTemplates(req: Request, res: Response) {
         .values({
           userId: req.user.id,
           templates: templatesJson,
-        })
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as any) // Usando any para contornar problema de tipagem
         .returning();
       
       return res.status(201).json({ 
@@ -75,7 +79,7 @@ export async function saveMessageTemplates(req: Request, res: Response) {
         .set({ 
           templates: templatesJson,
           updatedAt: new Date()
-        })
+        } as any) // Usando any para contornar problema de tipagem
         .where(eq(messageTemplates.userId, req.user.id))
         .returning();
       

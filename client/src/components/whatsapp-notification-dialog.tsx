@@ -44,19 +44,49 @@ export function createWhatsAppMessage(
   // Formatar a data para o formato brasileiro
   const formattedDate = format(appointmentDate, "dd/MM/yyyy", { locale: ptBR });
   
+  // Buscar templates personalizados
+  const fetchTemplates = async () => {
+    try {
+      const response = await fetch('/api/message-templates');
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.error('Erro ao buscar templates:', error);
+    }
+    return null;
+  };
+  
+  // Templates padrão caso não consiga buscar os personalizados
+  let defaultMessage = "";
+  
   switch (type) {
     case WhatsAppNotificationType.NEW_APPOINTMENT:
-      return `Olá ${clientName}, sua reserva para ${serviceName} foi confirmada para o dia ${formattedDate} às ${appointmentTime}. Agradecemos por agendar conosco! ${businessName}`;
+      defaultMessage = `Olá ${clientName}, sua reserva para ${serviceName} foi confirmada para o dia ${formattedDate} às ${appointmentTime}. Agradecemos por agendar conosco! ${businessName}`;
+      break;
       
     case WhatsAppNotificationType.REMINDER:
-      return `Olá ${clientName}, estamos enviando este lembrete para o seu agendamento de ${serviceName} hoje às ${appointmentTime}. Estamos ansiosos para recebê-lo! ${businessName}`;
+      defaultMessage = `Olá ${clientName}, estamos enviando este lembrete para o seu agendamento de ${serviceName} hoje às ${appointmentTime}. Estamos ansiosos para recebê-lo! ${businessName}`;
+      break;
       
     case WhatsAppNotificationType.CANCELLATION:
-      return `Olá ${clientName}, informamos que seu agendamento para ${serviceName} no dia ${formattedDate} às ${appointmentTime} foi cancelado. Entre em contato caso queira reagendar! ${businessName}`;
+      defaultMessage = `Olá ${clientName}, informamos que seu agendamento para ${serviceName} no dia ${formattedDate} às ${appointmentTime} foi cancelado. Entre em contato caso queira reagendar! ${businessName}`;
+      break;
       
     default:
-      return `Olá ${clientName}, temos uma atualização sobre seu agendamento de ${serviceName} no dia ${formattedDate} às ${appointmentTime}. ${businessName}`;
+      defaultMessage = `Olá ${clientName}, temos uma atualização sobre seu agendamento de ${serviceName} no dia ${formattedDate} às ${appointmentTime}. ${businessName}`;
+      break;
   }
+  
+  // Buscar templates personalizados (para uso futuro com async/await)
+  fetchTemplates().then(templates => {
+    if (templates) {
+      // Implementação futura
+      console.log('Templates personalizados carregados:', templates);
+    }
+  });
+  
+  return defaultMessage;
 }
 
 // Função para abrir o WhatsApp Web com a mensagem
