@@ -3443,7 +3443,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const history = await subscriptionService.getUserSubscriptionHistory(userId);
+      
+      // Buscar direto no banco de dados para garantir consistência
+      const transactions = await db.select()
+        .from(subscriptionTransactions)
+        .where(eq(subscriptionTransactions.userId, userId))
+        .orderBy(desc(subscriptionTransactions.createdAt));
+        
+      console.log(`Histórico de assinaturas para o usuário ${userId}: ${transactions.length} transações encontradas`);
+      
+      // Se não houver transações, retorna array vazio
+      if (transactions.length === 0) {
+        return res.json([]);
+      }
+      
+      // Buscar planos para associar às transações
+      const plans = await db.select().from(subscriptionPlans);
+      
+      // Associar planos às transações
+      const history = transactions.map(transaction => {
+        const plan = plans.find(p => p.id === transaction.planId);
+        return {
+          ...transaction,
+          plan: plan || {
+            id: transaction.planId,
+            name: "Plano não encontrado",
+            description: null,
+            durationMonths: 1,
+            price: transaction.amount,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        };
+      });
+      
       res.json(history);
     } catch (error: any) {
       console.error("Erro ao buscar histórico de assinaturas:", error);

@@ -41,7 +41,8 @@ export default function SubscriptionHistoryPage() {
     queryKey: ["/api/subscription/history"],
     enabled: !!user,
     retry: 3,
-    staleTime: 30 * 1000, // 30 segundos
+    staleTime: 0, // Sem cache para garantir dados atualizados
+    refetchOnWindowFocus: true
   });
 
   // Função para formatar valores em reais
@@ -113,6 +114,14 @@ export default function SubscriptionHistoryPage() {
           Voltar
         </Button>
         <h1 className="text-2xl font-bold">Histórico de Assinaturas</h1>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="ml-auto"
+          onClick={() => refetch()}
+        >
+          Atualizar
+        </Button>
       </div>
 
       <Card>
