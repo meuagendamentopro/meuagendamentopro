@@ -117,7 +117,7 @@ export function setupAuth(app: Express) {
           
           if (expiry && now > expiry) {
             console.log(`Assinatura expirada para ${user.username}`);
-            return done(null, false, { message: "Assinatura expirada" });
+            return done(null, false, { message: "Assinatura expirada", expired: true });
           }
         }
         

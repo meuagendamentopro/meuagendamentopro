@@ -1,0 +1,388 @@
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useQuery } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
+import { Progress } from '@/components/ui/progress';
+
+export default function RenewSubscriptionPage() {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [paymentStep, setPaymentStep] = useState<'select-plan' | 'processing' | 'payment' | 'success'>('select-plan');
+  const [pixData, setPixData] = useState<any>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(1800); // 30 minutos em segundos
+  const [progressValue, setProgressValue] = useState<number>(100);
+  const [isGeneratingPix, setIsGeneratingPix] = useState<boolean>(false);
+  
+  // Buscar planos de assinatura disponíveis
+  const { data: plans, isLoading, error } = useQuery({
+    queryKey: ['/api/subscription/plans'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/subscription/plans');
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Erro ao buscar planos de assinatura');
+      }
+      return res.json();
+    }
+  });
+  
+  // Buscar usuário atual para informações de assinatura
+  const { data: user } = useQuery({
+    queryKey: ['/api/user'],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest('GET', '/api/user');
+        if (!res.ok) {
+          return null;
+        }
+        return res.json();
+      } catch (error) {
+        return null;
+      }
+    }
+  });
+  
+  // Formatar preço em reais
+  const formatCurrency = (valueInCents: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valueInCents / 100);
+  };
+  
+  // Função para selecionar um plano
+  const handleSelectPlan = async (planId: number) => {
+    setSelectedPlanId(planId);
+    setPaymentStep('processing');
+    setIsGeneratingPix(true);
+    
+    try {
+      // Chamar API para gerar o PIX
+      const response = await apiRequest('POST', '/api/subscription/generate-payment', {
+        planId
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao gerar pagamento');
+      }
+      
+      const data = await response.json();
+      setPixData(data);
+      setPaymentStep('payment');
+      setTimeRemaining(1800); // Reiniciar o contador (30 minutos)
+      setProgressValue(100);
+      
+      // Gerar QR code localmente
+      if (data.pixQrCode) {
+        generateQRCode(data.pixQrCode);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao gerar pagamento",
+        description: error.message || "Não foi possível gerar o pagamento. Tente novamente.",
+        variant: "destructive",
+      });
+      setPaymentStep('select-plan');
+    } finally {
+      setIsGeneratingPix(false);
+    }
+  };
+  
+  // Gerar QR code
+  const generateQRCode = (text: string) => {
+    try {
+      setQrCodeUrl(text);
+    } catch (error: any) {
+      console.error('Erro ao gerar QR code:', error);
+    }
+  };
+  
+  // Verificar status do pagamento periodicamente
+  useEffect(() => {
+    if (pixData?.transactionId && paymentStep === 'payment') {
+      const checkPaymentStatus = async () => {
+        try {
+          const response = await apiRequest('GET', `/api/subscription/payment-status/${pixData.transactionId}`);
+          if (!response.ok) {
+            return;
+          }
+          
+          const data = await response.json();
+          if (data.status === 'paid' || data.status === 'confirmed' || data.status === 'approved') {
+            setPaymentStep('success');
+            toast({
+              title: "Pagamento confirmado!",
+              description: "Sua assinatura foi renovada com sucesso!",
+              variant: "default",
+            });
+            
+            // Atualizar dados do usuário
+            queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+            
+            // Redirecionar após 3 segundos
+            setTimeout(() => {
+              navigate('/');
+            }, 3000);
+          }
+        } catch (error) {
+          console.error('Erro ao verificar status do pagamento:', error);
+        }
+      };
+      
+      // Verificar a cada 5 segundos
+      const interval = setInterval(checkPaymentStatus, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [pixData, paymentStep, navigate, toast]);
+  
+  // Timer de expiração para o PIX
+  useEffect(() => {
+    if (paymentStep === 'payment' && timeRemaining > 0) {
+      const timer = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            // Quando o timer chegar a zero, voltar para a seleção de planos
+            setPaymentStep('select-plan');
+            toast({
+              title: "Tempo expirado",
+              description: "O tempo para pagamento expirou. Por favor, tente novamente.",
+              variant: "destructive",
+            });
+            return 0;
+          }
+          const newValue = prev - 1;
+          setProgressValue((newValue / 1800) * 100);
+          return newValue;
+        });
+      }, 1000);
+      
+      return () => clearInterval(timer);
+    }
+  }, [paymentStep, timeRemaining, toast]);
+  
+  // Formatar tempo restante
+  const formatTimeRemaining = () => {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+        <p className="text-lg">Carregando planos de assinatura...</p>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <AlertCircle className="w-10 h-10 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Erro ao carregar planos</h1>
+        <p className="text-lg mb-4">Não foi possível carregar os planos de assinatura. Por favor, tente novamente mais tarde.</p>
+        <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+      </div>
+    );
+  }
+  
+  if (paymentStep === 'processing') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+        <p className="text-lg">Gerando pagamento...</p>
+      </div>
+    );
+  }
+  
+  if (paymentStep === 'payment' && pixData) {
+    return (
+      <div className="container max-w-4xl mx-auto p-4">
+        <Card className="w-full mb-8">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">Pagamento via PIX</CardTitle>
+            <CardDescription className="text-center">
+              Escaneie o QR Code abaixo para renovar sua assinatura
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+              {pixData.pixQrCodeBase64 ? (
+                <img 
+                  src={`data:image/png;base64,${pixData.pixQrCodeBase64}`} 
+                  alt="QR Code PIX" 
+                  className="mx-auto"
+                  style={{ maxWidth: "250px", height: "auto" }}
+                />
+              ) : qrCodeUrl ? (
+                <QRCodeSVG
+                  value={qrCodeUrl}
+                  size={250}
+                  level="H"
+                  className="mx-auto"
+                />
+              ) : (
+                <div className="w-64 h-64 bg-gray-200 flex items-center justify-center">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                </div>
+              )}
+            </div>
+            
+            <div className="w-full max-w-md mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium">Tempo restante para pagamento:</span>
+                <span className="font-bold">{formatTimeRemaining()}</span>
+              </div>
+              <Progress value={progressValue} className="h-2" />
+            </div>
+            
+            <div className="w-full max-w-md p-4 bg-gray-50 rounded-lg mb-6">
+              <h3 className="font-semibold mb-2">Código PIX (Copiar e colar)</h3>
+              <div className="relative">
+                <textarea 
+                  readOnly
+                  className="w-full p-3 border rounded-md bg-white text-xs font-mono"
+                  rows={4}
+                  value={pixData.pixQrCode || ""}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute top-2 right-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixData.pixQrCode || "");
+                    toast({
+                      title: "Código copiado!",
+                      variant: "default",
+                    });
+                  }}
+                >
+                  Copiar
+                </Button>
+              </div>
+            </div>
+            
+            <div className="text-center space-y-2 text-sm text-muted-foreground">
+              <p>Abra o aplicativo do seu banco e realize o pagamento via PIX.</p>
+              <p>Após o pagamento, sua assinatura será renovada automaticamente.</p>
+              <p className="text-xs">O pagamento pode levar alguns instantes para ser confirmado.</p>
+            </div>
+          </CardContent>
+          <CardFooter className="justify-center">
+            <Button 
+              variant="outline" 
+              onClick={() => setPaymentStep('select-plan')}
+              className="mt-2"
+            >
+              Voltar para seleção de planos
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (paymentStep === 'success') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Pagamento confirmado!</h1>
+        <p className="text-lg mb-4">Sua assinatura foi renovada com sucesso.</p>
+        <p className="mb-8">Você será redirecionado para a página inicial em instantes...</p>
+        <Button onClick={() => navigate('/')}>Ir para página inicial</Button>
+      </div>
+    );
+  }
+
+  // Tela de seleção de planos (padrão)
+  return (
+    <div className="container max-w-6xl mx-auto p-4">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold mb-2">Renovação de Assinatura</h1>
+        <p className="text-lg text-muted-foreground mb-4">
+          Escolha o plano que melhor se adapta às suas necessidades
+        </p>
+        {user?.subscriptionExpiry && (
+          <div className="inline-block bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm">
+            <p className="font-medium text-yellow-800">
+              Sua assinatura expirou em {new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {plans?.map((plan: any) => (
+          <Card key={plan.id} className={`overflow-hidden ${selectedPlanId === plan.id ? 'border-primary ring-1 ring-primary' : ''}`}>
+            <div className="p-1 bg-gradient-to-r from-primary/80 to-primary"></div>
+            <CardHeader>
+              <CardTitle className="text-xl">{plan.name}</CardTitle>
+              <CardDescription>
+                {plan.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mt-1 mb-5">
+                <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
+                {plan.durationMonths === 1 ? (
+                  <span className="text-muted-foreground ml-1">/mês</span>
+                ) : (
+                  <span className="text-muted-foreground ml-1">/{plan.durationMonths} meses</span>
+                )}
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Agendamentos ilimitados</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Gestão de clientes</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Link de agendamento personalizado</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Pagamento via PIX</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Notificações em tempo real</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                className="w-full" 
+                onClick={() => handleSelectPlan(plan.id)}
+                disabled={isGeneratingPix}
+              >
+                {isGeneratingPix && selectedPlanId === plan.id ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Gerando PIX...
+                  </>
+                ) : (
+                  'Selecionar Plano'
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -5,6 +5,7 @@ import { db } from "./db";
 import multer from "multer";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
+import { SubscriptionService } from './subscription-service';
 import { 
   insertServiceSchema, 
   insertClientSchema, 
@@ -3216,6 +3217,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Erro ao atualizar configurações de pagamento:", error);
       return res.status(500).json({ error: error.message || "Erro ao atualizar configurações de pagamento" });
+    }
+  });
+
+  // Criar instância do serviço de assinatura
+  const subscriptionService = new SubscriptionService();
+  
+  // Rota para obter planos de assinatura
+  app.get("/api/subscription/plans", async (req: Request, res: Response) => {
+    try {
+      const plans = await subscriptionService.getActivePlans();
+      res.json(plans);
+    } catch (error: any) {
+      console.error("Erro ao buscar planos de assinatura:", error);
+      res.status(500).json({ error: error.message || "Falha ao buscar planos de assinatura" });
+    }
+  });
+  
+  // Middleware de autenticação
+  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    next();
+  };
+
+  // Rota para gerar pagamento de assinatura
+  app.post("/api/subscription/generate-payment", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { planId } = req.body;
+      if (!planId) {
+        return res.status(400).json({ error: "ID do plano é obrigatório" });
+      }
+      
+      const paymentData = await subscriptionService.generatePayment(req.user!.id, planId);
+      res.json(paymentData);
+    } catch (error: any) {
+      console.error("Erro ao gerar pagamento de assinatura:", error);
+      res.status(500).json({ error: error.message || "Falha ao gerar pagamento" });
+    }
+  });
+  
+  // Rota para verificar status do pagamento
+  app.get("/api/subscription/payment-status/:transactionId", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { transactionId } = req.params;
+      if (!transactionId) {
+        return res.status(400).json({ error: "ID da transação é obrigatório" });
+      }
+      
+      const statusData = await subscriptionService.checkPaymentStatus(transactionId);
+      res.json(statusData);
+    } catch (error: any) {
+      console.error("Erro ao verificar status do pagamento:", error);
+      res.status(500).json({ error: error.message || "Falha ao verificar status do pagamento" });
+    }
+  });
+  
+  // Rota para renovação de assinatura expirada
+  app.get("/api/subscription/expired", async (req: Request, res: Response) => {
+    // Endpoint apenas para verificar se a assinatura expirou e redirecionar
+    res.json({
+      expired: true,
+      renewUrl: '/renew-subscription'
+    });
+  });
+  
+  // Webhook para receber callbacks do Mercado Pago
+  app.post("/api/subscription/webhook", async (req: Request, res: Response) => {
+    try {
+      console.log("Webhook de assinatura recebido:", JSON.stringify(req.body));
+      
+      if (req.body.type === 'payment' && req.body.data) {
+        await subscriptionService.processPaymentWebhook(req.body);
+      }
+      
+      res.sendStatus(200);
+    } catch (error: any) {
+      console.error("Erro ao processar webhook de assinatura:", error);
+      // Sempre retornar 200 para não retentar
+      res.sendStatus(200);
     }
   });
 
