@@ -3485,17 +3485,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       };
       
-      // Datas para os exemplos
+      // Datas para os exemplos - usando datas fixas para evitar duplicação
       const hoje = new Date();
       const mesPassado = new Date();
       mesPassado.setMonth(mesPassado.getMonth() - 1);
       
+      // IDs fixos para evitar duplicação
       const fallbackData = [
         {
           id: 1001,
           userId: userId,
           planId: plano.id,
-          transactionId: "TX-" + Date.now(),
+          transactionId: "TX-EXAMPLE-1001",
           paymentMethod: "pix",
           status: "paid",
           amount: plano.price,
@@ -3510,7 +3511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: 1000,
           userId: userId,
           planId: plano.id,
-          transactionId: "TX-" + (Date.now() - 1000000),
+          transactionId: "TX-EXAMPLE-1000",
           paymentMethod: "pix",
           status: "paid",
           amount: plano.price,

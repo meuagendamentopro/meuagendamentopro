@@ -44,24 +44,57 @@ export default function SubscriptionHistoryPage() {
     enabled: !!user
   });
 
-  // Estado para controlar quando usar fallback - começa com true para garantir dados
-  const [useFallback, setUseFallback] = React.useState(true);
+  // Opção para usar ou não o fallback
+  const [useFallback, setUseFallback] = React.useState(false);
   
   const { data: history, isLoading, error, refetch } = useQuery<SubscriptionTransaction[]>({
     queryKey: ["/api/subscription/history", useFallback],
     queryFn: async () => {
-      const url = "/api/subscription/history?fallback=true";
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+      try {
+        // Primeiro tenta buscar dados reais
+        const url = "/api/subscription/history";
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          // Se falhar e não for erro de autenticação, tenta o fallback
+          if (response.status !== 401 && useFallback) {
+            const fallbackUrl = "/api/subscription/history?fallback=true";
+            const fallbackResponse = await fetch(fallbackUrl);
+            
+            if (!fallbackResponse.ok) {
+              throw new Error(`Erro ${fallbackResponse.status}: ${fallbackResponse.statusText}`);
+            }
+            
+            return fallbackResponse.json();
+          }
+          
+          throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        }
+        
+        return response.json();
+      } catch (error) {
+        console.error("Erro ao buscar histórico:", error);
+        
+        // Se o fallback estiver ativado, tenta buscar dados de exemplo
+        if (useFallback) {
+          const fallbackUrl = "/api/subscription/history?fallback=true";
+          const fallbackResponse = await fetch(fallbackUrl);
+          
+          if (!fallbackResponse.ok) {
+            throw new Error(`Erro no fallback: ${fallbackResponse.status}`);
+          }
+          
+          return fallbackResponse.json();
+        }
+        
+        throw error;
       }
-      return response.json();
     },
     enabled: !!user,
-    retry: 2,
-    staleTime: 0, // Sem cache para garantir dados atualizados
+    retry: 1,
+    staleTime: 60000, // Cache por 1 minuto
     refetchOnWindowFocus: false,
-    refetchOnMount: false
+    refetchOnMount: true
   });
 
   // Função para formatar valores em reais
@@ -133,14 +166,22 @@ export default function SubscriptionHistoryPage() {
           Voltar
         </Button>
         <h1 className="text-2xl font-bold">Histórico de Assinaturas</h1>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="ml-auto"
-          onClick={() => refetch()}
-        >
-          Atualizar
-        </Button>
+        <div className="flex gap-2 ml-auto">
+          <Button 
+            variant={useFallback ? "default" : "outline"} 
+            size="sm"
+            onClick={() => setUseFallback(!useFallback)}
+          >
+            {useFallback ? "Usando dados de exemplo" : "Usar dados de exemplo"}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => refetch()}
+          >
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Seção de Renovação Antecipada */}
