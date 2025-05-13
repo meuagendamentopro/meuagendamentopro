@@ -191,10 +191,13 @@ export function setupAuth(app: Express) {
       }
       
       // Verificar expiração da assinatura a cada requisição (apenas para provedores)
+      // Agora não bloqueamos o acesso, apenas marcamos o usuário como tendo assinatura expirada
+      // O redirecionamento para a página de renovação será feito no frontend
       if (user.role === 'provider') {
         if (isSubscriptionExpired(user)) {
-          console.log(`Acesso bloqueado para usuário ${userId} com assinatura expirada`);
-          return done(null, false);
+          console.log(`Usuário ${userId} com assinatura expirada - marcando flag`);
+          // @ts-ignore - Adicionando propriedade personalizada
+          user.subscriptionExpired = true;
         }
       }
       

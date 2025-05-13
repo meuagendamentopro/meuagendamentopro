@@ -80,7 +80,20 @@ export default function RenewSubscriptionPage() {
   const [expiredUser, setExpiredUser] = useState<any>(null);
   
   useEffect(() => {
-    // Extrair username e userId da URL
+    // Verificar se o usuário já está autenticado
+    if (user) {
+      console.log('Usuário já está autenticado:', user);
+      
+      // Se o usuário tem assinatura expirada, podemos usar diretamente
+      // @ts-ignore - Propriedade adicionada pelo backend
+      if (user.subscriptionExpired) {
+        console.log('Usuário autenticado com assinatura expirada');
+        // Não precisa fazer nada, já temos os dados do usuário
+      }
+      return;
+    }
+    
+    // Se não está autenticado, extrair username e userId da URL
     const params = new URLSearchParams(location.split('?')[1]);
     const username = params.get('username');
     const userIdParam = params.get('userId');
@@ -117,7 +130,7 @@ export default function RenewSubscriptionPage() {
       
       fetchUserInfo();
     }
-  }, [location]);
+  }, [location, user]);
   
   // Formatar preço em reais
   const formatCurrency = (valueInCents: number) => {
