@@ -129,6 +129,7 @@ export function setupAuth(app: Express) {
           
           if (isSubscriptionExpired(user)) {
             console.log(`Assinatura expirada para ${user.username}`);
+            // @ts-ignore - Adicionando propriedade personalizada para controle de assinatura expirada
             return done(null, false, { message: "Assinatura expirada", expired: true });
           }
         }
@@ -186,11 +187,8 @@ export function setupAuth(app: Express) {
       }
       
       // Verificar expiração da assinatura a cada requisição (apenas para provedores)
-      if (user.role === 'provider' && !user.neverExpires) {
-        const now = new Date();
-        const expiry = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) : null;
-        
-        if (expiry && now > expiry) {
+      if (user.role === 'provider') {
+        if (isSubscriptionExpired(user)) {
           console.log(`Acesso bloqueado para usuário ${userId} com assinatura expirada`);
           return done(null, false);
         }

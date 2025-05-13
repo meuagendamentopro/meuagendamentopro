@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { VerificationPending } from "@/components/auth/verification-pending";
+import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Nome de usuário é obrigatório"),
@@ -43,13 +44,26 @@ export default function AuthPage() {
     setPendingVerification 
   } = useAuth();
   const [location, navigate] = useLocation();
+  const { toast } = useToast();
+  
+  // Verifica se há uma mensagem de sucesso na navegação (após renovação de assinatura)
+  const locationState = typeof window !== 'undefined' ? window.history.state?.usr : null;
 
   // Redirecionar para a página principal se já estiver autenticado
   useEffect(() => {
     if (user) {
       navigate("/");
     }
-  }, [user, navigate]);
+    
+    // Exibir mensagem de sucesso se estiver presente no estado da navegação
+    if (locationState?.message) {
+      toast({
+        title: "Renovação Concluída",
+        description: locationState.message,
+        variant: "success"
+      });
+    }
+  }, [user, navigate, locationState, toast]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

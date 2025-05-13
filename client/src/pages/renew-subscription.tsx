@@ -270,7 +270,17 @@ export default function RenewSubscriptionPage() {
             
             // Redirecionar após 3 segundos
             setTimeout(() => {
-              navigate('/auth');
+              // Se temos informações do usuário, podemos montrar mensagem mais personalizada
+              if (expiredUser?.username) {
+                console.log(`Redirecionando usuário ${expiredUser.username} para tela de login após renovação`);
+                navigate('/auth', { 
+                  state: { 
+                    message: "Sua assinatura foi renovada com sucesso! Faça login para continuar." 
+                  }
+                });
+              } else {
+                navigate('/auth');
+              }
             }, 3000);
           }
         } catch (error) {
