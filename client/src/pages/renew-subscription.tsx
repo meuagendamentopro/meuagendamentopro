@@ -659,26 +659,39 @@ export default function RenewSubscriptionPage() {
     <div className="container max-w-6xl mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Renovação de Assinatura</h1>
-        <Button 
-          variant="outline" 
-          onClick={() => {
-            // Usar o logoutMutation do hook useAuth para garantir consistência
-            logoutMutation.mutate(undefined, {
-              onSuccess: () => {
-                // Limpar cache e redirecionar para a página de login
-                queryClient.removeQueries({ queryKey: ['/api/user'] });
-                navigate('/auth');
-              },
-              onError: (error) => {
-                console.error('Erro ao fazer logout:', error);
-                // Mesmo em caso de erro, redirecionar para a página de login
-                navigate('/auth');
-              }
-            });
-          }}
-        >
-          Sair
-        </Button>
+        <div className="flex gap-2">
+          {/* Botão para voltar ao sistema (apenas quando assinatura válida) */}
+          {authUser?.subscriptionExpiry && new Date(authUser.subscriptionExpiry) > new Date() && (
+            <Button
+              variant="default"
+              onClick={() => navigate('/')}
+            >
+              Voltar ao Sistema
+            </Button>
+          )}
+          
+          {/* Botão de Sair/Logout */}
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              // Usar o logoutMutation do hook useAuth para garantir consistência
+              logoutMutation.mutate(undefined, {
+                onSuccess: () => {
+                  // Limpar cache e redirecionar para a página de login
+                  queryClient.removeQueries({ queryKey: ['/api/user'] });
+                  navigate('/auth');
+                },
+                onError: (error) => {
+                  console.error('Erro ao fazer logout:', error);
+                  // Mesmo em caso de erro, redirecionar para a página de login
+                  navigate('/auth');
+                }
+              });
+            }}
+          >
+            Sair
+          </Button>
+        </div>
       </div>
 
       <div className="text-center mb-8">
@@ -749,7 +762,24 @@ export default function RenewSubscriptionPage() {
         {(authUser?.subscriptionExpiry || expiredUser?.subscriptionExpiry) && (
           <div className="inline-block bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm">
             <p className="font-medium text-yellow-800">
-              Sua assinatura expirou em {new Date(authUser?.subscriptionExpiry || expiredUser?.subscriptionExpiry).toLocaleDateString('pt-BR')}
+              {(() => {
+                const expiryDate = new Date(authUser?.subscriptionExpiry || expiredUser?.subscriptionExpiry);
+                const now = new Date();
+                
+                if (expiryDate > now) {
+                  return (
+                    <>
+                      Sua assinatura é válida até {expiryDate.toLocaleDateString('pt-BR')}
+                    </>
+                  );
+                } else {
+                  return (
+                    <>
+                      Sua assinatura expirou em {expiryDate.toLocaleDateString('pt-BR')}
+                    </>
+                  );
+                }
+              })()}
             </p>
           </div>
         )}
