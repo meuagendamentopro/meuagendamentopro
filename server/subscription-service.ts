@@ -13,6 +13,25 @@ const paymentService = new PaymentService();
 
 export class SubscriptionService {
   /**
+   * Busca o histórico de assinaturas de um usuário
+   */
+  async getUserSubscriptionHistory(userId: number) {
+    try {
+      const history = await db.query.subscriptionTransactions.findMany({
+        where: eq(subscriptionTransactions.userId, userId),
+        with: {
+          plan: true
+        },
+        orderBy: [desc(subscriptionTransactions.createdAt)]
+      });
+      
+      return history;
+    } catch (error) {
+      console.error(`Erro ao buscar histórico de assinaturas do usuário ${userId}:`, error);
+      throw new Error('Não foi possível buscar o histórico de assinaturas');
+    }
+  }
+  /**
    * Busca todos os planos de assinatura ativos
    */
   async getActivePlans() {

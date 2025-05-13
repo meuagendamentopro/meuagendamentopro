@@ -100,11 +100,12 @@ export const providersRelations = relations(providers, ({ one, many }) => ({
   timeExclusions: many(timeExclusions)
 }));
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   provider: one(providers, {
     fields: [users.id],
     references: [providers.userId]
-  })
+  }),
+  subscriptionTransactions: many(subscriptionTransactions)
 }));
 
 export const insertProviderSchema = createInsertSchema(providers).pick({
@@ -359,6 +360,18 @@ export const insertSubscriptionTransactionSchema = createInsertSchema(subscripti
   pixQrCodeExpiration: true,
   paidAt: true,
 });
+
+// Relações para as transações de assinatura
+export const subscriptionTransactionsRelations = relations(subscriptionTransactions, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptionTransactions.userId],
+    references: [users.id]
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [subscriptionTransactions.planId],
+    references: [subscriptionPlans.id]
+  })
+}));
 
 // Tabela de notificações para alertar os profissionais sobre novos agendamentos
 export const notifications = pgTable("notifications", {
