@@ -1,12 +1,13 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, CalendarPlus } from "lucide-react";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface SubscriptionTransaction {
   id: number;
@@ -36,6 +37,12 @@ interface SubscriptionTransaction {
 export default function SubscriptionHistoryPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+
+  // Obter planos de assinatura
+  const { data: plans } = useQuery({
+    queryKey: ["/api/subscription/plans"],
+    enabled: !!user
+  });
 
   const { data: history, isLoading, error, refetch } = useQuery<SubscriptionTransaction[]>({
     queryKey: ["/api/subscription/history"],
@@ -123,6 +130,41 @@ export default function SubscriptionHistoryPage() {
           Atualizar
         </Button>
       </div>
+
+      {/* Seção de Renovação Antecipada */}
+      {user && user.subscriptionExpiry && (
+        <div className="mb-6">
+          <Alert className="bg-muted">
+            <CalendarPlus className="h-5 w-5" />
+            <AlertTitle>Renovação Antecipada</AlertTitle>
+            <AlertDescription className="mt-2">
+              <div className="flex flex-col gap-3">
+                <p>
+                  Sua assinatura atual expira em {" "}
+                  <span className="font-semibold">
+                    {new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR')}
+                  </span>
+                  . Renove antecipadamente e mantenha seu acesso sem interrupções.
+                </p>
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {plans?.map((plan) => (
+                    <Button
+                      key={plan.id}
+                      variant="outline"
+                      className="border-primary"
+                      onClick={() => navigate(`/renew-subscription?planId=${plan.id}`)}
+                    >
+                      <span className="font-semibold">{plan.name}</span>
+                      <span className="mx-1">-</span>
+                      <span>{formatCurrency(plan.price)}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
