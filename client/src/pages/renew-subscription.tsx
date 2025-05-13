@@ -60,21 +60,21 @@ export default function RenewSubscriptionPage() {
     }
   });
   
-  // Buscar usuário atual para informações de assinatura
-  const { data: user } = useQuery({
-    queryKey: ['/api/user'],
-    queryFn: async () => {
-      try {
-        const res = await apiRequest('GET', '/api/user');
-        if (!res.ok) {
-          return null;
-        }
-        return res.json();
-      } catch (error) {
-        return null;
-      }
-    }
-  });
+  // Não precisamos buscar o usuário aqui pois já temos acesso através do useAuth
+  // const { data: user } = useQuery({
+  //   queryKey: ['/api/user'],
+  //   queryFn: async () => {
+  //     try {
+  //       const res = await apiRequest('GET', '/api/user');
+  //       if (!res.ok) {
+  //         return null;
+  //       }
+  //       return res.json();
+  //     } catch (error) {
+  //       return null;
+  //     }
+  //   }
+  // });
   
   // Extrair dados do usuário da URL
   const [location] = useLocation();
@@ -154,7 +154,7 @@ export default function RenewSubscriptionPage() {
     });
     
     // Se temos algum tipo de identificação, prosseguir com o pagamento
-    if (user?.id || expiredUser?.id || urlUserId || expiredUser?.username) {
+    if (authUser?.id || expiredUser?.id || urlUserId || expiredUser?.username) {
       await generatePayment(planId);
     } else {
       // Se não temos nenhuma forma de identificação, vamos para o formulário de login
@@ -255,9 +255,9 @@ export default function RenewSubscriptionPage() {
       const paymentData: any = { planId };
       
       // Prioridade 1: Usar o ID do usuário logado (se disponível)
-      if (user?.id) {
-        paymentData.userId = user.id;
-        console.log(`Usando ID do usuário logado: ${user.id}`);
+      if (authUser?.id) {
+        paymentData.userId = authUser.id;
+        console.log(`Usando ID do usuário logado: ${authUser.id}`);
       } 
       // Prioridade 2: Usar o ID do usuário extraído da URL
       else if (urlUserId) {
@@ -683,9 +683,9 @@ export default function RenewSubscriptionPage() {
 
       <div className="text-center mb-8">
         {/* Saudação personalizada com o nome do usuário */}
-        {(user?.name || expiredUser?.name) && (
+        {(authUser?.name || expiredUser?.name) && (
           <p className="text-xl font-medium text-primary mb-4">
-            Olá, {user?.name || expiredUser?.name}!
+            Olá, {authUser?.name || expiredUser?.name}!
           </p>
         )}
         
@@ -694,7 +694,7 @@ export default function RenewSubscriptionPage() {
         </p>
         
         {/* Forma de identificação - login rápido se não estiver autenticado */}
-        {!user?.id && !urlUserId && !expiredUser?.id && (
+        {!authUser?.id && !urlUserId && !expiredUser?.id && (
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4 max-w-md mx-auto">
             <h2 className="text-md font-medium mb-2 text-blue-800">Identifique-se para continuar</h2>
             <Form {...form}>
@@ -739,7 +739,7 @@ export default function RenewSubscriptionPage() {
         )}
         
         {/* Informações de depuração - apenas para desenvolvimento */}
-        {(user?.id || urlUserId || expiredUser?.id) && (
+        {(authUser?.id || urlUserId || expiredUser?.id) && (
           <div className="bg-green-50 border border-green-100 rounded-lg p-3 mb-4 text-sm text-center">
             <p className="text-green-800 font-medium">Usuário identificado com sucesso!</p>
           </div>
