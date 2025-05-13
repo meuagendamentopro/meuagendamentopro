@@ -198,7 +198,8 @@ const AppointmentTable = ({
     return appointments
       .filter((a) => {
         const date = new Date(a.date);
-        return date >= today;
+        // Filtrar agendamentos futuros e que não estejam cancelados
+        return date >= today && a.status !== AppointmentStatus.CANCELLED;
       })
       .sort((a, b) => {
         const dateA = new Date(a.date);
