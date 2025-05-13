@@ -110,25 +110,33 @@ export function createWhatsAppMessage(
 }
 
 // Função para abrir o WhatsApp Web com a mensagem
-export function openWhatsApp(phone: string, message: string): void {
-  // Remove formatação do telefone
-  const cleanPhone = phone.replace(/\D/g, '');
-  
-  // Certificar que temos o código do país (55 para Brasil)
-  const formattedPhone = cleanPhone.startsWith('55') 
-    ? cleanPhone 
-    : `55${cleanPhone}`;
-  
-  // Criar URL para abrir o WhatsApp Web
-  const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-  
-  // Abrir em nova aba e manter a referência
-  const newWindow = window.open(whatsappUrl, '_blank');
-  
-  // Garantir que a janela foi aberta com sucesso
-  if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-    // Se a janela não abriu, mostrar alerta
-    alert('Não foi possível abrir o WhatsApp. Verifique se o bloqueador de popups está desativado.');
+export function openWhatsApp(phone: string, message: string): boolean {
+  try {
+    // Remove formatação do telefone
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Certificar que temos o código do país (55 para Brasil)
+    const formattedPhone = cleanPhone.startsWith('55') 
+      ? cleanPhone 
+      : `55${cleanPhone}`;
+    
+    // Criar URL para abrir o WhatsApp Web
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+    
+    // Abrir em nova aba - usar window.location.href para garantir que abra
+    const newWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    
+    // Verificar se o popup foi bloqueado
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+      alert('Bloqueador de popups detectado! Por favor, permita popups para este site para usar esta função.');
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao abrir WhatsApp:', error);
+    alert('Erro ao tentar abrir o WhatsApp. Tente novamente.');
+    return false;
   }
 }
 
@@ -228,17 +236,31 @@ export const WhatsAppNotificationDialog: React.FC<WhatsAppNotificationDialogProp
             Fechar
           </Button>
           
-          <Button 
+          <a 
+            href={`https://wa.me/${formatPhoneNumber(clientPhone).replace(/\D/g, '')}?text=${encodeURIComponent(createWhatsAppMessage(
+              type,
+              clientName,
+              serviceName,
+              appointmentDate,
+              appointmentTime,
+              'Agenda Online'
+            ))}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-green-600 hover:bg-green-700 text-white h-10 py-2 px-4"
             onClick={(e) => {
-              e.preventDefault();
-              onSendWhatsApp();
-              // Não fechamos o diálogo automaticamente
-            }} 
-            className="bg-green-600 hover:bg-green-700 text-white"
+              // Impedir o fechamento do diálogo, deixando a navegação acontecer
+              e.stopPropagation();
+              
+              // Chamar o callback apenas para marcar como lido (se aplicável)
+              if (onSendWhatsApp) {
+                onSendWhatsApp();
+              }
+            }}
           >
             <Send className="h-4 w-4 mr-2" />
             Enviar WhatsApp
-          </Button>
+          </a>
         </DialogFooter>
       </DialogContent>
     </Dialog>
