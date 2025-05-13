@@ -9,6 +9,7 @@ import {
   markNotificationAsRead,
   checkUpcomingAppointments,
   addNewAppointmentNotification,
+  addConfirmationNotification,
   addCancellationNotification,
   AppointmentNotification
 } from '@/services/appointment-notification-service';

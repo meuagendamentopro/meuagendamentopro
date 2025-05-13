@@ -112,6 +112,37 @@ export function addNewAppointmentNotification(
 }
 
 /**
+ * Adiciona uma notificação para um agendamento confirmado
+ */
+export function addConfirmationNotification(
+  appointment: any,
+  client?: any,
+  service?: any
+): AppointmentNotification {
+  const now = new Date();
+  const apptDate = new Date(appointment.date);
+  
+  const notification: AppointmentNotification = {
+    id: appointment.id,
+    clientId: appointment.clientId,
+    clientName: client?.name || appointment.clientName,
+    clientPhone: client?.phone || appointment.clientPhone,
+    serviceId: appointment.serviceId,
+    serviceName: service?.name || appointment.serviceName,
+    date: apptDate,
+    time: appointment.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    type: WhatsAppNotificationType.CONFIRMATION,
+    createdAt: now,
+    isRead: false
+  };
+  
+  // Salvar notificação
+  saveNotification(notification);
+  
+  return notification;
+}
+
+/**
  * Adiciona uma notificação para um agendamento cancelado
  */
 export function addCancellationNotification(
