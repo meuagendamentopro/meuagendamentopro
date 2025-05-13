@@ -1,0 +1,24 @@
+admin-page.tsx:994 Uncaught ReferenceError: Label is not defined
+    at AdminPage (admin-page.tsx:994:20)
+admin-page.tsx:994 Uncaught ReferenceError: Label is not defined
+    at AdminPage (admin-page.tsx:994:20)
+chunk-RPCDYKBN.js?v=fd5fec5f:14032 The above error occurred in the <AdminPage> component:
+
+    at AdminPage (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/pages/admin-page.tsx:93:21)
+    at main
+    at div
+    at MainLayout (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/App.tsx?v=sEouhKFk3A0ChL0iHWH-m:57:23)
+    at Route (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=fd5fec5f:323:16)
+    at AdminRoute (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/lib/protected-route.tsx:91:3)
+    at Switch (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=fd5fec5f:379:17)
+    at Router
+    at Provider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=fd5fec5f:38:15)
+    at TooltipProvider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=fd5fec5f:64:5)
+    at AuthProvider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.dev/src/hooks/use-auth.tsx:26:32)
+    at QueryClientProvider (https://9d511cd7-b554-4754-8a14-a44880c2712c-00-2zpr2jjvfy37m.riker.replit.…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=fd5fec5f:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-RPCDYKBN.js?v=fd5fec5f:9129 Uncaught ReferenceError: Label is not defined
+    at AdminPage (admin-page.tsx:994:20)

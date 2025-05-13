@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, PlusCircle, MoreVertical, Edit, Trash2, Shield, ShieldOff } from "lucide-react";
@@ -372,7 +373,7 @@ export default function AdminPage() {
   });
 
   // Estado para o plano em edição
-  const [planToEdit, setPlanToEdit] = useState<{id: number, price: number} | null>(null);
+  const [planToEdit, setPlanToEdit] = useState<SubscriptionPlan | null>(null);
   const [isEditPlanDialogOpen, setIsEditPlanDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState<string>("");
 
@@ -412,8 +413,20 @@ export default function AdminPage() {
     }).format(valueInCents / 100);
   };
 
+  // Definir interface para o plano
+  interface SubscriptionPlan {
+    id: number;
+    name: string;
+    description: string | null;
+    durationMonths: number;
+    price: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }
+
   // Handler para abrir diálogo de edição de preço
-  const handleEditPlanPrice = (plan: {id: number, price: number}) => {
+  const handleEditPlanPrice = (plan: SubscriptionPlan) => {
     setPlanToEdit(plan);
     setNewPrice((plan.price / 100).toString());
     setIsEditPlanDialogOpen(true);
@@ -924,7 +937,7 @@ export default function AdminPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {subscriptionPlans.map((plan) => (
+                  {subscriptionPlans.map((plan: SubscriptionPlan) => (
                     <TableRow key={plan.id}>
                       <TableCell className="font-medium">{plan.name}</TableCell>
                       <TableCell>{plan.durationMonths} {plan.durationMonths === 1 ? 'mês' : 'meses'}</TableCell>
@@ -979,13 +992,13 @@ export default function AdminPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium mb-1">Nome do Plano</p>
-                    <p className="text-sm">{subscriptionPlans?.find(p => p.id === planToEdit.id)?.name}</p>
+                    <p className="text-sm">{subscriptionPlans?.find((p: SubscriptionPlan) => p.id === planToEdit.id)?.name}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">Duração</p>
                     <p className="text-sm">
-                      {subscriptionPlans?.find(p => p.id === planToEdit.id)?.durationMonths} 
-                      {subscriptionPlans?.find(p => p.id === planToEdit.id)?.durationMonths === 1 ? ' mês' : ' meses'}
+                      {subscriptionPlans?.find((p: SubscriptionPlan) => p.id === planToEdit.id)?.durationMonths} 
+                      {subscriptionPlans?.find((p: SubscriptionPlan) => p.id === planToEdit.id)?.durationMonths === 1 ? ' mês' : ' meses'}
                     </p>
                   </div>
                 </div>
