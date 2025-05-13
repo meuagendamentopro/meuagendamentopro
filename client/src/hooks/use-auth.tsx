@@ -92,6 +92,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw customError;
         }
         
+        // Verificar se é um erro de assinatura expirada
+        if (res.status === 401 && errorData.expired) {
+          const error = new Error(errorData.error || "Assinatura expirada");
+          const customError: any = error;
+          customError.response = {
+            status: res.status,
+            data: errorData
+          };
+          throw customError;
+        }
+        
         throw new Error(errorData.error || "Falha no login");
       }
       return await res.json();
@@ -114,7 +125,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: "Por favor, verifique seu email para ativar sua conta",
           variant: "destructive",
         });
-      } else {
+      } 
+      // Verificar se é erro de assinatura expirada
+      else if (error.response?.data?.expired) {
+        toast({
+          title: "Assinatura expirada",
+          description: "Você será redirecionado para a página de renovação",
+        });
+        
+        // Redirecionar para a página de renovação após um breve atraso
+        setTimeout(() => {
+          const renewUrl = error.response.data.renewUrl || '/renew-subscription';
+          window.location.href = renewUrl;
+        }, 1500);
+      } 
+      else {
         // Outros erros de login
         toast({
           title: "Falha no login",
