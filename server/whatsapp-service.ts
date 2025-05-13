@@ -1,6 +1,6 @@
 import twilio from 'twilio';
 import { Appointment, Service, Provider, Client } from '../shared/schema';
-import { formatDate, formatTime, formatCurrency, extractDateAndTime } from './utils';
+import { formatDateBR as formatDate, formatPrice as formatCurrency, normalizePhoneNumber } from './utils';
 import logger from './logger';
 
 // Verificar se as credenciais do Twilio estão configuradas

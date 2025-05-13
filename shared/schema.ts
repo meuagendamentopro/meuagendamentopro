@@ -66,6 +66,14 @@ export const providers = pgTable("providers", {
   pixWebhookSecret: text("pix_webhook_secret"), // Segredo para validação de webhooks
   pixMercadoPagoToken: text("pix_mercadopago_token"), // Token de acesso do Mercado Pago específico do provedor
   pixIdentificationNumber: text("pix_identification_number"), // Número de CPF/CNPJ para identificação no Mercado Pago
+  // Campos para notificações WhatsApp/Twilio
+  whatsappEnabled: boolean("whatsapp_enabled").default(false),
+  twilioAccountSid: text("twilio_account_sid"),
+  twilioAuthToken: text("twilio_auth_token"),
+  twilioPhoneNumber: text("twilio_phone_number"),
+  enableAppointmentConfirmation: boolean("enable_appointment_confirmation").default(true),
+  enableAppointmentReminder: boolean("enable_appointment_reminder").default(true),
+  enableCancellationNotice: boolean("enable_cancellation_notice").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,82 +1,66 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { neon, NeonQueryFunction } from "@neondatabase/serverless";
-import { pgTable, boolean, text } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
-
 /**
- * Script para adicionar campos necessários para notificações WhatsApp
- * - Adiciona campo reminderSent à tabela appointments
- * 
- * Uso: npx tsx scripts/add-whatsapp-notification-fields.ts
+ * Script para adicionar campos de notificação WhatsApp ao banco de dados
+ * - Adiciona configurações do Twilio para envio de mensagens WhatsApp
+ * - Adiciona opções de configuração para diferentes tipos de notificação
  */
 
-// Conexão com o banco de dados
-const URI = process.env.DATABASE_URL;
-if (!URI) {
-  throw new Error("DATABASE_URL não definida");
-}
-
-const sql_query = neon(URI);
-const db = drizzle(sql_query);
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool } from '@neondatabase/serverless';
+import { boolean } from 'drizzle-orm/pg-core';
+import { text } from 'drizzle-orm/pg-core';
+import { migrate } from 'drizzle-orm/neon-serverless/migrator';
+import chalk from 'chalk';
 
 async function addWhatsappNotificationFields() {
-  try {
-    console.log("Verificando se a coluna 'reminder_sent' já existe na tabela 'appointments'...");
+  console.log(chalk.blue('Adicionando campos de notificação WhatsApp ao banco de dados...'));
 
-    // Verificar se a coluna já existe
-    const checkColumn = await sql_query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name='appointments' AND column_name='reminder_sent'
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL não encontrada no ambiente');
+  }
+
+  // Conexão com o banco de dados
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const db = drizzle(pool);
+
+  try {
+    // Adicionar os campos à tabela providers manualmente
+    await pool.query(`
+      -- Adiciona campos de configuração do Twilio
+      ALTER TABLE providers 
+      ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS twilio_account_sid TEXT,
+      ADD COLUMN IF NOT EXISTS twilio_auth_token TEXT,
+      ADD COLUMN IF NOT EXISTS twilio_phone_number TEXT,
+      ADD COLUMN IF NOT EXISTS enable_appointment_confirmation BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS enable_appointment_reminder BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS enable_cancellation_notice BOOLEAN DEFAULT TRUE;
+
+      -- Adiciona campo para acompanhar lembretes enviados
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN DEFAULT FALSE;
     `);
 
-    if (checkColumn.length === 0) {
-      console.log("Adicionando coluna 'reminder_sent' à tabela 'appointments'...");
-      
-      // Adicionar a coluna
-      await sql_query(`
-        ALTER TABLE appointments 
-        ADD COLUMN reminder_sent BOOLEAN NOT NULL DEFAULT false
-      `);
-      
-      console.log("✅ Coluna 'reminder_sent' adicionada com sucesso!");
-    } else {
-      console.log("✅ Coluna 'reminder_sent' já existe na tabela 'appointments'.");
-    }
-
-    // Verificar e adicionar os campos de credenciais do Twilio ao .env se necessário
-    console.log("Verificando variáveis de ambiente para notificações WhatsApp...");
+    console.log(chalk.green('✅ Campos de notificação WhatsApp adicionados com sucesso!'));
     
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-      console.log(`
-        ⚠️ Aviso: Variáveis de ambiente necessárias para notificações WhatsApp não estão configuradas.
-        
-        Para ativar notificações WhatsApp, adicione as seguintes variáveis ao arquivo .env:
-        
-        TWILIO_ACCOUNT_SID=seu_account_sid_do_twilio
-        TWILIO_AUTH_TOKEN=seu_auth_token_do_twilio
-        TWILIO_PHONE_NUMBER=seu_numero_whatsapp_twilio (formato: whatsapp:+5511999999999)
-        
-        Você pode obter essas credenciais no painel do Twilio (https://console.twilio.com/).
-      `);
-    } else {
-      console.log("✅ Variáveis de ambiente para notificações WhatsApp já configuradas.");
-    }
+    // Exibir informações sobre os novos campos
+    console.log(chalk.yellow('\nCampos adicionados à tabela providers:'));
+    console.log('- whatsapp_enabled: Se as notificações WhatsApp estão habilitadas');
+    console.log('- twilio_account_sid: Account SID do Twilio');
+    console.log('- twilio_auth_token: Auth Token do Twilio');
+    console.log('- twilio_phone_number: Número de telefone do Twilio (formato +XXXXXXXXXXX)');
+    console.log('- enable_appointment_confirmation: Enviar confirmação de agendamento');
+    console.log('- enable_appointment_reminder: Enviar lembrete de agendamento');
+    console.log('- enable_cancellation_notice: Enviar notificação de cancelamento');
+    
+    console.log(chalk.yellow('\nCampos adicionados à tabela appointments:'));
+    console.log('- reminder_sent: Se o lembrete foi enviado para este agendamento');
 
-    console.log("Operação concluída com sucesso!");
   } catch (error) {
-    console.error("❌ Erro ao adicionar campos para notificações WhatsApp:", error);
-    process.exit(1);
+    console.error(chalk.red('❌ Erro ao adicionar campos de notificação WhatsApp:'), error);
+    throw error;
+  } finally {
+    await pool.end();
   }
 }
 
-// Executar a função principal
-addWhatsappNotificationFields()
-  .then(() => {
-    console.log("Script finalizado.");
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("Erro fatal:", error);
-    process.exit(1);
-  });
+addWhatsappNotificationFields().catch(console.error);
