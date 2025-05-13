@@ -1,372 +1,305 @@
-import React, { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
-import { MessageCircle, Save, RotateCcw } from "lucide-react";
+import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, MessageCircle, Save } from "lucide-react";
 
-// Variáveis disponíveis para inserir nas mensagens
-const AVAILABLE_VARIABLES = [
-  { name: "{clientName}", description: "Nome do cliente" },
-  { name: "{serviceName}", description: "Nome do serviço" },
-  { name: "{appointmentDate}", description: "Data do agendamento" },
-  { name: "{appointmentTime}", description: "Horário do agendamento" },
-  { name: "{providerName}", description: "Nome do profissional" },
-  { name: "{providerPhone}", description: "Telefone do profissional" },
-  { name: "{cancellationReason}", description: "Motivo do cancelamento (apenas para mensagens de cancelamento)" },
-  { name: "{locationLink}", description: "Link de localização do estabelecimento" },
-  { name: "{paymentStatus}", description: "Status do pagamento" },
-  { name: "{paymentAmount}", description: "Valor do pagamento" },
-];
+// Definição do schema para templates de mensagens
+const messageTemplateSchema = z.object({
+  welcomeTemplate: z.string().min(1, { message: "O template de boas-vindas é obrigatório" }),
+  reminderTemplate: z.string().min(1, { message: "O template de lembrete é obrigatório" }),
+  confirmationTemplate: z.string().min(1, { message: "O template de confirmação é obrigatório" }),
+  cancellationTemplate: z.string().min(1, { message: "O template de cancelamento é obrigatório" }),
+});
 
-// Templates padrão para cada tipo de mensagem
-const DEFAULT_TEMPLATES = {
-  newAppointment: `Olá {clientName}, seu agendamento para {serviceName} foi recebido com sucesso! 
-  
-📅 Data: {appointmentDate}
-⏰ Horário: {appointmentTime}
-
-Aguardamos você!
-{providerName}`,
-  
-  appointmentReminder: `Olá {clientName}, passando para lembrar do seu agendamento para hoje!
-
-📅 Data: {appointmentDate}
-⏰ Horário: {appointmentTime}
-🧩 Serviço: {serviceName}
-
-Estamos aguardando você!
-{providerName}`,
-  
-  appointmentCancellation: `Olá {clientName}, infelizmente precisamos cancelar seu agendamento para {serviceName} agendado para {appointmentDate} às {appointmentTime}.
-
-Motivo: {cancellationReason}
-
-Por favor, entre em contato para reagendar.
-{providerName}`,
-  
-  appointmentChange: `Olá {clientName}, seu agendamento para {serviceName} foi alterado.
-
-📅 Nova data: {appointmentDate}
-⏰ Novo horário: {appointmentTime}
-
-Se tiver alguma dúvida, por favor entre em contato.
-{providerName}`,
-  
-  paymentConfirmation: `Olá {clientName}, confirmamos o recebimento do pagamento de R$ {paymentAmount} para o agendamento de {serviceName} em {appointmentDate} às {appointmentTime}.
-
-Agradecemos e esperamos por você!
-{providerName}`
-};
-
-interface MessageTemplate {
-  type: string;
-  title: string;
-  template: string;
-}
+type MessageTemplateFormValues = z.infer<typeof messageTemplateSchema>;
 
 const MessageTemplatesPage: React.FC = () => {
   const { toast } = useToast();
-  const [templates, setTemplates] = useState<Record<string, string>>({
-    newAppointment: "",
-    appointmentReminder: "",
-    appointmentCancellation: "",
-    appointmentChange: "",
-    paymentConfirmation: ""
-  });
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("newAppointment");
-  const [previewData, setPreviewData] = useState({
-    clientName: "Maria Silva",
-    serviceName: "Corte de cabelo",
-    appointmentDate: "15/05/2023",
-    appointmentTime: "14:30",
-    providerName: "João Cabeleireiro",
-    providerPhone: "(11) 99999-9999",
-    cancellationReason: "Problemas técnicos",
-    locationLink: "https://maps.google.com",
-    paymentStatus: "Confirmado",
-    paymentAmount: "120,00"
-  });
-
-  // Carrega os templates salvos
-  useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        const response = await apiRequest("GET", "/api/message-templates");
-        const data = await response.json();
-        
-        // Se não tiver templates salvos, usar os padrões
-        if (!data || Object.keys(data).length === 0) {
-          setTemplates(DEFAULT_TEMPLATES);
-        } else {
-          setTemplates(data);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar templates:", error);
-        // Em caso de erro, carregar os templates padrão
-        setTemplates(DEFAULT_TEMPLATES);
-      } finally {
-        setLoading(false);
+  const [activeTab, setActiveTab] = useState<string>("welcome");
+  
+  // Buscar templates existentes
+  const { data: templates, isLoading } = useQuery({
+    queryKey: ["/api/message-templates"],
+    queryFn: async () => {
+      const response = await fetch("/api/message-templates");
+      if (!response.ok) {
+        throw new Error("Falha ao carregar templates de mensagem");
       }
-    };
-    
-    loadTemplates();
-  }, []);
+      return response.json();
+    },
+  });
 
-  const saveTemplates = async () => {
-    try {
-      setLoading(true);
-      
-      await apiRequest("POST", "/api/message-templates", templates);
-      
+  // Formulário com valores padrão
+  const form = useForm<MessageTemplateFormValues>({
+    resolver: zodResolver(messageTemplateSchema),
+    defaultValues: {
+      welcomeTemplate: templates?.welcomeTemplate || "Olá {clientName}, seu agendamento para {serviceName} foi confirmado para {appointmentDate} às {appointmentTime}. Agradecemos sua preferência!",
+      reminderTemplate: templates?.reminderTemplate || "Olá {clientName}, lembrando do seu agendamento para {serviceName} hoje às {appointmentTime}. Estamos te esperando!",
+      confirmationTemplate: templates?.confirmationTemplate || "Olá {clientName}, seu agendamento para {serviceName} foi confirmado! Te esperamos no dia {appointmentDate} às {appointmentTime}.",
+      cancellationTemplate: templates?.cancellationTemplate || "Olá {clientName}, seu agendamento para {serviceName} marcado para {appointmentDate} às {appointmentTime} foi cancelado.",
+    },
+    values: templates || undefined,
+  });
+
+  // Atualiza os valores do formulário quando os templates são carregados
+  React.useEffect(() => {
+    if (templates) {
+      form.reset(templates);
+    }
+  }, [templates, form]);
+
+  // Mutação para salvar templates
+  const { mutate: saveTemplates, isPending: isSaving } = useMutation({
+    mutationFn: async (data: MessageTemplateFormValues) => {
+      const response = await apiRequest("POST", "/api/message-templates", data);
+      if (!response.ok) {
+        throw new Error("Falha ao salvar templates");
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
       toast({
         title: "Templates salvos",
-        description: "Seus templates de mensagem foram salvos com sucesso.",
+        description: "Os templates de mensagem foram salvos com sucesso",
       });
-    } catch (error) {
-      console.error("Erro ao salvar templates:", error);
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+    },
+    onError: (error: Error) => {
       toast({
         title: "Erro ao salvar",
-        description: "Ocorreu um erro ao salvar seus templates.",
+        description: error.message,
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const onSubmit = (data: MessageTemplateFormValues) => {
+    saveTemplates(data);
   };
 
-  const resetTemplate = (type: string) => {
-    setTemplates(prev => ({
-      ...prev,
-      [type]: DEFAULT_TEMPLATES[type as keyof typeof DEFAULT_TEMPLATES]
-    }));
-    
-    toast({
-      title: "Template resetado",
-      description: "O template foi restaurado para o padrão.",
-    });
-  };
-
-  const handleTemplateChange = (type: string, value: string) => {
-    setTemplates(prev => ({
-      ...prev,
-      [type]: value
-    }));
-  };
-
-  // Substitui as variáveis pelos valores para preview
-  const formatPreview = (template: string) => {
-    let result = template;
-    
-    Object.entries(previewData).forEach(([key, value]) => {
-      const regex = new RegExp(`{${key}}`, "g");
-      result = result.replace(regex, value);
-    });
-    
-    return result;
-  };
-
-  // Insere a variável selecionada no template ativo
-  const insertVariable = (variable: string) => {
-    if (!activeTab) return;
-    
-    const templateText = templates[activeTab] || "";
-    const textarea = document.getElementById(`template-${activeTab}`) as HTMLTextAreaElement;
-    
-    if (textarea) {
-      const startPos = textarea.selectionStart;
-      const endPos = textarea.selectionEnd;
-      
-      const newText = 
-        templateText.substring(0, startPos) + 
-        variable + 
-        templateText.substring(endPos);
-      
-      handleTemplateChange(activeTab, newText);
-      
-      // Após a mudança, reposiciona o cursor após a variável inserida
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(startPos + variable.length, startPos + variable.length);
-      }, 0);
-    } else {
-      // Se não conseguir obter o elemento, apenas adiciona ao final
-      handleTemplateChange(
-        activeTab, 
-        templateText + variable
-      );
-    }
-  };
+  // Lista de variáveis disponíveis
+  const availableVariables = [
+    { name: "{clientName}", description: "Nome do cliente" },
+    { name: "{serviceName}", description: "Nome do serviço" },
+    { name: "{appointmentDate}", description: "Data do agendamento" },
+    { name: "{appointmentTime}", description: "Horário do agendamento" },
+    { name: "{providerName}", description: "Nome do profissional" },
+  ];
 
   return (
-    <div className="container py-6 max-w-5xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Templates de Mensagens</h1>
-          <p className="text-muted-foreground mt-2">
-            Configure os templates de mensagens enviadas por WhatsApp para seus clientes.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurar Templates</CardTitle>
-                <CardDescription>
-                  Personalize as mensagens enviadas automaticamente para seus clientes.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="newAppointment" onValueChange={setActiveTab}>
-                  <TabsList className="grid grid-cols-2 md:grid-cols-5 mb-4">
-                    <TabsTrigger value="newAppointment">Novo Agendamento</TabsTrigger>
-                    <TabsTrigger value="appointmentReminder">Lembrete</TabsTrigger>
-                    <TabsTrigger value="appointmentCancellation">Cancelamento</TabsTrigger>
-                    <TabsTrigger value="appointmentChange">Alteração</TabsTrigger>
-                    <TabsTrigger value="paymentConfirmation">Pagamento</TabsTrigger>
-                  </TabsList>
+    <div className="container mx-auto py-6">
+      <PageHeader
+        title="Templates de Mensagens"
+        description="Configure os modelos de mensagens enviadas via WhatsApp"
+        icon={<MessageCircle className="h-6 w-6" />}
+      />
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Templates de Mensagens WhatsApp</CardTitle>
+          <CardDescription>
+            Personalize as mensagens enviadas aos seus clientes via WhatsApp
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Variáveis disponíveis</AlertTitle>
+            <AlertDescription>
+              <p className="mb-2">Use estas variáveis para personalizar suas mensagens:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                {availableVariables.map((variable) => (
+                  <li key={variable.name}>
+                    <code className="bg-muted px-1 py-0.5 rounded">{variable.name}</code>: {variable.description}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid grid-cols-4 mb-6">
+                  <TabsTrigger value="welcome">Boas-vindas</TabsTrigger>
+                  <TabsTrigger value="reminder">Lembrete</TabsTrigger>
+                  <TabsTrigger value="confirmation">Confirmação</TabsTrigger>
+                  <TabsTrigger value="cancellation">Cancelamento</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="welcome">
+                  <FormField
+                    control={form.control}
+                    name="welcomeTemplate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template de Boas-vindas</FormLabel>
+                        <FormDescription>
+                          Mensagem enviada quando um novo agendamento é criado
+                        </FormDescription>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Digite a mensagem de boas-vindas"
+                            className="min-h-[150px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
-                  {Object.keys(templates).map((type) => (
-                    <TabsContent key={type} value={type} className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <Label htmlFor={`template-${type}`}>Texto da mensagem:</Label>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="flex items-center text-xs" 
-                            onClick={() => resetTemplate(type)}
-                          >
-                            <RotateCcw className="h-3 w-3 mr-1" />
-                            Restaurar padrão
-                          </Button>
-                        </div>
-                        <Textarea
-                          id={`template-${type}`}
-                          value={templates[type] || ""}
-                          onChange={(e) => handleTemplateChange(type, e.target.value)}
-                          rows={10}
-                          placeholder="Escreva seu template aqui..."
-                          className="font-mono text-sm"
-                        />
-                      </div>
-                      
-                      <div className="pt-4">
-                        <h4 className="font-medium mb-2">Prévia da mensagem:</h4>
-                        <div className="bg-green-50 border border-green-200 rounded-md p-4 whitespace-pre-wrap">
-                          {formatPreview(templates[type] || "")}
-                        </div>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </CardContent>
-              <CardFooter className="flex justify-between border-t pt-6">
-                <Button variant="outline" onClick={() => window.history.back()}>
-                  Cancelar
-                </Button>
-                <Button onClick={saveTemplates} disabled={loading}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Salvar Templates
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-          
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Variáveis Disponíveis</CardTitle>
-                <CardDescription>
-                  Use essas variáveis para personalizar suas mensagens.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {AVAILABLE_VARIABLES.map((variable) => (
-                    <div key={variable.name} className="border rounded-lg p-2 bg-gray-50">
-                      <div className="flex justify-between items-center">
-                        <code className="text-sm font-mono">{variable.name}</code>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => insertVariable(variable.name)}
-                        >
-                          Inserir
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">{variable.description}</p>
+                  <div className="mt-4 p-4 border rounded-md bg-muted/40">
+                    <h4 className="font-medium mb-2">Prévia:</h4>
+                    <div className="whitespace-pre-line">
+                      {form.watch("welcomeTemplate")
+                        .replace("{clientName}", "Maria")
+                        .replace("{serviceName}", "Corte de Cabelo")
+                        .replace("{appointmentDate}", "15/05/2025")
+                        .replace("{appointmentTime}", "14:30")
+                        .replace("{providerName}", "João")}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle>Testar variáveis</CardTitle>
-                <CardDescription>
-                  Modifique os valores para ver como a mensagem ficará.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="clientName">Nome do cliente</Label>
-                    <Input 
-                      id="clientName" 
-                      value={previewData.clientName}
-                      onChange={(e) => setPreviewData({...previewData, clientName: e.target.value})}
-                    />
                   </div>
+                </TabsContent>
+                
+                <TabsContent value="reminder">
+                  <FormField
+                    control={form.control}
+                    name="reminderTemplate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template de Lembrete</FormLabel>
+                        <FormDescription>
+                          Mensagem enviada como lembrete algumas horas antes do agendamento
+                        </FormDescription>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Digite a mensagem de lembrete"
+                            className="min-h-[150px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="serviceName">Nome do serviço</Label>
-                    <Input 
-                      id="serviceName" 
-                      value={previewData.serviceName}
-                      onChange={(e) => setPreviewData({...previewData, serviceName: e.target.value})}
-                    />
+                  <div className="mt-4 p-4 border rounded-md bg-muted/40">
+                    <h4 className="font-medium mb-2">Prévia:</h4>
+                    <div className="whitespace-pre-line">
+                      {form.watch("reminderTemplate")
+                        .replace("{clientName}", "Maria")
+                        .replace("{serviceName}", "Corte de Cabelo")
+                        .replace("{appointmentDate}", "15/05/2025")
+                        .replace("{appointmentTime}", "14:30")
+                        .replace("{providerName}", "João")}
+                    </div>
                   </div>
+                </TabsContent>
+                
+                <TabsContent value="confirmation">
+                  <FormField
+                    control={form.control}
+                    name="confirmationTemplate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template de Confirmação</FormLabel>
+                        <FormDescription>
+                          Mensagem enviada quando um agendamento é confirmado
+                        </FormDescription>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Digite a mensagem de confirmação"
+                            className="min-h-[150px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="appointmentDate">Data</Label>
-                    <Input 
-                      id="appointmentDate" 
-                      value={previewData.appointmentDate}
-                      onChange={(e) => setPreviewData({...previewData, appointmentDate: e.target.value})}
-                    />
+                  <div className="mt-4 p-4 border rounded-md bg-muted/40">
+                    <h4 className="font-medium mb-2">Prévia:</h4>
+                    <div className="whitespace-pre-line">
+                      {form.watch("confirmationTemplate")
+                        .replace("{clientName}", "Maria")
+                        .replace("{serviceName}", "Corte de Cabelo")
+                        .replace("{appointmentDate}", "15/05/2025")
+                        .replace("{appointmentTime}", "14:30")
+                        .replace("{providerName}", "João")}
+                    </div>
                   </div>
+                </TabsContent>
+                
+                <TabsContent value="cancellation">
+                  <FormField
+                    control={form.control}
+                    name="cancellationTemplate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template de Cancelamento</FormLabel>
+                        <FormDescription>
+                          Mensagem enviada quando um agendamento é cancelado
+                        </FormDescription>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Digite a mensagem de cancelamento"
+                            className="min-h-[150px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="appointmentTime">Horário</Label>
-                    <Input 
-                      id="appointmentTime" 
-                      value={previewData.appointmentTime}
-                      onChange={(e) => setPreviewData({...previewData, appointmentTime: e.target.value})}
-                    />
+                  <div className="mt-4 p-4 border rounded-md bg-muted/40">
+                    <h4 className="font-medium mb-2">Prévia:</h4>
+                    <div className="whitespace-pre-line">
+                      {form.watch("cancellationTemplate")
+                        .replace("{clientName}", "Maria")
+                        .replace("{serviceName}", "Corte de Cabelo")
+                        .replace("{appointmentDate}", "15/05/2025")
+                        .replace("{appointmentTime}", "14:30")
+                        .replace("{providerName}", "João")}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Alert className="mt-4">
-              <MessageCircle className="h-4 w-4" />
-              <AlertTitle>Dica</AlertTitle>
-              <AlertDescription>
-                Lembre-se que o WhatsApp suporta formatação básica como *negrito*, _itálico_ e ~tachado~.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </div>
-      </div>
+                </TabsContent>
+              </Tabs>
+
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSaving} className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  {isSaving ? "Salvando..." : "Salvar Templates"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

@@ -1,77 +1,96 @@
 import { Request, Response } from "express";
+import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { messageTemplates } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import z from "zod";
 
-/**
- * Controller para gerenciar templates de mensagens WhatsApp
- */
-export class MessageTemplatesController {
-  /**
-   * Obtém os templates de mensagens do usuário atual
-   */
-  static async getTemplates(req: Request, res: Response) {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Não autorizado" });
-      }
-      
-      const userId = req.user.id;
-      
-      // Busca template do usuário
-      const [existingTemplates] = await db
-        .select()
-        .from(messageTemplates)
-        .where(eq(messageTemplates.userId, userId));
-      
-      if (!existingTemplates) {
-        // Se não existir, retorna objeto vazio
-        return res.status(200).json({});
-      }
-      
-      return res.status(200).json(existingTemplates.templates);
-    } catch (error) {
-      console.error("Erro ao buscar templates:", error);
-      return res.status(500).json({ message: "Erro ao buscar templates" });
-    }
+// Schema para validação dos templates de mensagem
+const messageTemplateSchema = z.object({
+  welcomeTemplate: z.string().min(1),
+  reminderTemplate: z.string().min(1),
+  confirmationTemplate: z.string().min(1),
+  cancellationTemplate: z.string().min(1),
+});
+
+export async function getMessageTemplates(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Não autenticado" });
   }
-  
-  /**
-   * Salva os templates de mensagens para o usuário atual
-   */
-  static async saveTemplates(req: Request, res: Response) {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Não autorizado" });
-      }
-      
-      const userId = req.user.id;
-      const templates = req.body;
-      
-      // Verifica se o usuário já tem templates
-      const existingTemplates = await db
-        .select()
-        .from(messageTemplates)
-        .where(eq(messageTemplates.userId, userId));
-      
-      if (existingTemplates.length === 0) {
-        // Se não existe, cria novo registro
-        await db.insert(messageTemplates).values({
-          userId,
-          templates
-        });
-      } else {
-        // Se já existe, atualiza
-        await db
-          .update(messageTemplates)
-          .set({ templates })
-          .where(eq(messageTemplates.userId, userId));
-      }
-      
-      return res.status(200).json({ message: "Templates salvos com sucesso" });
-    } catch (error) {
-      console.error("Erro ao salvar templates:", error);
-      return res.status(500).json({ message: "Erro ao salvar templates" });
+
+  try {
+    // Buscar templates existentes para o usuário atual
+    const templates = await db.select().from(messageTemplates).where(eq(messageTemplates.userId, req.user.id));
+    
+    if (templates.length === 0) {
+      // Se não existirem templates, retornar templates padrão
+      return res.status(200).json({
+        welcomeTemplate: "Olá {clientName}, seu agendamento para {serviceName} foi confirmado para {appointmentDate} às {appointmentTime}. Agradecemos sua preferência!",
+        reminderTemplate: "Olá {clientName}, lembrando do seu agendamento para {serviceName} hoje às {appointmentTime}. Estamos te esperando!",
+        confirmationTemplate: "Olá {clientName}, seu agendamento para {serviceName} foi confirmado! Te esperamos no dia {appointmentDate} às {appointmentTime}.",
+        cancellationTemplate: "Olá {clientName}, seu agendamento para {serviceName} marcado para {appointmentDate} às {appointmentTime} foi cancelado.",
+      });
     }
+
+    // Se existirem templates, parsear o campo templates e retornar
+    return res.status(200).json(JSON.parse(templates[0].templates));
+  } catch (error) {
+    console.error("Erro ao buscar templates de mensagem:", error);
+    return res.status(500).json({ error: "Erro ao buscar templates de mensagem" });
+  }
+}
+
+export async function saveMessageTemplates(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Não autenticado" });
+  }
+
+  try {
+    // Validar dados recebidos
+    const validatedData = messageTemplateSchema.parse(req.body);
+    
+    // Verificar se já existem templates para este usuário
+    const existingTemplates = await db.select()
+      .from(messageTemplates)
+      .where(eq(messageTemplates.userId, req.user.id));
+    
+    // Armazenar os templates como string JSON
+    const templatesJson = JSON.stringify(validatedData);
+    
+    if (existingTemplates.length === 0) {
+      // Se não existirem, criar novo registro
+      const [newTemplate] = await db.insert(messageTemplates)
+        .values({
+          userId: req.user.id,
+          templates: templatesJson,
+        })
+        .returning();
+      
+      return res.status(201).json({ 
+        id: newTemplate.id,
+        ...validatedData
+      });
+    } else {
+      // Se existirem, atualizar o registro existente
+      const [updatedTemplate] = await db.update(messageTemplates)
+        .set({ 
+          templates: templatesJson,
+          updatedAt: new Date()
+        })
+        .where(eq(messageTemplates.userId, req.user.id))
+        .returning();
+      
+      return res.status(200).json({ 
+        id: updatedTemplate.id,
+        ...validatedData
+      });
+    }
+  } catch (error) {
+    console.error("Erro ao salvar templates de mensagem:", error);
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+    }
+    
+    return res.status(500).json({ error: "Erro ao salvar templates de mensagem" });
   }
 }

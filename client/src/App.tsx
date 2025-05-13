@@ -19,6 +19,7 @@ import AdminPage from "@/pages/admin-page";
 import UsersPage from "@/pages/admin/users-page";
 import RenewSubscriptionPage from "@/pages/renew-subscription";
 import SubscriptionHistoryPage from "@/pages/subscription-history";
+import MessageTemplatesPage from "@/pages/message-templates";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -305,6 +306,17 @@ function Router() {
         element={
           <MainLayout>
             <SubscriptionHistoryPage />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/message-templates" 
+        element={
+          <MainLayout>
+            <Suspense fallback={<div className="flex items-center justify-center h-full">Carregando...</div>}>
+              <MessageTemplatesPage />
+            </Suspense>
           </MainLayout>
         } 
       />
