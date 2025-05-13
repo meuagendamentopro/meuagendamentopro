@@ -167,28 +167,13 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
     return () => clearInterval(interval);
   }, []);
 
-  // Função para mostrar notificação de novo agendamento
+  // Função para mostrar notificação de novo agendamento - DESATIVADA conforme solicitado
   const showNewAppointmentNotification = (appointment: any) => {
-    // Se já temos todos os dados necessários, não precisamos buscar nada
-    if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
-      // Criar objeto de notificação diretamente
-      const notification: AppointmentNotification = {
-        id: appointment.id,
-        clientId: appointment.clientId || 0,
-        clientName: appointment.clientName,
-        clientPhone: appointment.clientPhone,
-        serviceId: appointment.serviceId || 0,
-        serviceName: appointment.serviceName,
-        date: new Date(appointment.date),
-        time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        type: WhatsAppNotificationType.NEW_APPOINTMENT
-      };
-      
-      // Mostrar diálogo
-      setCurrentNotification(notification);
-      setDialogOpen(true);
-      return;
-    }
+    // Função desativada - não exibe mais popups para novos agendamentos
+    console.log("Novo agendamento recebido, mas popup desativado:", appointment);
+    
+    // Retorna sem fazer nada - popups de novos agendamentos foram desativados
+    return;
     
     // Verificar se temos cliente e serviço IDs para buscar dados
     if (appointment && appointment.clientId && appointment.serviceId) {
