@@ -2,23 +2,45 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 export default function RenewSubscriptionPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const [paymentStep, setPaymentStep] = useState<'select-plan' | 'processing' | 'payment' | 'success'>('select-plan');
+  const [paymentStep, setPaymentStep] = useState<'select-plan' | 'login' | 'processing' | 'payment' | 'success'>('select-plan');
   const [pixData, setPixData] = useState<any>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(1800); // 30 minutos em segundos
   const [progressValue, setProgressValue] = useState<number>(100);
   const [isGeneratingPix, setIsGeneratingPix] = useState<boolean>(false);
+  const [credentials, setCredentials] = useState<{username: string, password: string} | null>(null);
+  
+  // Validação do formulário de login
+  const loginSchema = z.object({
+    username: z.string().min(1, "Usuário é obrigatório"),
+    password: z.string().min(1, "Senha é obrigatória"),
+  });
+  
+  // Form hook para o formulário de login
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
   
   // Buscar planos de assinatura disponíveis
   const { data: plans, isLoading, error } = useQuery({
@@ -60,14 +82,42 @@ export default function RenewSubscriptionPage() {
   // Função para selecionar um plano
   const handleSelectPlan = async (planId: number) => {
     setSelectedPlanId(planId);
+    
+    // Se o usuário não estiver autenticado, solicitamos credenciais
+    if (!user) {
+      setPaymentStep('login');
+      return;
+    }
+    
+    await generatePayment(planId);
+  };
+  
+  // Função para processar o login
+  const onSubmitLogin = async (values: z.infer<typeof loginSchema>) => {
+    setCredentials(values);
+    
+    if (selectedPlanId) {
+      await generatePayment(selectedPlanId, values);
+    }
+  };
+  
+  // Função para gerar pagamento
+  const generatePayment = async (planId: number, loginCredentials?: {username: string, password: string}) => {
     setPaymentStep('processing');
     setIsGeneratingPix(true);
     
     try {
+      // Preparar dados do pagamento com ou sem credenciais
+      const paymentData: any = { planId };
+      
+      // Se temos credenciais de login, incluímos no payload
+      if (loginCredentials) {
+        paymentData.username = loginCredentials.username;
+        paymentData.password = loginCredentials.password;
+      }
+      
       // Chamar API para gerar o PIX
-      const response = await apiRequest('POST', '/api/subscription/generate-payment', {
-        planId
-      });
+      const response = await apiRequest('POST', '/api/subscription/generate-payment', paymentData);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -90,7 +140,13 @@ export default function RenewSubscriptionPage() {
         description: error.message || "Não foi possível gerar o pagamento. Tente novamente.",
         variant: "destructive",
       });
-      setPaymentStep('select-plan');
+      
+      // Se o erro for de autenticação, voltamos para o login
+      if (error.message && (error.message.includes("autenticado") || error.message.includes("autenticação"))) {
+        setPaymentStep('login');
+      } else {
+        setPaymentStep('select-plan');
+      }
     } finally {
       setIsGeneratingPix(false);
     }
@@ -300,6 +356,76 @@ export default function RenewSubscriptionPage() {
         <p className="text-lg mb-4">Sua assinatura foi renovada com sucesso.</p>
         <p className="mb-8">Você será redirecionado para a página inicial em instantes...</p>
         <Button onClick={() => navigate('/')}>Ir para página inicial</Button>
+      </div>
+    );
+  }
+
+  // Tela de login para autenticação antes do pagamento
+  if (paymentStep === 'login') {
+    return (
+      <div className="container max-w-md mx-auto p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">Acesso Necessário</CardTitle>
+            <CardDescription className="text-center">
+              Para renovar sua assinatura, informe suas credenciais de acesso
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 flex justify-center">
+              <Lock className="w-12 h-12 text-primary" />
+            </div>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitLogin)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Usuário</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Seu nome de usuário" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Sua senha" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button type="submit" className="w-full">
+                  {form.formState.isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processando...
+                    </>
+                  ) : 'Continuar'}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => setPaymentStep('select-plan')}
+            >
+              Voltar para seleção de planos
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
