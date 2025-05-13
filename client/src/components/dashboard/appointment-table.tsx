@@ -21,9 +21,8 @@ import { AppointmentStatus } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MessageCircle, AlertCircle, Check } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { AppointmentDetails } from "./appointment-details";
-import { useWhatsAppNotifications } from "@/components/whatsapp-notification-provider";
 
 interface AppointmentTableProps {
   providerId: number;
@@ -41,9 +40,6 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   const [cancellationReason, setCancellationReason] = useState("");
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
-  
-  // Hook para notificações WhatsApp
-  const { showCancellationNotification, showNewAppointmentNotification } = useWhatsAppNotifications();
   
   const { data: appointments, isLoading: appointmentsLoading, refetch } = useQuery({
     queryKey: ['/api/providers', providerId, 'appointments'],
@@ -74,34 +70,10 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
 
   const handleCancelAppointment = async (id: number, reason: string) => {
     try {
-      // Buscar detalhes do agendamento antes de cancelar
-      const appointment = appointments?.find((a: any) => a.id === id);
-      
-      // Atualizar status para cancelado
       await apiRequest('PATCH', `/api/appointments/${id}/status`, { 
         status: AppointmentStatus.CANCELLED,
         cancellationReason: reason
       });
-      
-      // Se temos o agendamento, buscar detalhes necessários e mostrar notificação WhatsApp
-      if (appointment && clients && services) {
-        const client = clients.find((c: any) => c.id === appointment.clientId);
-        const service = services.find((s: any) => s.id === appointment.serviceId);
-        
-        if (client && service) {
-          // Aguardar um pouco para permitir que o WebSocket atualize os dados
-          setTimeout(() => {
-            showCancellationNotification({
-              ...appointment,
-              clientName: client.name,
-              clientPhone: client.phone,
-              serviceName: service.name
-            });
-          }, 500);
-        }
-      }
-      
-      // Atualizar interface
       refetch();
       if (onAppointmentUpdated) {
         onAppointmentUpdated();
@@ -113,33 +85,9 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
 
   const handleConfirmAppointment = async (id: number) => {
     try {
-      // Buscar detalhes do agendamento antes de confirmar
-      const appointment = appointments?.find((a: any) => a.id === id);
-      
-      // Atualizar status para confirmado
       await apiRequest('PATCH', `/api/appointments/${id}/status`, { 
         status: AppointmentStatus.CONFIRMED 
       });
-      
-      // Se temos o agendamento, buscar detalhes necessários e mostrar notificação WhatsApp
-      if (appointment && clients && services) {
-        const client = clients.find((c: any) => c.id === appointment.clientId);
-        const service = services.find((s: any) => s.id === appointment.serviceId);
-        
-        if (client && service) {
-          // Aguardar um pouco para permitir que o WebSocket atualize os dados
-          setTimeout(() => {
-            showNewAppointmentNotification({
-              ...appointment,
-              clientName: client.name,
-              clientPhone: client.phone,
-              serviceName: service.name
-            });
-          }, 500);
-        }
-      }
-      
-      // Atualizar interface
       refetch();
       if (onAppointmentUpdated) {
         onAppointmentUpdated();
@@ -343,126 +291,79 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          {/* Botão para enviar WhatsApp */}
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-green-600 hover:text-green-800 hover:bg-green-50"
-                                  onClick={() => {
-                                    const client = clients?.find((c: any) => c.id === appointment.clientId);
-                                    const service = services?.find((s: any) => s.id === appointment.serviceId);
-                                    
-                                    if (client && service) {
-                                      if (appointment.status === AppointmentStatus.CANCELLED) {
-                                        showCancellationNotification({
-                                          ...appointment,
-                                          clientName: client.name,
-                                          clientPhone: client.phone,
-                                          serviceName: service.name
-                                        });
-                                      } else {
-                                        showNewAppointmentNotification({
-                                          ...appointment,
-                                          clientName: client.name,
-                                          clientPhone: client.phone,
-                                          serviceName: service.name
-                                        });
-                                      }
-                                    }
-                                  }}
-                                >
-                                  <MessageCircle className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Enviar WhatsApp</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          
-                          {/* Botão de detalhes */}
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-gray-600 hover:text-gray-900 mr-2"
+                          onClick={() => {
+                            setSelectedAppointment(appointment);
+                            setShowDetails(true);
+                          }}
+                        >
+                          Detalhes
+                        </Button>
+
+                        {appointment.status === AppointmentStatus.PENDING && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="text-gray-600 hover:text-gray-900"
-                            onClick={() => {
-                              setSelectedAppointment(appointment);
-                              setShowDetails(true);
-                            }}
+                            className="text-primary-600 hover:text-primary-900 mr-2"
+                            onClick={() => handleConfirmAppointment(appointment.id)}
                           >
-                            Detalhes
+                            Confirmar
                           </Button>
-                        </div>
-
-                        <div className="flex justify-end mt-2">
-                          {appointment.status === AppointmentStatus.PENDING && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-primary-600 hover:text-primary-900 mr-2 flex items-center"
-                              onClick={() => handleConfirmAppointment(appointment.id)}
-                            >
-                              <Check className="h-4 w-4 mr-1" />
-                              Confirmar
-                            </Button>
-                          )}
-                          
-                          {(appointment.status === AppointmentStatus.CONFIRMED || 
-                            appointment.status === AppointmentStatus.PENDING) && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-danger-600 hover:text-danger-900 flex items-center"
+                        )}
+                        
+                        {(appointment.status === AppointmentStatus.CONFIRMED || 
+                          appointment.status === AppointmentStatus.PENDING) && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-danger-600 hover:text-danger-900"
+                              >
+                                Cancelar
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
+                                <AlertDialogDescription className="pb-4">
+                                  Tem certeza que deseja cancelar o agendamento de {getClientName(appointment.clientId)} para {getServiceName(appointment.serviceId)}?
+                                </AlertDialogDescription>
+                                
+                                <div className="mt-4 space-y-2">
+                                  <Label htmlFor="cancellationReason" className="text-left">
+                                    Motivo do cancelamento
+                                  </Label>
+                                  <Input
+                                    id="cancellationReason"
+                                    placeholder="Explique o motivo do cancelamento"
+                                    value={cancellationReason}
+                                    onChange={(e) => setCancellationReason(e.target.value)}
+                                  />
+                                </div>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter className="mt-6">
+                                <AlertDialogCancel 
+                                  onClick={() => setCancellationReason("")}
                                 >
-                                  <AlertCircle className="h-4 w-4 mr-1" />
-                                  Cancelar
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
-                                  <AlertDialogDescription className="pb-4">
-                                    Tem certeza que deseja cancelar o agendamento de {getClientName(appointment.clientId)} para {getServiceName(appointment.serviceId)}?
-                                  </AlertDialogDescription>
-                                  
-                                  <div className="mt-4 space-y-2">
-                                    <Label htmlFor="cancellationReason" className="text-left">
-                                      Motivo do cancelamento
-                                    </Label>
-                                    <Input
-                                      id="cancellationReason"
-                                      placeholder="Explique o motivo do cancelamento"
-                                      value={cancellationReason}
-                                      onChange={(e) => setCancellationReason(e.target.value)}
-                                    />
-                                  </div>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="mt-6">
-                                  <AlertDialogCancel 
-                                    onClick={() => setCancellationReason("")}
-                                  >
-                                    Não, manter
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    className="bg-red-600 hover:bg-red-700"
-                                    onClick={() => {
-                                      handleCancelAppointment(appointment.id, cancellationReason);
-                                      setCancellationReason("");
-                                    }}
-                                  >
-                                    Sim, cancelar
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
+                                  Não, manter
+                                </AlertDialogCancel>
+                                <AlertDialogAction 
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={() => {
+                                    handleCancelAppointment(appointment.id, cancellationReason);
+                                    setCancellationReason("");
+                                  }}
+                                >
+                                  Sim, cancelar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

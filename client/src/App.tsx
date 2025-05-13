@@ -23,7 +23,6 @@ import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
 import WhatsAppPopup from "@/components/whatsapp-popup";
-import { WhatsAppNotificationProvider } from "@/components/whatsapp-notification-provider";
 import { useNotifications } from "@/hooks/use-notifications";
 import { 
   Popover,
@@ -332,9 +331,7 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
-          <WhatsAppNotificationProvider>
-            <Router />
-          </WhatsAppNotificationProvider>
+          <Router />
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>
