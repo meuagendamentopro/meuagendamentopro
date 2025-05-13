@@ -1,90 +1,48 @@
 /**
- * Módulo de log para aplicação
- * Centraliza a lógica de logging e permite configuração consistente
+ * Logger para aplicação
  */
 
-const LOG_LEVELS = {
-  DEBUG: 0,
-  INFO: 1,
-  WARN: 2,
-  ERROR: 3,
-  NONE: 4
-};
+// Níveis de log
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-// Define o nível com base no ambiente (produção usa INFO e acima)
-const currentLevel = process.env.NODE_ENV === 'production' 
-  ? LOG_LEVELS.INFO 
-  : LOG_LEVELS.DEBUG;
-
-/**
- * Formata o timestamp para o log
- * @returns String formatada com a data e hora atual
- */
-function getTimestamp(): string {
-  return new Date().toISOString();
-}
-
-/**
- * Formata a mensagem de log
- * @param level Nível de log
- * @param message Mensagem ou objeto a ser logado
- * @returns String formatada para log
- */
-function formatLogMessage(level: string, message: any): string {
-  const timestamp = getTimestamp();
-  
-  if (typeof message === 'object') {
-    try {
-      message = JSON.stringify(message);
-    } catch (e) {
-      message = '[Object não serializável]';
-    }
+// Função que registra logs no console com timestamp
+export class Logger {
+  debug(message: string, ...args: any[]): void {
+    this.log('debug', message, ...args);
   }
   
-  return `[${timestamp}] [${level}] ${message}`;
-}
-
-export default {
-  /**
-   * Log de nível debug - para informações detalhadas (apenas em desenvolvimento)
-   */
-  debug: (message: any): void => {
-    if (currentLevel <= LOG_LEVELS.DEBUG) {
-      console.log(formatLogMessage('DEBUG', message));
-    }
-  },
+  info(message: string, ...args: any[]): void {
+    this.log('info', message, ...args);
+  }
   
-  /**
-   * Log de nível info - para informações gerais de operação normal
-   */
-  info: (message: any): void => {
-    if (currentLevel <= LOG_LEVELS.INFO) {
-      console.log(formatLogMessage('INFO', message));
-    }
-  },
+  warn(message: string, ...args: any[]): void {
+    this.log('warn', message, ...args);
+  }
   
-  /**
-   * Log de nível warn - para situações potencialmente problemáticas
-   */
-  warn: (message: any): void => {
-    if (currentLevel <= LOG_LEVELS.WARN) {
-      console.warn(formatLogMessage('WARN', message));
-    }
-  },
+  error(message: string, ...args: any[]): void {
+    this.log('error', message, ...args);
+  }
   
-  /**
-   * Log de nível error - para erros e exceções
-   */
-  error: (message: any, error?: Error | string): void => {
-    if (currentLevel <= LOG_LEVELS.ERROR) {
-      console.error(formatLogMessage('ERROR', message));
-      if (error) {
-        if (typeof error === 'string') {
-          console.error(error);
-        } else if (error.stack) {
-          console.error(error.stack);
-        }
-      }
+  private log(level: LogLevel, message: string, ...args: any[]): void {
+    const timestamp = new Date().toISOString();
+    const formattedMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+    
+    switch (level) {
+      case 'debug':
+        console.debug(formattedMessage, ...args);
+        break;
+      case 'info':
+        console.info(formattedMessage, ...args);
+        break;
+      case 'warn':
+        console.warn(formattedMessage, ...args);
+        break;
+      case 'error':
+        console.error(formattedMessage, ...args);
+        break;
     }
   }
-};
+}
+
+// Exporta uma instância singleton do logger
+export default new Logger();
