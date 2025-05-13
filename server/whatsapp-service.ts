@@ -20,7 +20,18 @@ function formatWhatsAppNumber(phoneNumber: string): string {
   if (!phoneNumber) return '';
   
   // Remove qualquer prefixo whatsapp: existente para evitar duplicação
-  const cleanNumber = phoneNumber.replace(/^whatsapp:/, '');
+  let cleanNumber = phoneNumber.replace(/^whatsapp:/, '');
+  
+  // Verifica se o número já contém o código do país
+  if (!cleanNumber.startsWith('+')) {
+    // Se não tiver o código do país, adiciona +55 (Brasil)
+    if (/^\d+$/.test(cleanNumber)) {
+      cleanNumber = `+55${cleanNumber}`;
+    } else {
+      // Se não for apenas dígitos, mantém como está mas garante o + inicial
+      cleanNumber = `+${cleanNumber.replace(/^\+/, '')}`;
+    }
+  }
   
   // Adiciona o prefixo whatsapp: necessário para a API do Twilio
   return `whatsapp:${cleanNumber}`;
