@@ -359,6 +359,90 @@ export default function AdminPage() {
     }
   };
 
+  // Consulta para buscar planos de assinatura
+  const { data: subscriptionPlans, isLoading: isLoadingPlans } = useQuery({
+    queryKey: ["/api/admin/subscription/plans"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/admin/subscription/plans");
+      if (!res.ok) {
+        throw new Error("Falha ao carregar planos de assinatura");
+      }
+      return res.json();
+    },
+  });
+
+  // Estado para o plano em edição
+  const [planToEdit, setPlanToEdit] = useState<{id: number, price: number} | null>(null);
+  const [isEditPlanDialogOpen, setIsEditPlanDialogOpen] = useState(false);
+  const [newPrice, setNewPrice] = useState<string>("");
+
+  // Mutação para atualizar o preço do plano
+  const updatePlanPriceMutation = useMutation({
+    mutationFn: async (data: {id: number, price: number}) => {
+      const res = await apiRequest("PATCH", `/api/admin/subscription/plans/${data.id}`, { price: data.price });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao atualizar preço do plano");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Preço atualizado",
+        description: "O preço do plano foi atualizado com sucesso",
+      });
+      setIsEditPlanDialogOpen(false);
+      setPlanToEdit(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription/plans"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar preço",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Função para formatar preço em reais (R$)
+  const formatCurrency = (valueInCents: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(valueInCents / 100);
+  };
+
+  // Handler para abrir diálogo de edição de preço
+  const handleEditPlanPrice = (plan: {id: number, price: number}) => {
+    setPlanToEdit(plan);
+    setNewPrice((plan.price / 100).toString());
+    setIsEditPlanDialogOpen(true);
+  };
+
+  // Handler para salvar preço atualizado
+  const handleSavePlanPrice = () => {
+    if (!planToEdit) return;
+
+    // Converter para número e depois para centavos
+    const priceAsNumber = parseFloat(newPrice);
+    if (isNaN(priceAsNumber)) {
+      toast({
+        title: "Preço inválido",
+        description: "Por favor, informe um valor válido",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Converter para centavos
+    const priceInCents = Math.round(priceAsNumber * 100);
+    
+    updatePlanPriceMutation.mutate({
+      id: planToEdit.id,
+      price: priceInCents
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Administração</h1>
@@ -375,6 +459,21 @@ export default function AdminPage() {
             </p>
             <Button variant="outline" onClick={() => window.location.href = "/admin/users"}>
               Gerenciar Usuários
+            </Button>
+          </CardContent>
+        </Card>
+        
+        <Card className="hover:shadow-lg transition-shadow duration-300">
+          <CardHeader>
+            <CardTitle>Planos de Assinatura</CardTitle>
+            <CardDescription>Configurar planos disponíveis</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">
+              Gerencie os preços e configurações dos planos de assinatura oferecidos.
+            </p>
+            <Button variant="outline" className="text-primary border-primary" onClick={() => setIsModalOpen(true)}>
+              Gerenciar Planos
             </Button>
           </CardContent>
         </Card>
@@ -798,6 +897,145 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal para gerenciar planos de assinatura */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Planos de Assinatura</DialogTitle>
+            <DialogDescription>
+              Visualize e edite os planos de assinatura disponíveis no sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {isLoadingPlans ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : subscriptionPlans && subscriptionPlans.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Duração</TableHead>
+                    <TableHead>Preço</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subscriptionPlans.map((plan) => (
+                    <TableRow key={plan.id}>
+                      <TableCell className="font-medium">{plan.name}</TableCell>
+                      <TableCell>{plan.durationMonths} {plan.durationMonths === 1 ? 'mês' : 'meses'}</TableCell>
+                      <TableCell>{formatCurrency(plan.price)}</TableCell>
+                      <TableCell>
+                        {plan.isActive ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Inativo
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditPlanPrice(plan)}
+                          className="h-8 px-2 text-primary hover:text-primary"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar Preço
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                Nenhum plano de assinatura encontrado.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para edição de preço do plano */}
+      <Dialog open={isEditPlanDialogOpen} onOpenChange={setIsEditPlanDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Editar Preço do Plano</DialogTitle>
+            <DialogDescription>
+              Atualize o preço do plano de assinatura selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {planToEdit && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium mb-1">Nome do Plano</p>
+                    <p className="text-sm">{subscriptionPlans?.find(p => p.id === planToEdit.id)?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-1">Duração</p>
+                    <p className="text-sm">
+                      {subscriptionPlans?.find(p => p.id === planToEdit.id)?.durationMonths} 
+                      {subscriptionPlans?.find(p => p.id === planToEdit.id)?.durationMonths === 1 ? ' mês' : ' meses'}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="price">Preço atual</Label>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(planToEdit.price)}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="newPrice">Novo preço</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                    <Input
+                      id="newPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Digite o valor em reais (ex: 49.90)
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditPlanDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              onClick={handleSavePlanPrice}
+              disabled={updatePlanPriceMutation.isPending}
+            >
+              {updatePlanPriceMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : "Salvar Preço"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
