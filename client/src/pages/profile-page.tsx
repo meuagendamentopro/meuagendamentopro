@@ -74,7 +74,19 @@ export default function ProfilePage() {
     enabled: user?.role === 'provider',
     refetchOnMount: true, // Garante recarregar os dados ao montar o componente
     refetchOnWindowFocus: true, // Recarrega ao focar na janela
-    staleTime: 0 // Considera os dados sempre obsoletos para forçar nova requisição
+    staleTime: 0, // Considera os dados sempre obsoletos para forçar nova requisição
+    retry: 3, // Tenta mais vezes em caso de falha
+    onSuccess: (data) => {
+      console.log("Configurações de WhatsApp carregadas com sucesso:", {
+        enableWhatsApp: data.enableWhatsApp,
+        hasSid: !!data.accountSid,
+        hasToken: !!data.authToken,
+        hasPhone: !!data.phoneNumber
+      });
+    },
+    onError: (error) => {
+      console.error("Erro ao carregar configurações de WhatsApp:", error);
+    }
   });
   
   // Efeito para carregar configurações quando os dados estiverem disponíveis

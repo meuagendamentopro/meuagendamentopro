@@ -748,8 +748,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Você não tem um perfil de prestador de serviços configurado."
         });
       }
-      
-      // Adiciona o provider à requisição para uso nas rotas subsequentes
+
+      // Adiciona o provider ao objeto request para uso nas rotas
       (req as any).provider = provider;
       next();
     } catch (error) {
