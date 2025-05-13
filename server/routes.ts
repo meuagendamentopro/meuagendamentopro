@@ -3766,5 +3766,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para testar envio de mensagem WhatsApp
   app.post("/api/test-whatsapp-send", handleTestWhatsAppSend);
 
+  // ============== Rotas para Templates de Mensagens WhatsApp ==============
+  
+  // Obter templates de mensagens WhatsApp
+  app.get("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
+
+    const providerId = req.providerData?.id;
+    if (!providerId) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
+
+    try {
+      const templates = await getWhatsAppTemplates(providerId);
+      res.status(200).json(templates);
+    } catch (error) {
+      logger.error(`Erro ao buscar templates de WhatsApp: ${error}`);
+      res.status(500).json({ message: 'Erro ao buscar templates de WhatsApp' });
+    }
+  });
+
+  // Salvar templates de mensagens WhatsApp
+  app.post("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
+
+    const providerId = req.providerData?.id;
+    if (!providerId) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
+
+    try {
+      const templates = req.body as WhatsAppTemplates;
+      const success = await saveWhatsAppTemplates(providerId, templates);
+      
+      if (success) {
+        res.status(200).json({ message: 'Templates de WhatsApp salvos com sucesso' });
+      } else {
+        res.status(500).json({ message: 'Erro ao salvar templates de WhatsApp' });
+      }
+    } catch (error) {
+      logger.error(`Erro ao salvar templates de WhatsApp: ${error}`);
+      res.status(500).json({ message: 'Erro ao salvar templates de WhatsApp' });
+    }
+  });
+
   return httpServer;
 }

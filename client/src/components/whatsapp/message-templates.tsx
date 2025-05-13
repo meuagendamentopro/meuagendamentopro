@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, RefreshCcw } from "lucide-react";
+import { InfoIcon, RefreshCcw, Loader2 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 // Modelos de mensagens
 const DEFAULT_TEMPLATES = {
@@ -83,9 +84,10 @@ interface MessageTemplatesProps {
 export default function MessageTemplates({ providerId }: MessageTemplatesProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("confirmation");
   
-  // Templates ativos (serão carregados do backend eventualmente)
+  // Templates ativos
   const [templates, setTemplates] = useState({
     confirmation: DEFAULT_TEMPLATES.confirmation,
     reminder: DEFAULT_TEMPLATES.reminder,
@@ -93,22 +95,60 @@ export default function MessageTemplates({ providerId }: MessageTemplatesProps) 
     reschedule: DEFAULT_TEMPLATES.reschedule
   });
 
-  // Função para salvar os templates (mock por enquanto)
+  // Carregar templates do servidor quando o componente for montado
+  useEffect(() => {
+    const loadTemplates = async () => {
+      if (!providerId) return;
+      
+      setIsInitialLoading(true);
+      try {
+        const response = await apiRequest("GET", "/api/whatsapp/templates");
+        const data = await response.json();
+        
+        // Atualizar templates com os dados do servidor ou manter os padrões
+        setTemplates({
+          confirmation: data.confirmation || DEFAULT_TEMPLATES.confirmation,
+          reminder: data.reminder || DEFAULT_TEMPLATES.reminder,
+          cancellation: data.cancellation || DEFAULT_TEMPLATES.cancellation,
+          reschedule: data.reschedule || DEFAULT_TEMPLATES.reschedule
+        });
+      } catch (error) {
+        console.error("Erro ao carregar templates:", error);
+        toast({
+          title: "Erro ao carregar templates",
+          description: "Usando modelos padrão. Você poderá personalizá-los e salvar.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadTemplates();
+  }, [providerId, toast]);
+
+  // Função para salvar os templates
   const saveTemplates = async () => {
+    if (!providerId) return;
+    
     setIsLoading(true);
     try {
-      // Aqui implementaremos a chamada à API posteriormente
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular latência
+      const response = await apiRequest("POST", "/api/whatsapp/templates", templates);
       
-      toast({
-        title: "Templates salvos",
-        description: "Os modelos de mensagem foram atualizados com sucesso.",
-      });
+      if (response.ok) {
+        toast({
+          title: "Templates salvos",
+          description: "Os modelos de mensagem foram atualizados com sucesso.",
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao salvar templates");
+      }
     } catch (error) {
       console.error("Erro ao salvar templates:", error);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar os modelos de mensagem.",
+        description: error instanceof Error ? error.message : "Não foi possível salvar os modelos de mensagem.",
         variant: "destructive",
       });
     } finally {
@@ -128,6 +168,23 @@ export default function MessageTemplates({ providerId }: MessageTemplatesProps) 
       description: "O modelo foi restaurado para o padrão.",
     });
   };
+
+  // Mostrar indicador de carregamento enquanto busca os templates iniciais
+  if (isInitialLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Modelos de Mensagens WhatsApp</CardTitle>
+          <CardDescription>
+            Carregando modelos de mensagens...
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
