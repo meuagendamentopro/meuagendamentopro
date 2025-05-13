@@ -49,6 +49,46 @@ export class SubscriptionService {
   }
   
   /**
+   * Busca todos os planos de assinatura (incluindo inativos) para o admin
+   */
+  async getAllPlans() {
+    try {
+      const plans = await db.select()
+        .from(subscriptionPlans)
+        .orderBy(subscriptionPlans.price);
+      
+      return plans;
+    } catch (error) {
+      console.error('Erro ao buscar todos os planos de assinatura:', error);
+      throw new Error('Não foi possível buscar os planos de assinatura');
+    }
+  }
+  
+  /**
+   * Atualiza o preço de um plano de assinatura
+   */
+  async updatePlanPrice(id: number, price: number) {
+    try {
+      if (price < 0) {
+        throw new Error('O preço não pode ser negativo');
+      }
+      
+      const [updatedPlan] = await db.update(subscriptionPlans)
+        .set({ 
+          price,
+          updatedAt: new Date()
+        })
+        .where(eq(subscriptionPlans.id, id))
+        .returning();
+      
+      return updatedPlan;
+    } catch (error) {
+      console.error(`Erro ao atualizar preço do plano ${id}:`, error);
+      throw new Error('Não foi possível atualizar o preço do plano');
+    }
+  }
+  
+  /**
    * Gera um pagamento PIX para a renovação de assinatura
    */
   async generatePayment(userId: number, planId: number) {

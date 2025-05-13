@@ -3451,6 +3451,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.sendStatus(200);
     }
   });
+  
+  // Rotas de administração para gerenciar planos de assinatura
+  app.get("/api/admin/subscription/plans", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const plans = await subscriptionService.getAllPlans();
+      res.json(plans);
+    } catch (error: any) {
+      console.error("Erro ao buscar planos de assinatura:", error);
+      res.status(500).json({ error: error.message || "Falha ao buscar planos de assinatura" });
+    }
+  });
+  
+  app.patch("/api/admin/subscription/plans/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { price } = req.body;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "ID de plano inválido" });
+      }
+      
+      if (typeof price !== "number" || isNaN(price)) {
+        return res.status(400).json({ error: "Preço inválido" });
+      }
+      
+      const updatedPlan = await subscriptionService.updatePlanPrice(id, price);
+      res.json(updatedPlan);
+    } catch (error: any) {
+      console.error("Erro ao atualizar preço do plano:", error);
+      res.status(500).json({ error: error.message || "Falha ao atualizar preço do plano" });
+    }
+  });
 
   return httpServer;
 }
