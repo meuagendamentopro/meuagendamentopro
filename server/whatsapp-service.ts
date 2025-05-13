@@ -157,11 +157,24 @@ export async function sendAppointmentReminder(
     // Extrair data e hora formatadas
     const { formattedDate, formattedTime } = extractDateAndTime(appointment.date);
     
+    // Verificar se o agendamento é para hoje ou amanhã
+    const now = new Date();
+    const appointmentDate = new Date(appointment.date);
+    const isSameDay = 
+      appointmentDate.getDate() === now.getDate() && 
+      appointmentDate.getMonth() === now.getMonth() && 
+      appointmentDate.getFullYear() === now.getFullYear();
+    
+    // Texto contextual com base no dia do agendamento
+    const reminderText = isSameDay ? 
+      `Lembrete do seu agendamento hoje com ${provider.name}.` : 
+      `Lembrete do seu agendamento amanhã com ${provider.name}.`;
+    
     // Montar a mensagem
     const message = [
       `Olá ${client.name}!`,
       '',
-      `Lembrete do seu agendamento amanhã com ${provider.name}.`,
+      reminderText,
       '',
       `*Detalhes do agendamento:*`,
       `📅 Data: ${formattedDate}`,

@@ -147,6 +147,78 @@ async function updateExpiredAppointments() {
 }
 
 /**
+ * Verifica agendamentos do dia atual para enviar lembretes
+ */
+async function sendSameDayReminders() {
+  try {
+    const now = new Date();
+    
+    // Pegamos apenas a data atual (início do dia e fim do dia)
+    const startOfToday = startOfDay(now);
+    const endOfToday = endOfDay(now);
+    
+    logger.info(`Verificando agendamentos do dia atual (${formatDateBr(now)}) para lembretes`);
+    
+    // Buscar agendamentos para hoje que estão confirmados e ainda não receberam lembrete
+    const todayAppointments = await db
+      .select({
+        appointment: appointments,
+        service: services,
+        provider: providers,
+        client: clients,
+      })
+      .from(appointments)
+      .innerJoin(services, eq(appointments.serviceId, services.id))
+      .innerJoin(providers, eq(appointments.providerId, providers.id))
+      .innerJoin(clients, eq(appointments.clientId, clients.id))
+      .where(
+        and(
+          gt(appointments.date, startOfToday),
+          lt(appointments.date, endOfToday),
+          gt(appointments.date, now), // Apenas agendamentos futuros do dia atual
+          eq(appointments.status, 'confirmed'),
+          eq(appointments.reminderSent, false)
+        )
+      );
+    
+    if (todayAppointments.length === 0) {
+      logger.info('Nenhum agendamento pendente de lembrete para hoje');
+      return;
+    }
+    
+    logger.info(`Encontrados ${todayAppointments.length} agendamentos para hoje que precisam de lembrete`);
+    
+    // Para cada agendamento, enviar lembrete
+    for (const { appointment, service, provider, client } of todayAppointments) {
+      try {
+        logger.info(`Enviando lembrete para agendamento ${appointment.id} (${formatDateBr(appointment.date, true)})`);
+        
+        // Enviar lembrete via WhatsApp
+        const sent = await sendAppointmentReminder(appointment, service, provider, client);
+        
+        if (sent) {
+          // Atualizar flag de lembrete enviado
+          await db
+            .update(appointments)
+            .set({ reminderSent: true })
+            .where(eq(appointments.id, appointment.id));
+          
+          logger.info(`Lembrete do mesmo dia enviado com sucesso para o agendamento ${appointment.id}`);
+        } else {
+          logger.warn(`Falha ao enviar lembrete do mesmo dia para o agendamento ${appointment.id}`);
+        }
+      } catch (err) {
+        const error = err as Error;
+        logger.error(`Erro ao processar lembrete para agendamento ${appointment.id}: ${error.message}`);
+      }
+    }
+  } catch (err) {
+    const error = err as Error;
+    logger.error(`Erro ao executar verificação de lembretes do mesmo dia: ${error.message}`);
+  }
+}
+
+/**
  * Função principal executada periodicamente
  */
 async function runSchedulerTasks() {
@@ -159,8 +231,11 @@ async function runSchedulerTasks() {
   try {
     logger.info('Iniciando tarefas agendadas');
     
-    // Enviar lembretes para agendamentos
+    // Enviar lembretes para agendamentos do dia seguinte
     await sendReminders();
+    
+    // Enviar lembretes para agendamentos do mesmo dia
+    await sendSameDayReminders();
     
     // Atualizar status de agendamentos expirados
     await updateExpiredAppointments();
