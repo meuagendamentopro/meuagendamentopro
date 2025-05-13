@@ -3469,7 +3469,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Fallback - retornar transações de exemplo para o usuário
+      // Verificar se o usuário está em período de teste (novos usuários recebem 3 dias)
+      // Consideramos que um usuário está em período de teste quando:
+      // 1. Tem data de expiração no futuro
+      // 2. Nunca fez uma assinatura antes (não temos transações reais)
+      // 3. Foi criado há menos de 7 dias (margem de segurança para o período de teste de 3 dias)
+      const userDetails = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+      
+      if (userDetails && userDetails.length > 0) {
+        const userCreatedAt = new Date(userDetails[0].createdAt);
+        const now = new Date();
+        const daysSinceCreation = Math.floor((now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Se o usuário foi criado há menos de 7 dias e não possui assinaturas reais
+        // retornar lista vazia - usuário em período de teste
+        if (daysSinceCreation < 7) {
+          console.log(`Usuário ${userId} está em período de teste (criado há ${daysSinceCreation} dias). Retornando lista vazia.`);
+          return res.json([]);
+        }
+      }
+      
+      // Se não está em período de teste, usar fallback com dados de exemplo
       console.log("Usando dados de fallback para o histórico");
       
       // Obter os planos para associar aos dados de fallback
@@ -3490,23 +3510,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mesPassado = new Date();
       mesPassado.setMonth(mesPassado.getMonth() - 1);
       
-      // IDs fixos para evitar duplicação
+      // Para usuários que não estão em período de teste mas não têm transações reais
+      // mostrar apenas UMA transação de exemplo para evitar duplicação
       const fallbackData = [
-        {
-          id: 1001,
-          userId: userId,
-          planId: plano.id,
-          transactionId: "TX-EXAMPLE-1001",
-          paymentMethod: "pix",
-          status: "paid",
-          amount: plano.price,
-          pixQrCode: null,
-          pixQrCodeBase64: null,
-          pixQrCodeExpiration: null,
-          paidAt: hoje.toISOString(),
-          createdAt: hoje.toISOString(),
-          plan: plano
-        },
         {
           id: 1000,
           userId: userId,
