@@ -3362,6 +3362,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "ID da transação é obrigatório" });
       }
       
+      // Verificar se temos um username na consulta
+      if (req.query.username) {
+        const username = req.query.username as string;
+        console.log(`Verificando status para transação ${transactionId} com username ${username}`);
+        
+        // Buscar usuário pelo username
+        const user = await storage.getUserByUsername(username);
+        if (user) {
+          // Log para debug
+          console.log(`Usuário encontrado: ${user.name} (ID: ${user.id})`);
+        }
+      } else {
+        console.log(`Verificando status para transação ${transactionId} sem username`);
+      }
+      
       const statusData = await subscriptionService.checkPaymentStatus(transactionId);
       res.json(statusData);
     } catch (error: any) {
