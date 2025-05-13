@@ -19,11 +19,6 @@ import AdminPage from "@/pages/admin-page";
 import UsersPage from "@/pages/admin/users-page";
 import RenewSubscriptionPage from "@/pages/renew-subscription";
 import SubscriptionHistoryPage from "@/pages/subscription-history";
-import WhatsAppTestPage from "@/pages/whatsapp-test-page";
-import WhatsAppTemplatesPage from "@/pages/whatsapp-templates-page";
-import WhatsappDirectTestPage from "@/pages/whatsapp-direct-test";
-import WhatsAppDiagnosticPage from "@/pages/whatsapp-diagnostic";
-import WhatsappSimpleTestPage from "@/pages/whatsapp-test-simple";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -303,51 +298,6 @@ function Router() {
         element={
           <MainLayout>
             <SubscriptionHistoryPage />
-          </MainLayout>
-        } 
-      />
-      
-      <ProtectedRoute 
-        path="/whatsapp-test" 
-        element={
-          <MainLayout>
-            <WhatsAppTestPage />
-          </MainLayout>
-        } 
-      />
-      
-      <ProtectedRoute 
-        path="/whatsapp-templates" 
-        element={
-          <MainLayout>
-            <WhatsAppTemplatesPage />
-          </MainLayout>
-        } 
-      />
-
-      <ProtectedRoute 
-        path="/whatsapp-direct-test" 
-        element={
-          <MainLayout>
-            <WhatsappDirectTestPage />
-          </MainLayout>
-        } 
-      />
-      
-      <ProtectedRoute 
-        path="/whatsapp-diagnostic" 
-        element={
-          <MainLayout>
-            <WhatsAppDiagnosticPage />
-          </MainLayout>
-        } 
-      />
-      
-      <ProtectedRoute 
-        path="/whatsapp-test-simple" 
-        element={
-          <MainLayout>
-            <WhatsappSimpleTestPage />
           </MainLayout>
         } 
       />

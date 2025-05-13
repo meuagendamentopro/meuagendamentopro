@@ -6,10 +6,6 @@ import multer from "multer";
 import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { SubscriptionService } from './subscription-service';
-import { saveNotificationSettings, getNotificationSettings, NotificationSettings } from './notification-settings';
-import twilio from 'twilio';
-import { isValidPhoneNumber } from './utils';
-import logger from './logger';
 import { 
   insertServiceSchema, 
   insertClientSchema, 
@@ -36,9 +32,6 @@ import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import passport from "passport";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
-import { handleTestWhatsAppSend } from './routes/test-whatsapp';
-import { sendAppointmentConfirmation } from './whatsapp-service';
-import { getWhatsAppTemplates, saveWhatsAppTemplates, WhatsAppTemplates } from './whatsapp-templates';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
@@ -751,8 +744,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Você não tem um perfil de prestador de serviços configurado."
         });
       }
-
-      // Adiciona o provider ao objeto request para uso nas rotas
+      
+      // Adiciona o provider à requisição para uso nas rotas subsequentes
       (req as any).provider = provider;
       next();
     } catch (error) {
@@ -2587,32 +2580,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Enviar confirmação via WhatsApp
-      try {
-        // Buscar serviço e provider para compor a mensagem
-        const service = await storage.getService(appointment.serviceId);
-        const provider = await storage.getProvider(appointment.providerId);
-        
-        if (service && provider && client) {
-          // Tentar enviar a mensagem
-          const sent = await sendAppointmentConfirmation(
-            appointment, 
-            service, 
-            provider, 
-            client
-          );
-          
-          if (sent) {
-            console.log(`✓ Confirmação WhatsApp enviada para ${client.phone} (agendamento #${appointment.id})`);
-          } else {
-            console.log(`! Não foi possível enviar confirmação WhatsApp para ${client.phone} (agendamento #${appointment.id})`);
-          }
-        } else {
-          console.error(`Dados incompletos para envio de WhatsApp: service=${!!service}, provider=${!!provider}, client=${!!client}`);
-        }
-      } catch (error) {
-        console.error("Erro ao enviar confirmação de agendamento via WhatsApp:", error);
-      }
+      // Aqui enviaríamos uma confirmação via WhatsApp
+      console.log(`Agendamento ${appointment.id} criado com sucesso! Confirmação seria enviada para ${client.phone}.`);
       
       res.status(201).json({
         success: true,
@@ -2883,132 +2852,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao excluir exclusão de horário:", error);
       res.status(500).json({ message: "Erro ao excluir exclusão de horário" });
-    }
-  });
-
-  // ============== Rotas para Configurações de Notificação WhatsApp ==============
-  
-  // Obter configurações de notificação do provider
-  app.get("/api/notification-settings", (req: Request, res: Response, next: NextFunction) => {
-    console.log("=== DEBUG: Requisição recebida para /api/notification-settings ===");
-    console.log("=== DEBUG: URL completa:", req.originalUrl);
-    console.log("=== DEBUG: Método:", req.method);
-    console.log("=== DEBUG: Usuário autenticado?", req.isAuthenticated());
-    console.log("=== DEBUG: ID do usuário:", req.user?.id);
-    console.log("=== DEBUG: Headers:", req.headers);
-    if (req.isAuthenticated()) {
-      next();
-    } else {
-      res.status(401).json({ error: "Não autenticado" });
-    }
-  }, async (req: Request, res: Response) => {
-    try {
-      if (!req.user || !req.user.id) {
-        return res.status(401).json({ error: "Não autenticado" });
-      }
-      
-      // Busca o provider associado ao usuário atual
-      const provider = await storage.getProviderByUserId(req.user.id);
-      
-      if (!provider) {
-        return res.status(404).json({ 
-          error: "Perfil de prestador não encontrado", 
-          message: "Você não tem um perfil de prestador de serviços configurado."
-        });
-      }
-      
-      console.log("Provider encontrado:", provider.id);
-      const settings = await getNotificationSettings(provider.id);
-      console.log("Configurações obtidas:", {
-        enableWhatsApp: settings.enableWhatsApp,
-        hasSid: !!settings.accountSid,
-        hasToken: !!settings.authToken,
-        hasPhone: !!settings.phoneNumber
-      });
-      res.json(settings);
-    } catch (error) {
-      console.error("Erro ao obter configurações de notificação:", error);
-      res.status(500).json({ 
-        error: "Erro ao obter configurações de notificação",
-        message: "Não foi possível recuperar as configurações de notificação. Tente novamente."
-      });
-    }
-  });
-  
-  // Atualizar configurações de notificação do provider
-  app.post("/api/notification-settings", loadUserProvider, async (req: Request, res: Response) => {
-    try {
-      const provider = (req as any).provider;
-      const settings: NotificationSettings = req.body;
-      
-      const result = await saveNotificationSettings(provider.id, settings);
-      
-      if (!result.success) {
-        return res.status(400).json({ 
-          error: "Erro ao salvar configurações",
-          message: result.message || "Não foi possível salvar as configurações de notificação."
-        });
-      }
-      
-      res.json({ 
-        success: true, 
-        message: "Configurações de notificação atualizadas com sucesso" 
-      });
-    } catch (error) {
-      console.error("Erro ao salvar configurações de notificação:", error);
-      res.status(500).json({ 
-        error: "Erro ao salvar configurações de notificação",
-        message: "Ocorreu um erro ao salvar as configurações. Tente novamente."
-      });
-    }
-  });
-  
-  // Testar credenciais do Twilio
-  app.post("/api/notification-settings/test", loadUserProvider, async (req: Request, res: Response) => {
-    try {
-      const { accountSid, authToken, phoneNumber } = req.body;
-      
-      // Validar os campos obrigatórios
-      if (!accountSid || !authToken || !phoneNumber) {
-        return res.status(400).json({
-          error: "Campos obrigatórios ausentes",
-          message: "É necessário fornecer Account SID, Auth Token e número de telefone."
-        });
-      }
-      
-      // Validar número de telefone
-      if (!isValidPhoneNumber(phoneNumber)) {
-        return res.status(400).json({
-          error: "Número de telefone inválido",
-          message: "O número de telefone deve estar no formato internacional (Ex: +5511999999999)."
-        });
-      }
-      
-      // Tentar criar um cliente Twilio com as credenciais fornecidas
-      try {
-        const twilioClient = twilio(accountSid, authToken);
-        // Tentar buscar a conta para verificar as credenciais
-        await twilioClient.api.accounts(accountSid).fetch();
-        
-        // Se chegou aqui, as credenciais são válidas
-        res.json({
-          success: true,
-          message: "Credenciais do Twilio verificadas com sucesso."
-        });
-      } catch (err) {
-        const error = err as Error;
-        logger.error(`Erro ao validar credenciais do Twilio: ${error.message}`);
-        return res.status(400).json({
-          error: "Credenciais inválidas",
-          message: "As credenciais do Twilio fornecidas são inválidas. Verifique Account SID e Auth Token."
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao testar credenciais Twilio:", error);
-      res.status(500).json({
-        error: "Erro interno",
-        message: "Ocorreu um erro ao testar as credenciais. Tente novamente."
-      });
     }
   });
 
@@ -3760,156 +3603,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Erro ao atualizar preço do plano:", error);
       res.status(500).json({ error: error.message || "Falha ao atualizar preço do plano" });
-    }
-  });
-
-  // Rota para testar envio de mensagem WhatsApp
-  app.post("/api/test-whatsapp-send", handleTestWhatsAppSend);
-
-  // ============== Rotas para Templates de Mensagens WhatsApp ==============
-  
-  // Rota para diagnóstico completo de WhatsApp
-  app.post("/api/whatsapp/diagnostic", loadUserProvider, async (req: Request, res: Response) => {
-    try {
-      // Importar o módulo diretamente em vez de usar require
-      import('./routes/diagnostic-test').then(async (module) => {
-        try {
-          await module.handleDiagnosticTest(req, res);
-        } catch (innerError) {
-          const err = innerError as Error;
-          logger.error(`Erro ao executar diagnóstico WhatsApp: ${err.message}`);
-          res.status(500).json({
-            success: false,
-            message: `Erro ao executar diagnóstico: ${err.message}`
-          });
-        }
-      }).catch((importError) => {
-        logger.error(`Erro ao importar módulo de diagnóstico: ${importError.message}`);
-        res.status(500).json({
-          success: false,
-          message: `Erro ao carregar módulo de diagnóstico: ${importError.message}`
-        });
-      });
-    } catch (error) {
-      const err = error as Error;
-      logger.error(`Erro ao preparar diagnóstico WhatsApp: ${err.message}`);
-      res.status(500).json({
-        success: false,
-        message: `Erro ao preparar diagnóstico: ${err.message}`
-      });
-    }
-  });
-
-  // Rota para enviar mensagem de teste diretamente via WhatsApp
-  app.post("/api/whatsapp/test-send", loadUserProvider, async (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ success: false, message: 'Não autenticado' });
-      }
-
-      const provider = (req as any).provider;
-      if (!provider || !provider.id) {
-        return res.status(403).json({ success: false, message: 'Nenhum provedor associado à conta' });
-      }
-
-      const { phone, message } = req.body;
-
-      if (!phone || !message) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Número de telefone e mensagem são obrigatórios'
-        });
-      }
-
-      // Obter configurações do WhatsApp do provedor
-      const settings = await getNotificationSettings(provider.id);
-      
-      if (!settings.enableWhatsApp || !settings.accountSid || !settings.authToken || !settings.phoneNumber) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'WhatsApp não está configurado corretamente. Verifique suas configurações de notificação.'
-        });
-      }
-
-      // Inicializar cliente Twilio
-      const twilioClient = twilio(settings.accountSid, settings.authToken);
-
-      // Para contas sandbox do Twilio, é NECESSÁRIO usar o número do sandbox
-      const from = 'whatsapp:+14155238886';
-      
-      // Formatar número de destino
-      let formattedPhone = phone;
-      if (!formattedPhone.startsWith('+')) {
-        formattedPhone = '+' + formattedPhone.replace(/^\+/, '');
-      }
-      if (!formattedPhone.startsWith('whatsapp:')) {
-        formattedPhone = 'whatsapp:' + formattedPhone;
-      }
-
-      logger.info(`Enviando mensagem de teste WhatsApp de ${from} para ${formattedPhone}`);
-
-      // Enviar mensagem
-      const result = await twilioClient.messages.create({
-        body: message,
-        from: from,
-        to: formattedPhone
-      });
-
-      logger.info(`Mensagem de teste enviada com sucesso. SID: ${result.sid}`);
-
-      // Retorna sucesso com SID da mensagem
-      res.status(200).json({
-        success: true,
-        message: 'Mensagem enviada com sucesso. Verifique o celular informado.',
-        sid: result.sid
-      });
-    } catch (err) {
-      const error = err as Error;
-      logger.error(`Erro ao enviar mensagem de teste: ${error.message}`);
-      
-      // Retornar erro formatado para o cliente
-      res.status(500).json({
-        success: false,
-        message: `Erro ao enviar mensagem: ${error.message}`
-      });
-    }
-  });
-  
-  // Obter templates de mensagens WhatsApp
-  app.get("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
-    if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
-
-    const provider = (req as any).provider;
-    if (!provider || !provider.id) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
-
-    try {
-      const templates = await getWhatsAppTemplates(provider.id);
-      res.status(200).json(templates);
-    } catch (error) {
-      logger.error(`Erro ao buscar templates de WhatsApp: ${error}`);
-      res.status(500).json({ message: 'Erro ao buscar templates de WhatsApp' });
-    }
-  });
-
-  // Salvar templates de mensagens WhatsApp
-  app.post("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
-    if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
-
-    const provider = (req as any).provider;
-    if (!provider || !provider.id) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
-
-    try {
-      const templates = req.body as WhatsAppTemplates;
-      const success = await saveWhatsAppTemplates(provider.id, templates);
-      
-      if (success) {
-        res.status(200).json({ message: 'Templates de WhatsApp salvos com sucesso' });
-      } else {
-        res.status(500).json({ message: 'Erro ao salvar templates de WhatsApp' });
-      }
-    } catch (error) {
-      logger.error(`Erro ao salvar templates de WhatsApp: ${error}`);
-      res.status(500).json({ message: 'Erro ao salvar templates de WhatsApp' });
     }
   });
 

@@ -66,20 +66,6 @@ export const providers = pgTable("providers", {
   pixWebhookSecret: text("pix_webhook_secret"), // Segredo para validação de webhooks
   pixMercadoPagoToken: text("pix_mercadopago_token"), // Token de acesso do Mercado Pago específico do provedor
   pixIdentificationNumber: text("pix_identification_number"), // Número de CPF/CNPJ para identificação no Mercado Pago
-  // Campos para notificações WhatsApp/Twilio
-  whatsappEnabled: boolean("whatsapp_enabled").default(false),
-  twilioAccountSid: text("twilio_account_sid"),
-  twilioAuthToken: text("twilio_auth_token"),
-  twilioPhoneNumber: text("twilio_phone_number"),
-  enableAppointmentConfirmation: boolean("enable_appointment_confirmation").default(true),
-  enableAppointmentReminder: boolean("enable_appointment_reminder").default(true),
-  enableCancellationNotice: boolean("enable_cancellation_notice").default(true),
-  // Templates de mensagens WhatsApp
-  whatsappTemplateConfirmation: text("whatsapp_template_confirmation"),
-  whatsappTemplateReminder: text("whatsapp_template_reminder"),
-  whatsappTemplateSameDayReminder: text("whatsapp_template_same_day_reminder"),
-  whatsappTemplateCancellation: text("whatsapp_template_cancellation"),
-  whatsappTemplateReschedule: text("whatsapp_template_reschedule"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -238,7 +224,6 @@ export const appointments = pgTable("appointments", {
   pixQrCode: text("pix_qr_code"), // QR Code para pagamento
   pixQrCodeExpiration: timestamp("pix_qr_code_expiration"), // Expiração do QR Code
   pixPaymentDate: timestamp("pix_payment_date"), // Data do pagamento
-  reminderSent: boolean("reminder_sent").default(false).notNull(), // Flag para controlar envio de lembretes
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -293,7 +278,6 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
     pixQrCode: true,
     pixQrCodeExpiration: true,
     pixPaymentDate: true,
-    reminderSent: true,
   })
   .transform((data) => {
     // Garantir que status e notes nunca são undefined
