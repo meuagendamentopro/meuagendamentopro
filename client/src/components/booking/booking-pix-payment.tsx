@@ -236,8 +236,8 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
         setPixData(updatedPixData);
       }
       
-      // Se o pagamento foi concluído (confirmed ou paid)
-      if (newStatus === "confirmed" || newStatus === "paid") {
+      // Se o pagamento foi concluído (confirmed, paid ou approved)
+      if (newStatus === "confirmed" || newStatus === "paid" || newStatus === "approved") {
         if (checkTimer) clearInterval(checkTimer);
         toast({
           title: "Pagamento confirmado!",

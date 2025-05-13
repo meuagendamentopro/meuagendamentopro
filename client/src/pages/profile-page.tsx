@@ -177,13 +177,14 @@ export default function ProfilePage() {
       });
       
       // Atualizar o cache do usuário com os dados atualizados
-      // Mantenha os dados do usuário existentes e apenas atualize a propriedade avatarUrl
-      queryClient.setQueryData(["/api/user"], (oldData: any) => {
-        return { ...oldData, avatarUrl: null };
-      });
+      // Forçar atualização completa através de invalidação do cache
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       
       // Limpar a prévia
       setAvatarPreview(null);
+      
+      // Forçar o refresh da página para garantir que a interface seja atualizada
+      window.location.reload();
     },
     onError: (error: Error) => {
       toast({
