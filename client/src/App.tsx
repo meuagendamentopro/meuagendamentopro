@@ -323,6 +323,24 @@ function Router() {
           </MainLayout>
         } 
       />
+
+      <ProtectedRoute 
+        path="/whatsapp-direct-test" 
+        element={
+          <MainLayout>
+            <WhatsappDirectTestPage />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/whatsapp-diagnostic" 
+        element={
+          <MainLayout>
+            <WhatsAppDiagnosticPage />
+          </MainLayout>
+        } 
+      />
       
       <AdminRoute 
         path="/admin" 

@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, MessageSquare } from "lucide-react";
+import { InfoIcon, MessageSquare, TestTube, Stethoscope } from "lucide-react";
 import { Link } from "wouter";
 
 // Tipo para as configurações de notificação
@@ -320,18 +320,37 @@ export default function WhatsAppSettings() {
         </div>
       )}
       
-      <div className="flex justify-between space-x-2 pt-4">
-        <Button 
-          type="button" 
-          variant="outline" 
-          asChild
-          disabled={!settings.enableWhatsApp}
-        >
-          <Link href="/whatsapp-templates">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Personalizar Modelos de Mensagens
-          </Link>
-        </Button>
+      <div className="border rounded-lg p-4 bg-slate-50">
+        <h3 className="font-medium text-base mb-3">Ferramentas de Diagnóstico</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Utilize estas ferramentas para verificar problemas com o envio de mensagens WhatsApp
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Button variant="outline" asChild>
+            <Link href="/whatsapp-templates">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Templates de Mensagens
+            </Link>
+          </Button>
+          
+          <Button variant="outline" asChild>
+            <Link href="/whatsapp-direct-test">
+              <TestTube className="h-4 w-4 mr-2" />
+              Teste Direto de Mensagem
+            </Link>
+          </Button>
+          
+          <Button variant="outline" asChild>
+            <Link href="/whatsapp-diagnostic">
+              <Stethoscope className="h-4 w-4 mr-2" />
+              Diagnóstico Completo
+            </Link>
+          </Button>
+        </div>
+      </div>
+      
+      <div className="flex justify-end space-x-2 pt-4">
         <Button 
           type="button" 
           onClick={saveSettings}

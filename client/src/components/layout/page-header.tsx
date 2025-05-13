@@ -2,32 +2,28 @@ import React from "react";
 
 export interface PageHeaderProps {
   title: string;
-  description?: string | React.ReactNode;
+  description?: string;
   children?: React.ReactNode;
-  icon?: React.ReactNode;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ title, description, children, icon }) => {
+export default function PageHeader({ 
+  title, 
+  description, 
+  children 
+}: PageHeaderProps) {
   return (
-    <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center">
-        {icon && (
-          <div className="mr-4 p-2 bg-primary-50 rounded-lg text-primary">
-            {icon}
-          </div>
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
+        {description && (
+          <p className="text-sm text-muted-foreground mt-1">{description}</p>
         )}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {description && (
-            <div className="text-gray-500 mt-1">
-              {description}
-            </div>
-          )}
-        </div>
       </div>
-      {children && <div className="mt-4 sm:mt-0">{children}</div>}
+      {children && (
+        <div className="flex items-center gap-2">
+          {children}
+        </div>
+      )}
     </div>
   );
-};
-
-export default PageHeader;
+}
