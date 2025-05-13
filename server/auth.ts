@@ -443,10 +443,16 @@ export function setupAuth(app: Express) {
       if (!user) {
         // Verificar se a falha é devido à assinatura expirada
         if (info && info.expired) {
+          // Busca o usuário para obter informações adicionais
+          const username = req.body.username;
+          const user = await storage.getUserByUsername(username);
+          
           return res.status(401).json({
             error: info.message || "Assinatura expirada",
             expired: true,
-            renewUrl: '/renew-subscription'
+            username: username,
+            name: user?.name || '',
+            renewUrl: `/renew-subscription?username=${encodeURIComponent(username)}`
           });
         }
         

@@ -94,6 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Verificar se é um erro de assinatura expirada
         if (res.status === 401 && errorData.expired) {
+          // Redirecionar para página de renovação com informações do usuário
+          if (errorData.username) {
+            window.location.href = `/renew-subscription?username=${encodeURIComponent(errorData.username)}`;
+            // Retornamos uma Promise que nunca resolve para interromper o fluxo
+            return new Promise(() => {});
+          }
+          
           const error = new Error(errorData.error || "Assinatura expirada");
           const customError: any = error;
           customError.response = {
