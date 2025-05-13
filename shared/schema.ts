@@ -309,6 +309,57 @@ export const bookingFormSchema = z.object({
 
 // Deixa estas linhas vazias para remover as duplicações
 
+// Tabela de planos de assinatura
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),             // Nome do plano (ex: Mensal, Trimestral, Anual)
+  description: text("description"),         // Descrição opcional do plano
+  durationMonths: integer("duration_months").notNull(), // Duração em meses
+  price: integer("price").notNull(),        // Preço em centavos
+  isActive: boolean("is_active").default(true).notNull(), // Se o plano está ativo para compra
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Schema de inserção para planos de assinatura
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).pick({
+  name: true,
+  description: true,
+  durationMonths: true,
+  price: true,
+  isActive: true,
+});
+
+// Tabela de transações de assinatura
+export const subscriptionTransactions = pgTable("subscription_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  planId: integer("plan_id").notNull().references(() => subscriptionPlans.id, { onDelete: 'restrict' }),
+  transactionId: text("transaction_id"), // ID da transação de pagamento
+  paymentMethod: text("payment_method").notNull().default("pix"), // Método de pagamento
+  status: text("status").notNull().default("pending"), // pending, paid, failed, cancelled
+  amount: integer("amount").notNull(), // Valor pago em centavos
+  pixQrCode: text("pix_qr_code"), // QR Code PIX (se aplicável)
+  pixQrCodeBase64: text("pix_qr_code_base64"), // QR Code PIX em Base64 (se aplicável)
+  pixQrCodeExpiration: timestamp("pix_qr_code_expiration"), // Expiração do QR Code
+  paidAt: timestamp("paid_at"), // Data do pagamento
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Schema de inserção para transações de assinatura
+export const insertSubscriptionTransactionSchema = createInsertSchema(subscriptionTransactions).pick({
+  userId: true,
+  planId: true,
+  transactionId: true,
+  paymentMethod: true,
+  status: true,
+  amount: true,
+  pixQrCode: true,
+  pixQrCodeBase64: true,
+  pixQrCodeExpiration: true,
+  paidAt: true,
+});
+
 // Tabela de notificações para alertar os profissionais sobre novos agendamentos
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
@@ -433,6 +484,12 @@ export type InsertProviderClient = z.infer<typeof insertProviderClientSchema>;
 
 export type TimeExclusion = typeof timeExclusions.$inferSelect;
 export type InsertTimeExclusion = z.infer<typeof insertTimeExclusionSchema>;
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+
+export type SubscriptionTransaction = typeof subscriptionTransactions.$inferSelect;
+export type InsertSubscriptionTransaction = z.infer<typeof insertSubscriptionTransactionSchema>;
 
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;

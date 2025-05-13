@@ -128,6 +128,37 @@ async function main() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
     `);
+    
+    // Criação das tabelas de assinatura
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS subscription_plans (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        duration_months INTEGER NOT NULL,
+        price INTEGER NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS subscription_transactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        plan_id INTEGER NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+        transaction_id TEXT,
+        payment_method TEXT NOT NULL DEFAULT 'pix',
+        status TEXT NOT NULL DEFAULT 'pending',
+        amount INTEGER NOT NULL,
+        pix_qr_code TEXT,
+        pix_qr_code_base64 TEXT,
+        pix_qr_code_expiration TIMESTAMP,
+        paid_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
 
     console.log('Tabelas criadas com sucesso!');
 
