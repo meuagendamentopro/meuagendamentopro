@@ -224,6 +224,7 @@ export const appointments = pgTable("appointments", {
   pixQrCode: text("pix_qr_code"), // QR Code para pagamento
   pixQrCodeExpiration: timestamp("pix_qr_code_expiration"), // Expiração do QR Code
   pixPaymentDate: timestamp("pix_payment_date"), // Data do pagamento
+  reminderSent: boolean("reminder_sent").default(false).notNull(), // Flag para controlar envio de lembretes
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -278,6 +279,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
     pixQrCode: true,
     pixQrCodeExpiration: true,
     pixPaymentDate: true,
+    reminderSent: true,
   })
   .transform((data) => {
     // Garantir que status e notes nunca são undefined

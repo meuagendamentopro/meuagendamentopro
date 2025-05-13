@@ -1,6 +1,6 @@
 import { Twilio } from 'twilio';
 import { Appointment, Service, Provider, Client } from '../shared/schema';
-import { formatDate, formatTime } from './utils';
+import { formatDate, formatTime, formatCurrency, extractDateAndTime } from './utils';
 import logger from './logger';
 
 // Verificar se as credenciais do Twilio estão configuradas
@@ -79,13 +79,20 @@ export async function sendAppointmentConfirmation(
     return false;
   }
 
+  // Extrair data e hora do appointment
+  const { appointmentDate, appointmentTime } = extractDateAndTime(appointment);
+  
+  // Calcular valor total (se disponível)
+  const totalPrice = appointment.paymentAmount || service.price;
+  const formattedPrice = totalPrice ? formatCurrency(totalPrice / 100) : '';
+
   const message = `Olá, ${client.name}! Seu agendamento foi confirmado.
 
 📅 *Serviço*: ${service.name}
-📆 *Data*: ${formatDate(appointment.appointmentDate)}
-⏰ *Horário*: ${formatTime(appointment.appointmentTime)}
+📆 *Data*: ${formatDate(appointmentDate)}
+⏰ *Horário*: ${appointmentTime}
 👨‍💼 *Profissional*: ${provider.name}
-${appointment.totalPrice ? `💰 *Valor*: R$ ${appointment.totalPrice.toFixed(2)}` : ''}
+${formattedPrice ? `💰 *Valor*: ${formattedPrice}` : ''}
 
 ${appointment.pixQrCode ? `Um pagamento via PIX foi gerado e está disponível no seu agendamento.` : ''}
 
@@ -108,14 +115,17 @@ export async function sendAppointmentReminder(
     logger.warn(`Cliente ${client.name} não possui telefone. Lembrete WhatsApp não enviado.`);
     return false;
   }
+  
+  // Extrair data e hora do appointment
+  const { appointmentDate, appointmentTime } = extractDateAndTime(appointment);
 
   const message = `Olá, ${client.name}! Lembrete do seu agendamento para amanhã.
 
 📅 *Serviço*: ${service.name}
-📆 *Data*: ${formatDate(appointment.appointmentDate)}
-⏰ *Horário*: ${formatTime(appointment.appointmentTime)}
+📆 *Data*: ${formatDate(appointmentDate)}
+⏰ *Horário*: ${appointmentTime}
 👨‍💼 *Profissional*: ${provider.name}
-📍 *Local*: ${provider.address || 'Endereço não informado'}
+📍 *Local*: ${provider.phone || 'Contato não informado'}
 
 ${appointment.notes ? `📝 *Observações*: ${appointment.notes}` : ''}
 
@@ -139,12 +149,15 @@ export async function sendAppointmentCancellation(
     logger.warn(`Cliente ${client.name} não possui telefone. Notificação de cancelamento não enviada.`);
     return false;
   }
+  
+  // Extrair data e hora do appointment
+  const { appointmentDate, appointmentTime } = extractDateAndTime(appointment);
 
   const message = `Olá, ${client.name}. O seu agendamento foi cancelado.
 
 📅 *Serviço*: ${service.name}
-📆 *Data*: ${formatDate(appointment.appointmentDate)}
-⏰ *Horário*: ${formatTime(appointment.appointmentTime)}
+📆 *Data*: ${formatDate(appointmentDate)}
+⏰ *Horário*: ${appointmentTime}
 ${reason ? `📝 *Motivo*: ${reason}` : ''}
 
 Entre em contato conosco para reagendar em outra data/horário.
