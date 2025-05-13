@@ -2856,6 +2856,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============== Rotas para Configurações de Notificação WhatsApp ==============
+  
+  // Obter configurações de notificação do provider
+  app.get("/api/notification-settings", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const provider = (req as any).provider;
+      const settings = await getNotificationSettings(provider.id);
+      res.json(settings);
+    } catch (error) {
+      console.error("Erro ao obter configurações de notificação:", error);
+      res.status(500).json({ 
+        error: "Erro ao obter configurações de notificação",
+        message: "Não foi possível recuperar as configurações de notificação. Tente novamente."
+      });
+    }
+  });
+  
+  // Atualizar configurações de notificação do provider
+  app.post("/api/notification-settings", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const provider = (req as any).provider;
+      const settings: NotificationSettings = req.body;
+      
+      const result = await saveNotificationSettings(provider.id, settings);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: "Erro ao salvar configurações",
+          message: result.message || "Não foi possível salvar as configurações de notificação."
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Configurações de notificação atualizadas com sucesso" 
+      });
+    } catch (error) {
+      console.error("Erro ao salvar configurações de notificação:", error);
+      res.status(500).json({ 
+        error: "Erro ao salvar configurações de notificação",
+        message: "Ocorreu um erro ao salvar as configurações. Tente novamente."
+      });
+    }
+  });
+
   // Rota para verificação de código
   app.post("/api/verify-code", async (req: Request, res: Response) => {
     try {

@@ -12,7 +12,7 @@ import { providers } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import logger from './logger';
 import { isValidPhoneNumber } from './utils';
-import { Twilio } from 'twilio';
+import twilio from 'twilio';
 
 // Interface para configurações de notificação
 export interface NotificationSettings {
