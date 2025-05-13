@@ -21,9 +21,11 @@ import {
   timeExclusions,
   InsertProvider,
   insertProviderSchema,
-  InsertTimeExclusion
+  InsertTimeExclusion,
+  subscriptionPlans,
+  subscriptionTransactions
 } from "@shared/schema";
-import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
+import { and, eq, gt, gte, lte, ne, sql, desc } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import passport from "passport";
@@ -3444,41 +3446,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       
-      // Buscar direto no banco de dados para garantir consistência
-      const transactions = await db.select()
-        .from(subscriptionTransactions)
-        .where(eq(subscriptionTransactions.userId, userId))
-        .orderBy(desc(subscriptionTransactions.createdAt));
-        
+      // Usar o serviço de assinaturas para buscar o histórico
+      const subscriptionService = new SubscriptionService();
+      const transactions = await subscriptionService.getUserSubscriptionHistory(userId);
+      
       console.log(`Histórico de assinaturas para o usuário ${userId}: ${transactions.length} transações encontradas`);
       
-      // Se não houver transações, retorna array vazio
-      if (transactions.length === 0) {
-        return res.json([]);
-      }
-      
-      // Buscar planos para associar às transações
-      const plans = await db.select().from(subscriptionPlans);
-      
-      // Associar planos às transações
-      const history = transactions.map(transaction => {
-        const plan = plans.find(p => p.id === transaction.planId);
-        return {
-          ...transaction,
-          plan: plan || {
-            id: transaction.planId,
-            name: "Plano não encontrado",
-            description: null,
-            durationMonths: 1,
-            price: transaction.amount,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }
-        };
-      });
-      
-      res.json(history);
+      res.json(transactions);
     } catch (error: any) {
       console.error("Erro ao buscar histórico de assinaturas:", error);
       res.status(500).json({ message: error.message || "Erro ao buscar histórico de assinaturas" });
