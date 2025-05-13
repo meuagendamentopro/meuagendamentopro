@@ -83,12 +83,12 @@ export default function RenewSubscriptionPage() {
   
   useEffect(() => {
     // Verificar se o usuário já está autenticado
-    if (user) {
-      console.log('Usuário já está autenticado:', user);
+    if (authUser) {
+      console.log('Usuário já está autenticado:', authUser);
       
       // Se o usuário tem assinatura expirada, podemos usar diretamente
       // @ts-ignore - Propriedade adicionada pelo backend
-      if (user.subscriptionExpired) {
+      if (authUser.subscriptionExpired) {
         console.log('Usuário autenticado com assinatura expirada');
         // Não precisa fazer nada, já temos os dados do usuário
       }
@@ -132,7 +132,7 @@ export default function RenewSubscriptionPage() {
       
       fetchUserInfo();
     }
-  }, [location, user]);
+  }, [location, authUser]);
   
   // Formatar preço em reais
   const formatCurrency = (valueInCents: number) => {
@@ -147,7 +147,7 @@ export default function RenewSubscriptionPage() {
     setSelectedPlanId(planId);
     
       console.log("Selecionando plano, estado atual:", {
-      usuarioLogado: user ? `ID: ${user.id}` : 'Não',
+      usuarioLogado: authUser ? `ID: ${authUser.id}` : 'Não',
       usuarioExpirado: expiredUser ? `ID: ${expiredUser.id || 'indefinido'}` : 'Não',
       urlUserId: urlUserId || 'Não definido',
       credenciais: credentials ? 'Definidas' : 'Não definidas'
@@ -746,10 +746,10 @@ export default function RenewSubscriptionPage() {
         )}
         
         {/* Mensagem sobre expiração da assinatura */}
-        {(user?.subscriptionExpiry || expiredUser?.subscriptionExpiry) && (
+        {(authUser?.subscriptionExpiry || expiredUser?.subscriptionExpiry) && (
           <div className="inline-block bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm">
             <p className="font-medium text-yellow-800">
-              Sua assinatura expirou em {new Date(user?.subscriptionExpiry || expiredUser?.subscriptionExpiry).toLocaleDateString('pt-BR')}
+              Sua assinatura expirou em {new Date(authUser?.subscriptionExpiry || expiredUser?.subscriptionExpiry).toLocaleDateString('pt-BR')}
             </p>
           </div>
         )}
