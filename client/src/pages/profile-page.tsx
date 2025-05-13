@@ -68,15 +68,27 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatarUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Adicionando logs para debug
+  console.log('User role:', user?.role);
+  console.log('Is query enabled?', user?.role === 'provider');
+  
   // Consulta para buscar configurações de notificação
-  const { data: notificationSettings, isLoading: isLoadingNotificationSettings } = useQuery<NotificationSettingsValues>({
+  const { data: notificationSettings, isLoading: isLoadingNotificationSettings, error: notificationError } = useQuery<NotificationSettingsValues>({
     queryKey: ['/api/notification-settings'],
-    enabled: user?.role === 'provider',
-    refetchOnMount: true, // Garante recarregar os dados ao montar o componente
+    enabled: !!user && user.role === 'provider',
+    refetchOnMount: 'always', // Sempre recarregar os dados ao montar o componente
     refetchOnWindowFocus: true, // Recarrega ao focar na janela
     staleTime: 0, // Considera os dados sempre obsoletos para forçar nova requisição
-    retry: 3 // Tenta mais vezes em caso de falha
+    retry: 3, // Tenta mais vezes em caso de falha
+    refetchInterval: 5000 // Recarrega a cada 5 segundos
   });
+  
+  // Log quaisquer erros na consulta
+  useEffect(() => {
+    if (notificationError) {
+      console.error('Erro ao buscar configurações de notificação:', notificationError);
+    }
+  }, [notificationError]);
   
   // Efeito para carregar configurações quando os dados estiverem disponíveis
   useEffect(() => {
