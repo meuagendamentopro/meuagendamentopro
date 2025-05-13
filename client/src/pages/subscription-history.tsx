@@ -229,23 +229,38 @@ export default function SubscriptionHistoryPage() {
         </div>
       </div>
 
-      {/* Seção de Renovação Antecipada - Apenas para assinaturas que não estão em período de teste */}
-      {user && user.subscriptionExpiry && !isInTrialPeriod(user) && (
+      {/* Seção de Renovação Antecipada - Para todos os usuários, incluindo período de teste */}
+      {user && (
         <div className="mb-6">
           <Alert 
             className="bg-muted hover:bg-muted/80 cursor-pointer transition-colors"
             onClick={() => navigate('/renew-subscription')}
           >
-            <CalendarPlus className="h-5 w-5" />
-            <AlertTitle>Renovação Antecipada</AlertTitle>
+            {isInTrialPeriod(user) ? <Gift className="h-5 w-5" /> : <CalendarPlus className="h-5 w-5" />}
+            <AlertTitle>
+              {isInTrialPeriod(user) ? "Assine um plano" : "Renovação Antecipada"}
+            </AlertTitle>
             <AlertDescription className="mt-2">
               <div className="flex flex-col gap-3">
                 <p>
-                  Sua assinatura atual expira em {" "}
-                  <span className="font-semibold">
-                    {new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR')}
-                  </span>
-                  . Renove antecipadamente e mantenha seu acesso sem interrupções.
+                  {isInTrialPeriod(user) ? (
+                    <>
+                      Você está em <span className="font-semibold">período de teste</span>. 
+                      Assine agora um plano para manter seu acesso após o período de teste.
+                    </>
+                  ) : user.subscriptionExpiry ? (
+                    <>
+                      Sua assinatura atual expira em {" "}
+                      <span className="font-semibold">
+                        {user.subscriptionExpiry ? new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR') : 'N/A'}
+                      </span>
+                      . Renove antecipadamente e mantenha seu acesso sem interrupções.
+                    </>
+                  ) : (
+                    <>
+                      Assine um plano para continuar utilizando o sistema sem interrupções.
+                    </>
+                  )}
                 </p>
                 <Button
                   variant="default"
@@ -255,7 +270,7 @@ export default function SubscriptionHistoryPage() {
                     navigate('/renew-subscription');
                   }}
                 >
-                  Renovar agora
+                  {isInTrialPeriod(user) ? "Assinar agora" : "Renovar agora"}
                 </Button>
               </div>
             </AlertDescription>
