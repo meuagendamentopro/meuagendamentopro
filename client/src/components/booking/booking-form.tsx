@@ -407,7 +407,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   };
   
   // Função para lidar com a conclusão do pagamento
-  const handlePaymentComplete = () => {
+  const handlePaymentComplete = (status: string = 'paid') => {
+    // Atualizar o status de pagamento para o status recebido
+    setPaymentStatus(status);
     setPaymentStep(false);
     setBookingComplete(true);
     toast({

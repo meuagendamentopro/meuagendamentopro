@@ -12,7 +12,7 @@ interface BookingPixPaymentProps {
   providerId: number;
   servicePrice: number;
   serviceName: string;
-  onPaymentComplete: () => void;
+  onPaymentComplete: (status?: string) => void;
   onCancel: () => void;
 }
 
@@ -243,7 +243,8 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
           title: "Pagamento confirmado!",
           description: "Seu pagamento foi recebido com sucesso!",
         });
-        onPaymentComplete();
+        // Passar o status do pagamento para o componente pai
+        onPaymentComplete(newStatus);
       }
     } catch (error) {
       console.error("Erro ao verificar status do pagamento:", error);
@@ -310,7 +311,10 @@ const BookingPixPayment: React.FC<BookingPixPaymentProps> = ({
           </p>
         </CardContent>
         <CardFooter className="flex justify-center pb-6">
-          <Button onClick={onPaymentComplete} className="w-full">
+          <Button 
+            onClick={() => onPaymentComplete('paid')} 
+            className="w-full"
+          >
             Continuar
           </Button>
         </CardFooter>
