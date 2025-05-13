@@ -2,8 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Redirect } from "wouter";
-import { PageHeader } from "@/components/layout/page-header";
-import { Shell } from "@/components/ui/sidebar";
+import PageHeader from "@/components/layout/page-header";
 import MessageTemplates from "@/components/whatsapp/message-templates";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
@@ -40,19 +39,19 @@ export default function WhatsAppTemplatesPage() {
   }
 
   return (
-    <Shell>
-      <PageHeader
-        heading="Modelos de Mensagens WhatsApp"
-        text="Visualize e personalize os modelos de mensagens enviadas para seus clientes."
+    <div className="container mx-auto">
+      <PageHeader 
+        title="Modelos de Mensagens WhatsApp"
+        description="Visualize e personalize os modelos de mensagens enviadas para seus clientes."
       >
         <Button variant="outline" asChild>
           <Link href="/settings">Voltar para Configurações</Link>
         </Button>
       </PageHeader>
 
-      <div className="grid gap-8">
+      <div className="grid gap-8 mt-8">
         <MessageTemplates providerId={provider.id} />
       </div>
-    </Shell>
+    </div>
   );
 }

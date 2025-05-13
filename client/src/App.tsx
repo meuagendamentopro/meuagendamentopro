@@ -20,6 +20,7 @@ import UsersPage from "@/pages/admin/users-page";
 import RenewSubscriptionPage from "@/pages/renew-subscription";
 import SubscriptionHistoryPage from "@/pages/subscription-history";
 import WhatsAppTestPage from "@/pages/whatsapp-test-page";
+import WhatsAppTemplatesPage from "@/pages/whatsapp-templates-page";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -308,6 +309,15 @@ function Router() {
         element={
           <MainLayout>
             <WhatsAppTestPage />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/whatsapp-templates" 
+        element={
+          <MainLayout>
+            <WhatsAppTemplatesPage />
           </MainLayout>
         } 
       />

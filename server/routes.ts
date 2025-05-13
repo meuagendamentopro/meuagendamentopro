@@ -38,6 +38,7 @@ import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelc
 import { paymentService } from "./payment-service";
 import { handleTestWhatsAppSend } from './routes/test-whatsapp';
 import { sendAppointmentConfirmation } from './whatsapp-service';
+import { getWhatsAppTemplates, saveWhatsAppTemplates, WhatsAppTemplates } from './whatsapp-templates';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
