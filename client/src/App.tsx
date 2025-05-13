@@ -18,6 +18,7 @@ import FinancialReport from "@/pages/financial-report";
 import AdminPage from "@/pages/admin-page";
 import UsersPage from "@/pages/admin/users-page";
 import RenewSubscriptionPage from "@/pages/renew-subscription";
+import SubscriptionHistoryPage from "@/pages/subscription-history";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -288,6 +289,15 @@ function Router() {
         element={
           <MainLayout>
             <FinancialReport />
+          </MainLayout>
+        } 
+      />
+      
+      <ProtectedRoute 
+        path="/subscription-history" 
+        element={
+          <MainLayout>
+            <SubscriptionHistoryPage />
           </MainLayout>
         } 
       />

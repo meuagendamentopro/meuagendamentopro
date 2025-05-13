@@ -3435,6 +3435,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Rota para obter o histórico de assinaturas do usuário
+  app.get("/api/subscription/history", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      const history = await subscriptionService.getUserSubscriptionHistory(userId);
+      res.json(history);
+    } catch (error: any) {
+      console.error("Erro ao buscar histórico de assinaturas:", error);
+      res.status(500).json({ message: error.message || "Erro ao buscar histórico de assinaturas" });
+    }
+  });
+  
   // Webhook para receber callbacks do Mercado Pago
   app.post("/api/subscription/webhook", async (req: Request, res: Response) => {
     try {
