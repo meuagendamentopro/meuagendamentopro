@@ -108,11 +108,16 @@ export default function TestWhatsAppSend() {
         <div className="mt-4 p-3 bg-primary/10 rounded-md">
           <h4 className="text-sm font-medium mb-2">Instruções para Sandbox do Twilio</h4>
           <ol className="list-decimal list-inside text-xs space-y-1">
-            <li>Salve o número do Twilio (configurado nas suas configurações) nos seus contatos</li>
-            <li>Envie a mensagem <strong>join flower</strong> (ou a palavra fornecida pelo Twilio) para este número no WhatsApp</li>
+            <li>Salve o número do Twilio (+18459577921) nos seus contatos</li>
+            <li>Envie a mensagem <strong>join flower</strong> para este número no WhatsApp</li>
             <li>Aguarde a confirmação do sandbox</li>
             <li>Agora seu número está registrado e pode receber as mensagens de teste</li>
+            <li>Importante: Use o formato exato com código de país (+5511999999999)</li>
           </ol>
+          <div className="mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800">
+            <strong>Nota:</strong> Se você continuar recebendo erros, verifique se o número do Twilio está ativado para WhatsApp 
+            no painel do Twilio (whitelist) e se você enviou a mensagem de ativação "join flower" do seu número pessoal para o número do Twilio.
+          </div>
         </div>
       </CardContent>
     </Card>

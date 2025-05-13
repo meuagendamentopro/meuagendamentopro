@@ -58,8 +58,20 @@ async function sendWhatsAppMessage(
     // Inicializa o cliente Twilio com as credenciais do provider
     twilioClient = twilio(providerSettings.accountSid, providerSettings.authToken);
 
-    const from = formatWhatsAppNumber(providerSettings.phoneNumber);
-    const formattedTo = formatWhatsAppNumber(to);
+    // Formatar números para WhatsApp Sandbox
+    // Garantir que o formato seja exatamente 'whatsapp:+XXXXXXXXXX'
+    let from = providerSettings.phoneNumber;
+    if (!from.startsWith('whatsapp:')) {
+      from = 'whatsapp:' + from.replace(/^\+?/, '+');
+    }
+
+    let formattedTo = to;
+    if (!formattedTo.startsWith('+')) {
+      formattedTo = '+' + formattedTo.replace(/^\+/, '');
+    }
+    if (!formattedTo.startsWith('whatsapp:')) {
+      formattedTo = 'whatsapp:' + formattedTo;
+    }
 
     logger.info(`Enviando mensagem WhatsApp de ${from} para ${formattedTo}`);
 
