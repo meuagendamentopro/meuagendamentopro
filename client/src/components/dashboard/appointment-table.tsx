@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MessageCircle } from "lucide-react";
 import { AppointmentDetails } from "./appointment-details";
+import { useWhatsAppNotifications } from "@/components/whatsapp-notification-provider";
 
 interface AppointmentTableProps {
   providerId: number;
@@ -40,6 +41,9 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   const [cancellationReason, setCancellationReason] = useState("");
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
+  
+  // Hook para notificações WhatsApp
+  const { showCancellationNotification, showNewAppointmentNotification } = useWhatsAppNotifications();
   
   const { data: appointments, isLoading: appointmentsLoading, refetch } = useQuery({
     queryKey: ['/api/providers', providerId, 'appointments'],
