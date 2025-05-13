@@ -69,28 +69,31 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Consulta para buscar configurações de notificação
-  const { data: notificationSettings, isLoading: isLoadingNotificationSettings } = useQuery({
+  const { data: notificationSettings, isLoading: isLoadingNotificationSettings } = useQuery<NotificationSettingsValues>({
     queryKey: ['/api/notification-settings'],
-    enabled: user?.role === 'provider',
-    onSuccess: (data) => {
-      if (data) {
-        notificationForm.reset({
-          enableWhatsApp: !!data.enableWhatsApp,
-          accountSid: data.accountSid || '',
-          authToken: data.authToken || '',
-          phoneNumber: data.phoneNumber || '',
-          enableAppointmentConfirmation: data.enableAppointmentConfirmation !== false,
-          enableAppointmentReminder: data.enableAppointmentReminder !== false,
-          enableCancellationNotice: data.enableCancellationNotice !== false
-        });
-        setHasWhatsAppConfig(!!data.enableWhatsApp && !!data.accountSid && !!data.phoneNumber);
-        setIsLoadingConfig(false);
-      }
-    },
-    onError: () => {
+    enabled: user?.role === 'provider'
+  });
+  
+  // Efeito para carregar configurações quando os dados estiverem disponíveis
+  useEffect(() => {
+    if (notificationSettings) {
+      notificationForm.reset({
+        enableWhatsApp: !!notificationSettings.enableWhatsApp,
+        accountSid: notificationSettings.accountSid || '',
+        authToken: notificationSettings.authToken || '',
+        phoneNumber: notificationSettings.phoneNumber || '',
+        enableAppointmentConfirmation: notificationSettings.enableAppointmentConfirmation !== false,
+        enableAppointmentReminder: notificationSettings.enableAppointmentReminder !== false,
+        enableCancellationNotice: notificationSettings.enableCancellationNotice !== false
+      });
+      setHasWhatsAppConfig(!!notificationSettings.enableWhatsApp && 
+                           !!notificationSettings.accountSid && 
+                           !!notificationSettings.phoneNumber);
+      setIsLoadingConfig(false);
+    } else if (!isLoadingNotificationSettings) {
       setIsLoadingConfig(false);
     }
-  });
+  }, [notificationSettings, isLoadingNotificationSettings]);
   
   // Form para configurações de notificação
   const notificationForm = useForm<NotificationSettingsValues>({
@@ -336,6 +339,37 @@ export default function ProfilePage() {
       });
     }
   });
+  
+  // Mutation para testar credenciais do Twilio
+  const testTwilioCredentialsMutation = useMutation({
+    mutationFn: async () => {
+      const data = {
+        accountSid: notificationForm.getValues("accountSid"),
+        authToken: notificationForm.getValues("authToken"),
+        phoneNumber: notificationForm.getValues("phoneNumber")
+      };
+      
+      const res = await apiRequest("POST", "/api/notification-settings/test", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || error.message || "Falha ao testar credenciais");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Credenciais válidas",
+        description: "As credenciais do Twilio foram verificadas com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Credenciais inválidas",
+        description: error.message || "Erro ao verificar credenciais do Twilio",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Função para enviar formulário de perfil
   function onProfileSubmit(data: ProfileFormValues) {
@@ -349,6 +383,11 @@ export default function ProfilePage() {
 
   function onNotificationSubmit(data: NotificationSettingsValues) {
     updateNotificationSettingsMutation.mutate(data);
+  }
+  
+  // Função para testar credenciais do Twilio
+  function handleTestTwilioCredentials() {
+    testTwilioCredentialsMutation.mutate();
   }
   
   // Gerar iniciais para o avatar
@@ -668,6 +707,31 @@ export default function ProfilePage() {
                                 </FormItem>
                               )}
                             />
+                            
+                            <div className="pt-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleTestTwilioCredentials}
+                                disabled={testTwilioCredentialsMutation.isPending || 
+                                         !notificationForm.watch("accountSid") || 
+                                         !notificationForm.watch("authToken") || 
+                                         !notificationForm.watch("phoneNumber")}
+                                className="w-full"
+                              >
+                                {testTwilioCredentialsMutation.isPending ? (
+                                  <>
+                                    <div className="loading-spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                                    Testando credenciais...
+                                  </>
+                                ) : (
+                                  <>Testar credenciais</>
+                                )}
+                              </Button>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Teste suas credenciais do Twilio antes de salvar as configurações.
+                              </p>
+                            </div>
                           </div>
 
                           <Separator />
