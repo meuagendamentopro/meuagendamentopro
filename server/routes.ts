@@ -33,6 +33,7 @@ import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import passport from "passport";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
+import { getMessageTemplates, saveMessageTemplates } from "./controllers/message-templates-controller";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
