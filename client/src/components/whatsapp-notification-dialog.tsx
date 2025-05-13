@@ -174,6 +174,9 @@ export const WhatsAppNotificationDialog: React.FC<WhatsAppNotificationDialogProp
   } else if (type === WhatsAppNotificationType.CANCELLATION) {
     title = "Agendamento cancelado";
     icon = <AlertCircle className="h-5 w-5 text-red-500 mr-2" />;
+  } else if (type === WhatsAppNotificationType.CONFIRMATION) {
+    title = "Agendamento confirmado";
+    icon = <MessageSquare className="h-5 w-5 text-green-500 mr-2" />;
   }
   
   // Formatar data para exibição
