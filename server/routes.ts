@@ -3768,6 +3768,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============== Rotas para Templates de Mensagens WhatsApp ==============
   
+  // Rota para enviar mensagem de teste diretamente via WhatsApp
+  app.post("/api/whatsapp/test-send", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Não autenticado' });
+      }
+
+      const provider = (req as any).provider;
+      if (!provider || !provider.id) {
+        return res.status(403).json({ success: false, message: 'Nenhum provedor associado à conta' });
+      }
+
+      const { phone, message } = req.body;
+
+      if (!phone || !message) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Número de telefone e mensagem são obrigatórios'
+        });
+      }
+
+      // Obter configurações do WhatsApp do provedor
+      const settings = await getNotificationSettings(provider.id);
+      
+      if (!settings.enableWhatsApp || !settings.accountSid || !settings.authToken || !settings.phoneNumber) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'WhatsApp não está configurado corretamente. Verifique suas configurações de notificação.'
+        });
+      }
+
+      // Inicializar cliente Twilio
+      const twilioClient = twilio(settings.accountSid, settings.authToken);
+
+      // Para contas sandbox do Twilio, é NECESSÁRIO usar o número do sandbox
+      const from = 'whatsapp:+14155238886';
+      
+      // Formatar número de destino
+      let formattedPhone = phone;
+      if (!formattedPhone.startsWith('+')) {
+        formattedPhone = '+' + formattedPhone.replace(/^\+/, '');
+      }
+      if (!formattedPhone.startsWith('whatsapp:')) {
+        formattedPhone = 'whatsapp:' + formattedPhone;
+      }
+
+      logger.info(`Enviando mensagem de teste WhatsApp de ${from} para ${formattedPhone}`);
+
+      // Enviar mensagem
+      const result = await twilioClient.messages.create({
+        body: message,
+        from: from,
+        to: formattedPhone
+      });
+
+      logger.info(`Mensagem de teste enviada com sucesso. SID: ${result.sid}`);
+
+      // Retorna sucesso com SID da mensagem
+      res.status(200).json({
+        success: true,
+        message: 'Mensagem enviada com sucesso. Verifique o celular informado.',
+        sid: result.sid
+      });
+    } catch (err) {
+      const error = err as Error;
+      logger.error(`Erro ao enviar mensagem de teste: ${error.message}`);
+      
+      // Retornar erro formatado para o cliente
+      res.status(500).json({
+        success: false,
+        message: `Erro ao enviar mensagem: ${error.message}`
+      });
+    }
+  });
+  
   // Obter templates de mensagens WhatsApp
   app.get("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
     if (!req.user) return res.status(401).json({ message: 'Não autenticado' });

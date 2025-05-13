@@ -7,6 +7,7 @@ import logger from "./logger";
 export interface WhatsAppTemplates {
   confirmation: string;
   reminder: string;
+  sameDayReminder: string;
   cancellation: string;
   reschedule: string;
 }
