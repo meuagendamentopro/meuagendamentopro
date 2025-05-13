@@ -284,6 +284,32 @@ export default function ProfilePage() {
       });
     }
   });
+  
+  // Mutation para atualizar configurações de notificação
+  const updateNotificationSettingsMutation = useMutation({
+    mutationFn: async (data: NotificationSettingsValues) => {
+      const res = await apiRequest("POST", "/api/update-notification-settings", data);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Falha ao atualizar configurações de notificação");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Configurações atualizadas",
+        description: "Suas configurações de notificação foram atualizadas com sucesso.",
+      });
+      setHasWhatsAppConfig(notificationForm.getValues("enableWhatsApp"));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar configurações de notificação",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Função para enviar formulário de perfil
   function onProfileSubmit(data: ProfileFormValues) {
