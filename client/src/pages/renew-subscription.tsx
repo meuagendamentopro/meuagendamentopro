@@ -140,8 +140,67 @@ export default function RenewSubscriptionPage() {
   const onSubmitLogin = async (values: z.infer<typeof loginSchema>) => {
     setCredentials(values);
     
-    if (selectedPlanId) {
-      await generatePayment(selectedPlanId, values);
+    try {
+      // Primeiro, tentar fazer login diretamente via API
+      const loginRes = await apiRequest('POST', '/api/login', {
+        username: values.username,
+        password: values.password
+      });
+      
+      // Se o login foi bem-sucedido, recarregar os dados do usuário
+      if (loginRes.ok) {
+        const userData = await loginRes.json();
+        console.log('Usuário autenticado:', userData);
+        
+        // Atualizar o cache do React Query com os dados do usuário
+        queryClient.setQueryData(['/api/user'], userData);
+        
+        // Se temos ID de assinatura, podemos prosseguir
+        if (selectedPlanId) {
+          await generatePayment(selectedPlanId);
+        }
+        
+        // Exibir mensagem de sucesso
+        toast({
+          title: "Autenticado com sucesso",
+          description: `Bem-vindo(a), ${userData.name}!`,
+        });
+      } else {
+        // Se o login falhou, verificar se é por causa de assinatura expirada
+        const error = await loginRes.json();
+        console.error('Erro ao fazer login:', error);
+        
+        if (error.expired) {
+          // Se assinatura expirada, ainda podemos usar para identificação
+          const user = error.user;
+          setExpiredUser(user);
+          setUrlUserId(user.id);
+          
+          toast({
+            title: "Usuário identificado",
+            description: "Sua assinatura está expirada, mas você pode renová-la agora.",
+          });
+          
+          // Se temos ID de assinatura, podemos prosseguir
+          if (selectedPlanId) {
+            await generatePayment(selectedPlanId, values);
+          }
+        } else {
+          // Outros erros de login
+          toast({
+            title: "Falha na autenticação",
+            description: error.error || "Credenciais inválidas",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao processar login:', error);
+      toast({
+        title: "Erro ao processar login",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
+      });
     }
   };
   
@@ -154,20 +213,25 @@ export default function RenewSubscriptionPage() {
       // Preparar dados do pagamento com ou sem credenciais
       const paymentData: any = { planId };
       
-      // Se temos o ID do usuário extraído da URL, incluímos no payload
-      if (urlUserId) {
+      // Prioridade 1: Usar o ID do usuário logado (se disponível)
+      if (user?.id) {
+        paymentData.userId = user.id;
+        console.log(`Usando ID do usuário logado: ${user.id}`);
+      } 
+      // Prioridade 2: Usar o ID do usuário extraído da URL
+      else if (urlUserId) {
         paymentData.userId = urlUserId;
         console.log(`Incluindo userId ${urlUserId} da URL no pagamento`);
       }
       
-      // Se temos credenciais de login, incluímos no payload
+      // Prioridade 3: Usar credenciais de login fornecidas
       if (loginCredentials) {
         paymentData.username = loginCredentials.username;
         paymentData.password = loginCredentials.password;
-      }
-      
-      // Se temos informações do usuário expirado
-      if (expiredUser?.username) {
+        console.log(`Usando credenciais de login: ${loginCredentials.username}`);
+      } 
+      // Prioridade 4: Usar informações do usuário expirado
+      else if (expiredUser?.username) {
         paymentData.username = expiredUser.username;
         console.log(`Incluindo username ${expiredUser.username} no pagamento`);
       }
@@ -175,6 +239,15 @@ export default function RenewSubscriptionPage() {
       // Extrair parâmetros da URL para identificação adicional
       const params = new URLSearchParams(location.split('?')[1]);
       const usernameParam = params.get('username');
+      
+      // Passar parâmetro username na URL se disponível
+      if (usernameParam && !paymentData.username) {
+        paymentData.username = usernameParam;
+        console.log(`Usando username da URL: ${usernameParam}`);
+      }
+      
+      // Log de depuração
+      console.log('Dados de pagamento:', JSON.stringify(paymentData));
       
       // Construir a URL com parâmetros para identificação
       let url = '/api/subscription/generate-payment';
@@ -543,19 +616,90 @@ export default function RenewSubscriptionPage() {
   // Tela de seleção de planos (padrão)
   return (
     <div className="container max-w-6xl mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Renovação de Assinatura</h1>
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            // Logout e redireciona para a página de login
+            apiRequest('POST', '/api/logout')
+              .then(() => {
+                queryClient.invalidateQueries();
+                navigate('/auth');
+              })
+              .catch(error => {
+                console.error('Erro ao fazer logout:', error);
+                navigate('/auth');
+              });
+          }}
+        >
+          Sair
+        </Button>
+      </div>
+
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">Renovação de Assinatura</h1>
-        
         {/* Saudação personalizada com o nome do usuário */}
-        {expiredUser?.name && (
+        {(user?.name || expiredUser?.name) && (
           <p className="text-xl font-medium text-primary mb-4">
-            Olá, {expiredUser.name}!
+            Olá, {user?.name || expiredUser?.name}!
           </p>
         )}
         
         <p className="text-lg text-muted-foreground mb-4">
           Não deixe de utilizar o melhor sistema de agendamentos. Temos as seguintes ofertas para você:
         </p>
+        
+        {/* Forma de identificação - login rápido se não estiver autenticado */}
+        {!user?.id && !urlUserId && !expiredUser?.id && (
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4 max-w-md mx-auto">
+            <h2 className="text-md font-medium mb-2 text-blue-800">Identifique-se para continuar</h2>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitLogin)} className="space-y-3">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Usuário</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Seu nome de usuário" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Sua senha" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Autenticando...
+                    </>
+                  ) : 'Identificar'}
+                </Button>
+              </form>
+            </Form>
+          </div>
+        )}
+        
+        {/* Informações de depuração - apenas para desenvolvimento */}
+        {(user?.id || urlUserId || expiredUser?.id) && (
+          <div className="bg-green-50 border border-green-100 rounded-lg p-3 mb-4 text-sm text-center">
+            <p className="text-green-800 font-medium">Usuário identificado com sucesso!</p>
+          </div>
+        )}
         
         {/* Mensagem sobre expiração da assinatura */}
         {(user?.subscriptionExpiry || expiredUser?.subscriptionExpiry) && (

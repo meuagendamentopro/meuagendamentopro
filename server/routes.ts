@@ -3300,12 +3300,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  // Função auxiliar para processar o pagamento de assinatura
+  async function processSubscriptionPayment(userId: number, planId: number, userInfo: any, res: Response) {
+    try {
+      const paymentData = await subscriptionService.generatePayment(userId, planId);
+      return res.json(paymentData);
+    } catch (error: any) {
+      console.error("Erro ao processar pagamento:", error);
+      return res.status(500).json({ error: error.message || "Falha ao processar pagamento" });
+    }
+  }
+
   // Rota para gerar pagamento de assinatura (permite usuário expirado)
   app.post("/api/subscription/generate-payment", async (req: Request, res: Response) => {
     try {
+      console.log("Processando solicitação de renovação:", req.body);
+      console.log("Status de autenticação:", req.isAuthenticated() ? "Autenticado" : "Não autenticado");
+      if (req.isAuthenticated()) {
+        console.log("Usuário autenticado:", req.user.id, req.user.username);
+      }
+      
       const { planId, username, password, userId: explicitUserId } = req.body;
       if (!planId) {
         return res.status(400).json({ error: "ID do plano é obrigatório" });
+      }
+      
+      // Verificar se temos credenciais para autenticação
+      if (username && password && !req.isAuthenticated()) {
+        // Autenticar usuário com credenciais
+        try {
+          const user = await new Promise<any>((resolve, reject) => {
+            passport.authenticate('local', (err: Error, user: any) => {
+              if (err) reject(err);
+              if (!user) reject(new Error("Credenciais inválidas"));
+              resolve(user);
+            })({ body: { username, password } }, res);
+          });
+          
+          if (user) {
+            console.log(`Usuário autenticado via credenciais: ${user.name} (ID: ${user.id})`);
+            // Não criar sessão, mas usar as informações para este processo
+            return await processSubscriptionPayment(user.id, planId, user, res);
+          }
+        } catch (error) {
+          console.error("Erro na autenticação de credenciais:", error);
+        }
       }
       
       // Usar ID explícito do corpo da requisição se fornecido (para renovação de assinatura)
@@ -3316,6 +3355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId && req.isAuthenticated()) {
         userId = req.user.id;
         userInfo = req.user;
+        console.log(`Usando usuário autenticado: ${req.user.name} (ID: ${req.user.id})`);
       }
       
       // Se ainda não temos ID mas temos username na URL, buscamos o usuário
@@ -3342,12 +3382,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ 
           error: "Identificação necessária", 
-          message: "Não foi possível identificar o usuário para renovação de assinatura. Verifique o link ou informe seu usuário." 
+          message: "Não foi possível identificar o usuário para renovação de assinatura. Por favor, faça login ou verifique o link." 
         });
       }
       
-      const paymentData = await subscriptionService.generatePayment(userId, planId);
-      res.json(paymentData);
+      // Gerar o pagamento e retornar
+      return await processSubscriptionPayment(userId, planId, userInfo, res);
+      
     } catch (error: any) {
       console.error("Erro ao gerar pagamento de assinatura:", error);
       res.status(500).json({ error: error.message || "Falha ao gerar pagamento" });
