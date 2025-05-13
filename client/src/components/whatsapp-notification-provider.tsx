@@ -244,12 +244,14 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
       provider?.name || 'Agenda Online'
     );
     
-    // Abrir WhatsApp Web
+    // Abrir WhatsApp Web - Não fechamos o diálogo automaticamente
+    // para que o usuário possa voltar depois de enviar a mensagem
     openWhatsApp(currentNotification.clientPhone, message);
     
-    // Fechar diálogo
-    setDialogOpen(false);
-    setCurrentNotification(null);
+    // Não fechamos o diálogo automaticamente
+    // O usuário deve fechar manualmente após enviar a mensagem no WhatsApp
+    // setDialogOpen(false);
+    // setCurrentNotification(null);
   };
 
   // Função para fechar o diálogo
