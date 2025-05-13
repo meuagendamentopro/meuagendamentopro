@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, InfoIcon, ShieldIcon, Trash2, X } from "lucide-react";
+import { Bell, Camera, InfoIcon, MessageSquare, ShieldIcon, Trash2, X } from "lucide-react";
 
 import {
   Form,
@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -40,13 +42,27 @@ const updatePasswordSchema = z.object({
   path: ["confirmPassword"]
 });
 
+// Esquema para validação de configurações de notificação
+const notificationSettingsSchema = z.object({
+  enableWhatsApp: z.boolean().default(false),
+  accountSid: z.string().min(1, "Account SID é obrigatório").optional(),
+  authToken: z.string().min(1, "Auth Token é obrigatório").optional(),
+  phoneNumber: z.string().min(1, "Número de telefone é obrigatório").optional(),
+  enableAppointmentConfirmation: z.boolean().default(true),
+  enableAppointmentReminder: z.boolean().default(true),
+  enableCancellationNotice: z.boolean().default(true)
+});
+
 type ProfileFormValues = z.infer<typeof updateProfileSchema>;
 type PasswordFormValues = z.infer<typeof updatePasswordSchema>;
+type NotificationSettingsValues = z.infer<typeof notificationSettingsSchema>;
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("info");
+  const [hasWhatsAppConfig, setHasWhatsAppConfig] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatarUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -379,9 +395,10 @@ export default function ProfilePage() {
         
         <div>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info">Informações</TabsTrigger>
               <TabsTrigger value="security">Segurança</TabsTrigger>
+              <TabsTrigger value="notifications">Notificações</TabsTrigger>
             </TabsList>
             <TabsContent value="info" className="mt-4">
               <Card>
