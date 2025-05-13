@@ -3768,6 +3768,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============== Rotas para Templates de Mensagens WhatsApp ==============
   
+  // Rota para diagnóstico completo de WhatsApp
+  app.post("/api/whatsapp/diagnostic", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      // Usar o handler de diagnóstico
+      const diagnosticHandler = require('./routes/diagnostic-test').handleDiagnosticTest;
+      await diagnosticHandler(req, res);
+    } catch (error) {
+      const err = error as Error;
+      logger.error(`Erro ao executar diagnóstico WhatsApp: ${err.message}`);
+      res.status(500).json({
+        success: false,
+        message: `Erro ao executar diagnóstico: ${err.message}`
+      });
+    }
+  });
+
   // Rota para enviar mensagem de teste diretamente via WhatsApp
   app.post("/api/whatsapp/test-send", loadUserProvider, async (req: Request, res: Response) => {
     try {
