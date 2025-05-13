@@ -303,6 +303,15 @@ function Router() {
         } 
       />
       
+      <ProtectedRoute 
+        path="/whatsapp-test" 
+        element={
+          <MainLayout>
+            <WhatsAppTestPage />
+          </MainLayout>
+        } 
+      />
+      
       <AdminRoute 
         path="/admin" 
         element={

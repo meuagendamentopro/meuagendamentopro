@@ -2,19 +2,20 @@ import { useAuth } from "@/hooks/use-auth";
 import PageHeader from "@/components/layout/page-header";
 import TestWhatsAppSend from "@/components/whatsapp/test-whatsapp";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { useEffect } from "react";
 
 export default function WhatsAppTestPage() {
   const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (!isLoading && !user) {
-      navigate("/auth");
+      setLocation("/auth");
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, setLocation]);
 
   if (isLoading) {
     return (
@@ -28,12 +29,15 @@ export default function WhatsAppTestPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <PageHeader
-        title="Teste de WhatsApp"
-        description="Envie uma mensagem de teste para verificar a configuração do WhatsApp"
-        backLink="/profile"
-        backLinkText="Voltar para perfil"
-      />
+      <div className="flex items-center justify-between">
+        <PageHeader
+          title="Teste de WhatsApp"
+          description="Envie uma mensagem de teste para verificar a configuração do WhatsApp"
+        />
+        <Button variant="outline" onClick={() => setLocation("/profile")}>
+          Voltar para perfil
+        </Button>
+      </div>
 
       <div className="grid gap-6">
         <Card>

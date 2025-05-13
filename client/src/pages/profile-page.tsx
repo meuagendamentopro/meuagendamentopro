@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, Camera, InfoIcon, MessageSquare, ShieldIcon, Trash2, X } from "lucide-react";
+import { Link } from "wouter";
 
 import {
   Form,
@@ -18,7 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -557,7 +558,12 @@ export default function ProfilePage() {
                   <Separator className="my-4" />
                   
                   <div className="pt-4">
-                    <h3 className="text-lg font-medium mb-4">Testar Envio de WhatsApp</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium">Testar Envio de WhatsApp</h3>
+                      <Link href="/whatsapp-test" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                        Abrir página de teste completa
+                      </Link>
+                    </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       Use esta ferramenta para testar se suas configurações de WhatsApp estão funcionando corretamente.
                     </p>
