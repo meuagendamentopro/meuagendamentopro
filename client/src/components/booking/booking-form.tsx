@@ -485,8 +485,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
                 {formatDate(selectedDate)} às {selectedTime}
               </p>
               {requiresPayment && (
-                <p className="text-amber-600 font-medium mt-2">
-                  Status: Aguardando pagamento
+                <p className={`font-medium mt-2 ${appointmentId ? 'text-green-600' : 'text-amber-600'}`}>
+                  Status: {appointmentId ? 'Pagamento confirmado' : 'Aguardando pagamento'}
                 </p>
               )}
             </div>
