@@ -1,8 +1,8 @@
-import { useState, useRef, ChangeEvent } from "react";
+import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +67,30 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatarUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Consulta para buscar configurações de notificação
+  const { data: notificationSettings, isLoading: isLoadingNotificationSettings } = useQuery({
+    queryKey: ['/api/notification-settings'],
+    enabled: user?.role === 'provider',
+    onSuccess: (data) => {
+      if (data) {
+        notificationForm.reset({
+          enableWhatsApp: !!data.enableWhatsApp,
+          accountSid: data.accountSid || '',
+          authToken: data.authToken || '',
+          phoneNumber: data.phoneNumber || '',
+          enableAppointmentConfirmation: data.enableAppointmentConfirmation !== false,
+          enableAppointmentReminder: data.enableAppointmentReminder !== false,
+          enableCancellationNotice: data.enableCancellationNotice !== false
+        });
+        setHasWhatsAppConfig(!!data.enableWhatsApp && !!data.accountSid && !!data.phoneNumber);
+        setIsLoadingConfig(false);
+      }
+    },
+    onError: () => {
+      setIsLoadingConfig(false);
+    }
+  });
   
   // Form para configurações de notificação
   const notificationForm = useForm<NotificationSettingsValues>({
@@ -288,7 +312,7 @@ export default function ProfilePage() {
   // Mutation para atualizar configurações de notificação
   const updateNotificationSettingsMutation = useMutation({
     mutationFn: async (data: NotificationSettingsValues) => {
-      const res = await apiRequest("POST", "/api/update-notification-settings", data);
+      const res = await apiRequest("POST", "/api/notification-settings", data);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.error || "Falha ao atualizar configurações de notificação");
@@ -301,6 +325,8 @@ export default function ProfilePage() {
         description: "Suas configurações de notificação foram atualizadas com sucesso.",
       });
       setHasWhatsAppConfig(notificationForm.getValues("enableWhatsApp"));
+      // Recarregar as configurações após atualização
+      queryClient.invalidateQueries({ queryKey: ['/api/notification-settings'] });
     },
     onError: (error: Error) => {
       toast({
