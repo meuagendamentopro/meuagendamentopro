@@ -131,9 +131,24 @@ export default function RenewSubscriptionPage() {
   const handleSelectPlan = async (planId: number) => {
     setSelectedPlanId(planId);
     
-    // Sempre tentamos gerar o pagamento diretamente, sem pedir login
-    // O backend já foi modificado para aceitar usuários expirados
-    await generatePayment(planId);
+      console.log("Selecionando plano, estado atual:", {
+      usuarioLogado: user ? `ID: ${user.id}` : 'Não',
+      usuarioExpirado: expiredUser ? `ID: ${expiredUser.id || 'indefinido'}` : 'Não',
+      urlUserId: urlUserId || 'Não definido',
+      credenciais: credentials ? 'Definidas' : 'Não definidas'
+    });
+    
+    // Se temos algum tipo de identificação, prosseguir com o pagamento
+    if (user?.id || expiredUser?.id || urlUserId || expiredUser?.username) {
+      await generatePayment(planId);
+    } else {
+      // Se não temos nenhuma forma de identificação, vamos para o formulário de login
+      setPaymentStep('login');
+      toast({
+        title: "Identificação necessária",
+        description: "Por favor, faça login para continuar com a renovação."
+      });
+    }
   };
   
   // Função para processar o login
@@ -171,10 +186,21 @@ export default function RenewSubscriptionPage() {
         console.error('Erro ao fazer login:', error);
         
         if (error.expired) {
-          // Se assinatura expirada, ainda podemos usar para identificação
-          const user = error.user;
-          setExpiredUser(user);
-          setUrlUserId(user.id);
+          // Se assinatura expirada, ainda podemos usar as informações diretamente da resposta
+          // A API retorna informações básicas do usuário junto com o erro de expiração
+          setExpiredUser({
+            id: error.id,
+            name: error.name,
+            username: error.username,
+            subscriptionExpiry: error.subscriptionExpiry
+          });
+          setUrlUserId(error.id);
+          
+          console.log("Usuário com assinatura expirada identificado:", {
+            id: error.id,
+            name: error.name,
+            username: error.username
+          });
           
           toast({
             title: "Usuário identificado",
