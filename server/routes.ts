@@ -23,7 +23,8 @@ import {
   insertProviderSchema,
   InsertTimeExclusion,
   subscriptionPlans,
-  subscriptionTransactions
+  subscriptionTransactions,
+  users
 } from "@shared/schema";
 import { and, eq, gt, gte, lte, ne, sql, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -3474,7 +3475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 1. Tem data de expiração no futuro
       // 2. Nunca fez uma assinatura antes (não temos transações reais)
       // 3. Foi criado há menos de 7 dias (margem de segurança para o período de teste de 3 dias)
-      const userDetails = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+      const userDetails = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       
       if (userDetails && userDetails.length > 0) {
         const userCreatedAt = new Date(userDetails[0].createdAt);

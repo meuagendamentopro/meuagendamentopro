@@ -152,6 +152,34 @@ export default function SubscriptionHistoryPage() {
         return status;
     }
   };
+  
+  // Função para verificar se o usuário está em período de teste
+  const isInTrialPeriod = (user: any) => {
+    if (!user) return false;
+    
+    // Verificar data de criação, se o usuário foi criado recentemente (menos de 7 dias)
+    if (user.createdAt) {
+      const createdAt = new Date(user.createdAt);
+      const now = new Date();
+      const daysSinceCreation = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Usuário criado há menos de 7 dias é considerado em período de teste
+      return daysSinceCreation < 7;
+    }
+    
+    // Verificar data de expiração
+    // Se a data de expiração está a menos de 3 dias no futuro a partir da data de criação
+    if (user.subscriptionExpiry && user.createdAt) {
+      const expiryDate = new Date(user.subscriptionExpiry);
+      const createdAt = new Date(user.createdAt);
+      const daysUntilExpiry = Math.floor((expiryDate.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Se a expiração está entre 3 e 4 dias após a criação, é período de teste
+      return daysUntilExpiry > 0 && daysUntilExpiry <= 4;
+    }
+    
+    return false;
+  };
 
   return (
     <div className="container mx-auto py-6">
@@ -243,6 +271,15 @@ export default function SubscriptionHistoryPage() {
                 </Button>
               </div>
             </div>
+          ) : isInTrialPeriod(user) ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Gift className="h-12 w-12 text-primary mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Período de Teste Gratuito</h3>
+              <p className="text-muted-foreground max-w-md">
+                Você está utilizando o período de teste de 3 dias. Após esse período, 
+                será necessário escolher um plano para continuar usando o sistema.
+              </p>
+            </div>
           ) : history && Array.isArray(history) && history.length > 0 ? (
             <Table>
               <TableCaption>Histórico completo de assinaturas</TableCaption>
@@ -282,8 +319,20 @@ export default function SubscriptionHistoryPage() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Você ainda não possui histórico de assinaturas.
+            <div className="flex flex-col items-center justify-center py-8">
+              <FileX className="h-8 w-8 text-muted-foreground mb-2" />
+              <div className="text-center text-muted-foreground">
+                Você ainda não possui histórico de assinaturas.
+                {!useFallback && (
+                  <Button 
+                    variant="link"
+                    className="mt-2"
+                    onClick={() => setUseFallback(true)}
+                  >
+                    Mostrar dados de exemplo
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
