@@ -320,7 +320,18 @@ export default function WhatsAppSettings() {
         </div>
       )}
       
-      <div className="flex justify-end space-x-2 pt-4">
+      <div className="flex justify-between space-x-2 pt-4">
+        <Button 
+          type="button" 
+          variant="outline" 
+          asChild
+          disabled={!settings.enableWhatsApp}
+        >
+          <Link href="/whatsapp-templates">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Personalizar Modelos de Mensagens
+          </Link>
+        </Button>
         <Button 
           type="button" 
           onClick={saveSettings}
