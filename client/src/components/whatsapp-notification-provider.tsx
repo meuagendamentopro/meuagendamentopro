@@ -7,6 +7,7 @@ import {
 } from './whatsapp-notification-dialog';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useQuery } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 // Interface para os dados de notificação
 interface AppointmentNotification {
@@ -38,6 +39,8 @@ export const useWhatsAppNotifications = () => useContext(WhatsAppNotificationCon
 export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Estado para controlar o diálogo de notificação
   const [dialogOpen, setDialogOpen] = useState(false);
+  // Toast para mensagens de erro
+  const { toast } = useToast();
   
   // Estado para a notificação atual sendo exibida
   const [currentNotification, setCurrentNotification] = useState<AppointmentNotification | null>(null);
@@ -148,32 +151,81 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
 
   // Função para mostrar notificação de novo agendamento
   const showNewAppointmentNotification = (appointment: any) => {
-    // Verificar se temos cliente e serviço
+    // Se já temos todos os dados necessários, não precisamos buscar nada
+    if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
+      // Criar objeto de notificação diretamente
+      const notification: AppointmentNotification = {
+        id: appointment.id,
+        clientId: appointment.clientId || 0,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        serviceId: appointment.serviceId || 0,
+        serviceName: appointment.serviceName,
+        date: new Date(appointment.date),
+        time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        type: WhatsAppNotificationType.NEW_APPOINTMENT
+      };
+      
+      // Mostrar diálogo
+      setCurrentNotification(notification);
+      setDialogOpen(true);
+      return;
+    }
+    
+    // Verificar se temos cliente e serviço IDs para buscar dados
     if (appointment && appointment.clientId && appointment.serviceId) {
-      // Buscar dados do cliente e serviço
-      Promise.all([
-        fetch(`/api/clients/${appointment.clientId}`).then(res => res.json()),
-        fetch(`/api/services/${appointment.serviceId}`).then(res => res.json())
-      ]).then(([client, service]) => {
-        // Criar objeto de notificação
-        const notification: AppointmentNotification = {
-          id: appointment.id,
-          clientId: appointment.clientId,
-          clientName: client.name,
-          clientPhone: client.phone,
-          serviceId: appointment.serviceId,
-          serviceName: service.name,
-          date: new Date(appointment.date),
-          time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          type: WhatsAppNotificationType.NEW_APPOINTMENT
+      try {
+        // Função segura para buscar com tratamento de erro
+        const fetchWithErrorHandling = async (url: string) => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Erro ao buscar dados: ${response.status}`);
+            }
+            return await response.json();
+          } catch (error) {
+            console.error(`Erro ao buscar ${url}:`, error);
+            throw error;
+          }
         };
         
-        // Mostrar diálogo
-        setCurrentNotification(notification);
-        setDialogOpen(true);
-      }).catch(error => {
-        console.error('Erro ao buscar dados para notificação:', error);
-      });
+        // Buscar dados do cliente e serviço
+        Promise.all([
+          fetchWithErrorHandling(`/api/clients/${appointment.clientId}`),
+          fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
+        ]).then(([client, service]) => {
+          // Criar objeto de notificação
+          const notification: AppointmentNotification = {
+            id: appointment.id,
+            clientId: appointment.clientId,
+            clientName: client.name,
+            clientPhone: client.phone,
+            serviceId: appointment.serviceId,
+            serviceName: service.name,
+            date: new Date(appointment.date),
+            time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            type: WhatsAppNotificationType.NEW_APPOINTMENT
+          };
+          
+          // Mostrar diálogo
+          setCurrentNotification(notification);
+          setDialogOpen(true);
+        }).catch(error => {
+          console.error('Erro ao buscar dados para notificação:', error);
+          toast({
+            title: "Erro ao preparar mensagem",
+            description: "Não foi possível obter os dados do cliente ou serviço",
+            variant: "destructive"
+          });
+        });
+      } catch (error) {
+        console.error('Erro ao iniciar busca de dados:', error);
+        toast({
+          title: "Erro ao preparar mensagem",
+          description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -201,32 +253,81 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
 
   // Função para mostrar notificação de cancelamento
   const showCancellationNotification = (appointment: any) => {
-    // Verificar se temos cliente e serviço
+    // Se já temos todos os dados necessários, não precisamos buscar nada
+    if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
+      // Criar objeto de notificação diretamente
+      const notification: AppointmentNotification = {
+        id: appointment.id,
+        clientId: appointment.clientId || 0,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        serviceId: appointment.serviceId || 0,
+        serviceName: appointment.serviceName,
+        date: new Date(appointment.date),
+        time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        type: WhatsAppNotificationType.CANCELLATION
+      };
+      
+      // Mostrar diálogo
+      setCurrentNotification(notification);
+      setDialogOpen(true);
+      return;
+    }
+    
+    // Verificar se temos cliente e serviço IDs para buscar dados
     if (appointment && appointment.clientId && appointment.serviceId) {
-      // Buscar dados do cliente e serviço
-      Promise.all([
-        fetch(`/api/clients/${appointment.clientId}`).then(res => res.json()),
-        fetch(`/api/services/${appointment.serviceId}`).then(res => res.json())
-      ]).then(([client, service]) => {
-        // Criar objeto de notificação
-        const notification: AppointmentNotification = {
-          id: appointment.id,
-          clientId: appointment.clientId,
-          clientName: client.name,
-          clientPhone: client.phone,
-          serviceId: appointment.serviceId,
-          serviceName: service.name,
-          date: new Date(appointment.date),
-          time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          type: WhatsAppNotificationType.CANCELLATION
+      try {
+        // Função segura para buscar com tratamento de erro
+        const fetchWithErrorHandling = async (url: string) => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Erro ao buscar dados: ${response.status}`);
+            }
+            return await response.json();
+          } catch (error) {
+            console.error(`Erro ao buscar ${url}:`, error);
+            throw error;
+          }
         };
         
-        // Mostrar diálogo
-        setCurrentNotification(notification);
-        setDialogOpen(true);
-      }).catch(error => {
-        console.error('Erro ao buscar dados para notificação:', error);
-      });
+        // Buscar dados do cliente e serviço
+        Promise.all([
+          fetchWithErrorHandling(`/api/clients/${appointment.clientId}`),
+          fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
+        ]).then(([client, service]) => {
+          // Criar objeto de notificação
+          const notification: AppointmentNotification = {
+            id: appointment.id,
+            clientId: appointment.clientId,
+            clientName: client.name,
+            clientPhone: client.phone,
+            serviceId: appointment.serviceId,
+            serviceName: service.name,
+            date: new Date(appointment.date),
+            time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            type: WhatsAppNotificationType.CANCELLATION
+          };
+          
+          // Mostrar diálogo
+          setCurrentNotification(notification);
+          setDialogOpen(true);
+        }).catch(error => {
+          console.error('Erro ao buscar dados para notificação:', error);
+          toast({
+            title: "Erro ao preparar mensagem",
+            description: "Não foi possível obter os dados do cliente ou serviço",
+            variant: "destructive"
+          });
+        });
+      } catch (error) {
+        console.error('Erro ao iniciar busca de dados:', error);
+        toast({
+          title: "Erro ao preparar mensagem",
+          description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
+          variant: "destructive"
+        });
+      }
     }
   };
 

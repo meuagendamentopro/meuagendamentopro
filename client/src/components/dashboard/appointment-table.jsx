@@ -35,6 +35,16 @@ const AppointmentTable = ({
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   
+  // Buscar dados do provider para a mensagem de WhatsApp
+  const { data: provider } = useQuery({
+    queryKey: ['/api/my-provider'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-provider');
+      if (!res.ok) throw new Error('Falha ao buscar dados do prestador');
+      return res.json();
+    },
+  });
+  
   // Hook para notificações WhatsApp
   const { showCancellationNotification, showNewAppointmentNotification } = useWhatsAppNotifications();
   
