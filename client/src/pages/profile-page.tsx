@@ -1,4 +1,4 @@
-import { useState, useRef, ChangeEvent, useEffect } from "react";
+import { useState, useRef, ChangeEvent, useEffect, useCallback } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -72,10 +72,16 @@ export default function ProfilePage() {
   console.log('User role:', user?.role);
   console.log('Is query enabled?', !!user && user?.role === 'provider');
   
-  // Fazendo uma requisição manual para debug
-  useEffect(() => {
+  // Estado para armazenar as configurações obtidas diretamente
+  const [directSettings, setDirectSettings] = useState<NotificationSettingsValues | null>(null);
+  const [isLoadingDirectSettings, setIsLoadingDirectSettings] = useState(false);
+  
+  // Função para carregar configurações diretamente
+  const loadSettingsDirectly = useCallback(() => {
     if (user?.role === 'provider') {
-      console.log('Testando requisição direta para /api/notification-settings...');
+      setIsLoadingDirectSettings(true);
+      console.log('Carregando configurações diretamente via fetch...');
+      
       fetch('/api/notification-settings', {
         credentials: 'include'
       })
@@ -92,24 +98,40 @@ export default function ProfilePage() {
         }
       })
       .then(data => {
-        console.log('Dados diretos recebidos:', data);
+        console.log('Dados diretos recebidos e armazenados no estado:', data);
+        setDirectSettings(data);
+        // Se temos dados, vamos atualizar o formulário
+        if (data && notificationForm) {
+          console.log('Atualizando formulário com dados diretos');
+          notificationForm.reset({
+            enableWhatsApp: data.enableWhatsApp,
+            accountSid: data.accountSid || '',
+            authToken: data.authToken || '',
+            phoneNumber: data.phoneNumber || '',
+            enableAppointmentConfirmation: data.enableAppointmentConfirmation,
+            enableAppointmentReminder: data.enableAppointmentReminder,
+            enableCancellationNotice: data.enableCancellationNotice
+          });
+        }
       })
       .catch(err => {
         console.error('Erro na requisição direta:', err);
+      })
+      .finally(() => {
+        setIsLoadingDirectSettings(false);
       });
     }
-  }, [user]);
+  }, [user, notificationForm]);
   
-  // Consulta para buscar configurações de notificação
-  const { data: notificationSettings, isLoading: isLoadingNotificationSettings, error: notificationError, refetch: refetchNotificationSettings } = useQuery<NotificationSettingsValues>({
+  // Carregar configurações quando o componente montar ou usuário mudar
+  useEffect(() => {
+    loadSettingsDirectly();
+  }, [loadSettingsDirectly]);
+  
+  // Consulta React Query (mantida para compatibilidade, mas não usada efetivamente)
+  const { data: notificationSettings, isLoading: isLoadingNotificationSettings, error: notificationError } = useQuery<NotificationSettingsValues>({
     queryKey: ['/api/notification-settings'],
-    enabled: !!user && user?.role === 'provider',
-    refetchOnMount: 'always', // Sempre recarregar os dados ao montar o componente
-    refetchOnWindowFocus: true, // Recarrega ao focar na janela
-    staleTime: 0, // Considera os dados sempre obsoletos para forçar nova requisição
-    retry: 5, // Aumentando o número de tentativas
-    retryDelay: 1000, // Delay de 1 segundo entre tentativas
-    // refetchInterval foi removido para evitar requisições em excesso
+    enabled: false, // Desabilitada, usando requisição direta agora
   });
   
   // Log quaisquer erros na consulta
@@ -375,6 +397,13 @@ export default function ProfilePage() {
   // Mutation para atualizar configurações de notificação
   const updateNotificationSettingsMutation = useMutation({
     mutationFn: async (data: NotificationSettingsValues) => {
+      console.log('Enviando dados para salvamento:', {
+        enableWhatsApp: data.enableWhatsApp,
+        hasSid: !!data.accountSid,
+        hasToken: !!data.authToken,
+        hasPhone: !!data.phoneNumber
+      });
+      
       const res = await apiRequest("POST", "/api/notification-settings", data);
       if (!res.ok) {
         const error = await res.json();
@@ -382,14 +411,21 @@ export default function ProfilePage() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast({
         title: "Configurações atualizadas",
         description: "Suas configurações de notificação foram atualizadas com sucesso.",
       });
+      
+      // Atualizar o estado local com as novas configurações
+      setDirectSettings(variables);
       setHasWhatsAppConfig(notificationForm.getValues("enableWhatsApp"));
-      // Recarregar as configurações após atualização
-      queryClient.invalidateQueries({ queryKey: ['/api/notification-settings'] });
+      
+      // Recarregar as configurações após um breve atraso
+      setTimeout(() => {
+        console.log('Recarregando configurações após salvamento...');
+        loadSettingsDirectly();
+      }, 500);
     },
     onError: (error: Error) => {
       toast({
