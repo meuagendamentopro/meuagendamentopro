@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import WhatsAppSettings from "@/components/whatsapp/whatsapp-settings";
+import TestWhatsAppSend from "@/components/whatsapp/test-whatsapp";
 
 // Esquema para validação de atualização de perfil
 const updateProfileSchema = z.object({

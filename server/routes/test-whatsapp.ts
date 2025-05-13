@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getNotificationSettings } from '../notification-settings';
 import twilio from 'twilio';
 import logger from '../logger';
+import { storage } from '../storage';
 
 /**
  * Função para formatar o número de telefone para o formato do WhatsApp
@@ -32,11 +33,16 @@ export async function handleTestWhatsAppSend(req: Request, res: Response) {
     }
 
     // Obter o provider associado ao usuário autenticado
-    const providerId = req.user!.providerId;
+    const userId = req.user!.id;
     
-    if (!providerId) {
+    // Buscar o provider associado ao usuário
+    const provider = await storage.getProviderByUserId(userId);
+    
+    if (!provider) {
       return res.status(400).json({ error: 'Usuário não é um provedor' });
     }
+    
+    const providerId = provider.id;
 
     // Obter as configurações de notificação do provider
     const settings = await getNotificationSettings(providerId);
