@@ -3,7 +3,7 @@
  */
 import { db, dbWithQueries } from './db';
 import { subscriptionPlans, subscriptionTransactions, users } from '../shared/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { PaymentService } from './payment-service';
 import { storage } from './storage';
 import { User } from '../shared/schema';
@@ -17,12 +17,36 @@ export class SubscriptionService {
    */
   async getUserSubscriptionHistory(userId: number) {
     try {
-      const history = await dbWithQueries.query.subscriptionTransactions.findMany({
-        where: eq(subscriptionTransactions.userId, userId),
-        with: {
-          plan: true
-        },
-        orderBy: [desc(subscriptionTransactions.createdAt)]
+      // Buscar todas as transações do usuário
+      const transactions = await db.select()
+        .from(subscriptionTransactions)
+        .where(eq(subscriptionTransactions.userId, userId))
+        .orderBy(desc(subscriptionTransactions.createdAt));
+
+      // Se não houver transações, retornar lista vazia
+      if (transactions.length === 0) {
+        return [];
+      }
+      
+      // Buscar todos os planos
+      const plans = await db.select().from(subscriptionPlans);
+      
+      // Associar os planos às transações
+      const history = transactions.map(transaction => {
+        const plan = plans.find(p => p.id === transaction.planId);
+        return {
+          ...transaction,
+          plan: plan || {
+            id: transaction.planId,
+            name: "Plano não encontrado",
+            description: "",
+            durationMonths: 1,
+            price: transaction.amount,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        };
       });
       
       return history;

@@ -37,9 +37,11 @@ export default function SubscriptionHistoryPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
 
-  const { data: history, isLoading, error } = useQuery<SubscriptionTransaction[]>({
+  const { data: history, isLoading, error, refetch } = useQuery<SubscriptionTransaction[]>({
     queryKey: ["/api/subscription/history"],
     enabled: !!user,
+    retry: 3,
+    staleTime: 30 * 1000, // 30 segundos
   });
 
   // Função para formatar valores em reais
@@ -126,8 +128,13 @@ export default function SubscriptionHistoryPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : error ? (
-            <div className="text-center py-8 text-destructive">
-              Ocorreu um erro ao carregar o histórico de assinaturas.
+            <div className="text-center py-8">
+              <p className="text-destructive mb-4">
+                Ocorreu um erro ao carregar o histórico de assinaturas.
+              </p>
+              <Button onClick={() => refetch()} variant="outline">
+                Tentar novamente
+              </Button>
             </div>
           ) : history && history.length > 0 ? (
             <Table>
