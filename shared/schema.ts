@@ -77,6 +77,7 @@ export const providers = pgTable("providers", {
   // Templates de mensagens WhatsApp
   whatsappTemplateConfirmation: text("whatsapp_template_confirmation"),
   whatsappTemplateReminder: text("whatsapp_template_reminder"),
+  whatsappTemplateSameDayReminder: text("whatsapp_template_same_day_reminder"),
   whatsappTemplateCancellation: text("whatsapp_template_cancellation"),
   whatsappTemplateReschedule: text("whatsapp_template_reschedule"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

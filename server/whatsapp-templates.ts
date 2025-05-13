@@ -32,7 +32,22 @@ Obrigado por agendar conosco!`,
   reminder: 
 `Olá {name}!
 
-{reminderText}
+Lembrete do seu agendamento amanhã com {provider}.
+
+*Detalhes do agendamento:*
+📅 Data: {date}
+⏰ Horário: {time}
+✨ Serviço: {service}
+
+Por favor, confirme sua presença respondendo esta mensagem.
+Para reagendar ou cancelar, entre em contato o quanto antes pelo telefone {phone}.
+
+Estamos ansiosos para recebê-lo(a)!`,
+
+  sameDayReminder: 
+`Olá {name}!
+
+Lembrete do seu agendamento HOJE com {provider}.
 
 *Detalhes do agendamento:*
 📅 Data: {date}
@@ -90,6 +105,7 @@ export async function getWhatsAppTemplates(providerId: number): Promise<WhatsApp
       .select({
         whatsappTemplateConfirmation: providers.whatsappTemplateConfirmation,
         whatsappTemplateReminder: providers.whatsappTemplateReminder,
+        whatsappTemplateSameDayReminder: providers.whatsappTemplateSameDayReminder,
         whatsappTemplateCancellation: providers.whatsappTemplateCancellation,
         whatsappTemplateReschedule: providers.whatsappTemplateReschedule
       })
@@ -104,6 +120,7 @@ export async function getWhatsAppTemplates(providerId: number): Promise<WhatsApp
     return {
       confirmation: providerData.whatsappTemplateConfirmation || DEFAULT_TEMPLATES.confirmation,
       reminder: providerData.whatsappTemplateReminder || DEFAULT_TEMPLATES.reminder,
+      sameDayReminder: providerData.whatsappTemplateSameDayReminder || DEFAULT_TEMPLATES.sameDayReminder,
       cancellation: providerData.whatsappTemplateCancellation || DEFAULT_TEMPLATES.cancellation, 
       reschedule: providerData.whatsappTemplateReschedule || DEFAULT_TEMPLATES.reschedule
     };
@@ -127,6 +144,7 @@ export async function saveWhatsAppTemplates(
       .set({
         whatsappTemplateConfirmation: templates.confirmation,
         whatsappTemplateReminder: templates.reminder,
+        whatsappTemplateSameDayReminder: templates.sameDayReminder,
         whatsappTemplateCancellation: templates.cancellation,
         whatsappTemplateReschedule: templates.reschedule
       })
