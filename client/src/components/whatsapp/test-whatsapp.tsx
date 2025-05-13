@@ -108,7 +108,7 @@ export default function TestWhatsAppSend() {
         <div className="mt-4 p-3 bg-primary/10 rounded-md">
           <h4 className="text-sm font-medium mb-2">Instruções para Sandbox do Twilio</h4>
           <ol className="list-decimal list-inside text-xs space-y-1">
-            <li>Salve o número do Twilio ({process.env.TWILIO_PHONE_NUMBER || '+14155238886'}) nos seus contatos</li>
+            <li>Salve o número do Twilio (configurado nas suas configurações) nos seus contatos</li>
             <li>Envie a mensagem <strong>join flower</strong> (ou a palavra fornecida pelo Twilio) para este número no WhatsApp</li>
             <li>Aguarde a confirmação do sandbox</li>
             <li>Agora seu número está registrado e pode receber as mensagens de teste</li>
