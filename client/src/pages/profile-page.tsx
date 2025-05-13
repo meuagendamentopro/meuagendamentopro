@@ -71,12 +71,21 @@ export default function ProfilePage() {
   // Consulta para buscar configurações de notificação
   const { data: notificationSettings, isLoading: isLoadingNotificationSettings } = useQuery<NotificationSettingsValues>({
     queryKey: ['/api/notification-settings'],
-    enabled: user?.role === 'provider'
+    enabled: user?.role === 'provider',
+    refetchOnMount: true, // Garante recarregar os dados ao montar o componente
+    refetchOnWindowFocus: true, // Recarrega ao focar na janela
+    staleTime: 0 // Considera os dados sempre obsoletos para forçar nova requisição
   });
   
   // Efeito para carregar configurações quando os dados estiverem disponíveis
   useEffect(() => {
     if (notificationSettings) {
+      // Verificar se as credenciais existem antes de atualizar o formulário
+      const hasCredentials = !!notificationSettings.enableWhatsApp && 
+                           !!notificationSettings.accountSid && 
+                           !!notificationSettings.phoneNumber;
+      
+      // Atualizamos os valores do formulário
       notificationForm.reset({
         enableWhatsApp: !!notificationSettings.enableWhatsApp,
         accountSid: notificationSettings.accountSid || '',
@@ -86,9 +95,18 @@ export default function ProfilePage() {
         enableAppointmentReminder: notificationSettings.enableAppointmentReminder !== false,
         enableCancellationNotice: notificationSettings.enableCancellationNotice !== false
       });
-      setHasWhatsAppConfig(!!notificationSettings.enableWhatsApp && 
-                           !!notificationSettings.accountSid && 
-                           !!notificationSettings.phoneNumber);
+      
+      // Atualizamos o estado que controla a visualização do formulário
+      setHasWhatsAppConfig(hasCredentials);
+      
+      // Log para diagnóstico
+      console.log("Configurações de notificação carregadas:", {
+        enableWhatsApp: !!notificationSettings.enableWhatsApp,
+        hasCredentials,
+        accountSid: notificationSettings.accountSid ? "definido" : "não definido",
+        phoneNumber: notificationSettings.phoneNumber ? "definido" : "não definido"
+      });
+      
       setIsLoadingConfig(false);
     } else if (!isLoadingNotificationSettings) {
       setIsLoadingConfig(false);

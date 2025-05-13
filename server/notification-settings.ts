@@ -98,6 +98,7 @@ export async function saveNotificationSettings(providerId: number, settings: Not
  */
 export async function getNotificationSettings(providerId: number): Promise<NotificationSettings> {
   try {
+    // Consulta para obter as configurações com logs de diagnóstico
     const [provider] = await db.select({
       whatsappEnabled: providers.whatsappEnabled,
       twilioAccountSid: providers.twilioAccountSid,
@@ -109,20 +110,38 @@ export async function getNotificationSettings(providerId: number): Promise<Notif
     })
     .from(providers)
     .where(eq(providers.id, providerId));
+    
+    logger.info(`Obtendo configurações de notificação para o provider ${providerId}: ${JSON.stringify({
+      whatsappEnabled: provider?.whatsappEnabled,
+      hasSid: !!provider?.twilioAccountSid,
+      hasPhone: !!provider?.twilioPhoneNumber
+    })}`);
+    
 
     if (!provider) {
       throw new Error(`Provedor ${providerId} não encontrado`);
     }
 
-    return {
-      enableWhatsApp: provider.whatsappEnabled || false,
+    // Criar o objeto de configurações garantindo valores corretos
+    const settings: NotificationSettings = {
+      enableWhatsApp: provider.whatsappEnabled === true,
       accountSid: provider.twilioAccountSid || undefined,
       authToken: provider.twilioAuthToken || undefined,
       phoneNumber: provider.twilioPhoneNumber || undefined,
-      enableAppointmentConfirmation: provider.enableAppointmentConfirmation || true,
-      enableAppointmentReminder: provider.enableAppointmentReminder || true,
-      enableCancellationNotice: provider.enableCancellationNotice || true
+      enableAppointmentConfirmation: provider.enableAppointmentConfirmation !== false,
+      enableAppointmentReminder: provider.enableAppointmentReminder !== false,
+      enableCancellationNotice: provider.enableCancellationNotice !== false
     };
+    
+    // Log detalhado do que está sendo retornado
+    logger.info(`Retornando configurações: ${JSON.stringify({
+      enableWhatsApp: settings.enableWhatsApp,
+      hasSid: !!settings.accountSid,
+      hasAuthToken: !!settings.authToken,
+      hasPhoneNumber: !!settings.phoneNumber
+    })}`);
+    
+    return settings;
   } catch (err) {
     const error = err as Error;
     logger.error(`Erro ao obter configurações de notificação para o provedor ${providerId}: ${error.message}`);
