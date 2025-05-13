@@ -71,6 +71,10 @@ export function createWhatsAppMessage(
       defaultMessage = `Olá ${clientName}, informamos que seu agendamento para ${serviceName} no dia ${formattedDate} às ${appointmentTime} foi cancelado. Entre em contato caso queira reagendar! ${businessName}`;
       break;
       
+    case WhatsAppNotificationType.CONFIRMATION:
+      defaultMessage = `Olá ${clientName}, confirmamos seu agendamento para ${serviceName} no dia ${formattedDate} às ${appointmentTime}. Estamos à disposição para qualquer dúvida! ${businessName}`;
+      break;
+      
     default:
       defaultMessage = `Olá ${clientName}, temos uma atualização sobre seu agendamento de ${serviceName} no dia ${formattedDate} às ${appointmentTime}. ${businessName}`;
       break;
@@ -96,6 +100,13 @@ export function createWhatsAppMessage(
         return template;
       } else if (type === WhatsAppNotificationType.CANCELLATION && templates.cancellationTemplate) {
         let template = templates.cancellationTemplate;
+        Object.entries(replacements).forEach(([key, value]) => {
+          template = template.replace(new RegExp(`{${key}}`, 'g'), value);
+        });
+        return template;
+      } else if (type === WhatsAppNotificationType.CONFIRMATION && templates.confirmationTemplate) {
+        // Usar o mesmo template de novo agendamento para confirmação, se não existir um específico
+        let template = templates.confirmationTemplate || templates.newAppointmentTemplate;
         Object.entries(replacements).forEach(([key, value]) => {
           template = template.replace(new RegExp(`{${key}}`, 'g'), value);
         });
