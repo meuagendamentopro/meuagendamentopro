@@ -25,7 +25,6 @@ import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
 import WhatsAppPopup from "@/components/whatsapp-popup";
 import { WhatsAppNotificationProvider } from "@/components/whatsapp-notification-provider";
-import { AppointmentDetection } from "@/components/appointment-detection";
 import { useNotifications } from "@/hooks/use-notifications";
 import { 
   Popover,
@@ -99,11 +98,10 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   
   return (
     <div className="flex flex-col min-h-screen">
-      {/* WhatsApp Popup e detector de novos agendamentos */}
+      {/* WhatsApp Popup */}
       {user && (
         <>
           <WhatsAppPopup />
-          <AppointmentDetection />
         </>
       )}
       

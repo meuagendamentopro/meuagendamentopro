@@ -52,24 +52,25 @@ export function checkUpcomingAppointments(
       
       // Se estiver entre 55 e 65 minutos antes do agendamento
       if (diffMinutes >= 55 && diffMinutes <= 65) {
-        // Se temos dados do cliente e serviço
-        if (appt.client && appt.service) {
-          const notification: AppointmentNotification = {
-            id: appt.id,
-            clientId: appt.clientId,
-            clientName: appt.client.name,
-            clientPhone: appt.client.phone,
-            serviceId: appt.serviceId,
-            serviceName: appt.service.name,
-            date: apptDate,
-            time: appt.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            type: WhatsAppNotificationType.REMINDER,
-            createdAt: new Date(),
-            isRead: false
-          };
-          
-          notifications.push(notification);
-        }
+        console.log(`Agendamento com ID ${appt.id} está próximo (${diffMinutes} minutos)`);
+        
+        // Precisamos apenas do ID do agendamento, cliente e serviço
+        // Os dados completos serão buscados posteriormente
+        const notification: AppointmentNotification = {
+          id: appt.id,
+          clientId: appt.clientId,
+          clientName: appt.clientName || "Cliente", // Será substituído depois
+          clientPhone: appt.clientPhone || "",      // Será substituído depois
+          serviceId: appt.serviceId,
+          serviceName: appt.serviceName || "Serviço", // Será substituído depois
+          date: apptDate,
+          time: appt.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          type: WhatsAppNotificationType.REMINDER,
+          createdAt: new Date(),
+          isRead: false
+        };
+        
+        notifications.push(notification);
       }
     } catch (error) {
       console.error('Erro ao processar agendamento:', error);
