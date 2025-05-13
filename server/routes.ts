@@ -7,6 +7,9 @@ import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { SubscriptionService } from './subscription-service';
 import { saveNotificationSettings, getNotificationSettings, NotificationSettings } from './notification-settings';
+import twilio from 'twilio';
+import { isValidPhoneNumber } from './utils';
+import logger from './logger';
 import { 
   insertServiceSchema, 
   insertClientSchema, 
@@ -2897,6 +2900,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Erro ao salvar configurações de notificação",
         message: "Ocorreu um erro ao salvar as configurações. Tente novamente."
+      });
+    }
+  });
+  
+  // Testar credenciais do Twilio
+  app.post("/api/notification-settings/test", loadUserProvider, async (req: Request, res: Response) => {
+    try {
+      const { accountSid, authToken, phoneNumber } = req.body;
+      
+      // Validar os campos obrigatórios
+      if (!accountSid || !authToken || !phoneNumber) {
+        return res.status(400).json({
+          error: "Campos obrigatórios ausentes",
+          message: "É necessário fornecer Account SID, Auth Token e número de telefone."
+        });
+      }
+      
+      // Validar número de telefone
+      if (!isValidPhoneNumber(phoneNumber)) {
+        return res.status(400).json({
+          error: "Número de telefone inválido",
+          message: "O número de telefone deve estar no formato internacional (Ex: +5511999999999)."
+        });
+      }
+      
+      // Tentar criar um cliente Twilio com as credenciais fornecidas
+      try {
+        const twilioClient = twilio(accountSid, authToken);
+        // Tentar buscar a conta para verificar as credenciais
+        await twilioClient.api.accounts(accountSid).fetch();
+        
+        // Se chegou aqui, as credenciais são válidas
+        res.json({
+          success: true,
+          message: "Credenciais do Twilio verificadas com sucesso."
+        });
+      } catch (err) {
+        const error = err as Error;
+        logger.error(`Erro ao validar credenciais do Twilio: ${error.message}`);
+        return res.status(400).json({
+          error: "Credenciais inválidas",
+          message: "As credenciais do Twilio fornecidas são inválidas. Verifique Account SID e Auth Token."
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao testar credenciais Twilio:", error);
+      res.status(500).json({
+        error: "Erro interno",
+        message: "Ocorreu um erro ao testar as credenciais. Tente novamente."
       });
     }
   });
