@@ -6,9 +6,8 @@ import z from "zod";
 
 // Schema para validação dos templates de mensagem
 const messageTemplateSchema = z.object({
-  welcomeTemplate: z.string().min(1),
+  newAppointmentTemplate: z.string().min(1),
   reminderTemplate: z.string().min(1),
-  confirmationTemplate: z.string().min(1),
   cancellationTemplate: z.string().min(1),
 });
 
@@ -24,9 +23,8 @@ export async function getMessageTemplates(req: Request, res: Response) {
     if (templates.length === 0) {
       // Se não existirem templates, retornar templates padrão
       return res.status(200).json({
-        welcomeTemplate: "Olá {clientName}, seu agendamento para {serviceName} foi confirmado para {appointmentDate} às {appointmentTime}. Agradecemos sua preferência!",
+        newAppointmentTemplate: "Olá {clientName}, seu agendamento para {serviceName} foi confirmado para {appointmentDate} às {appointmentTime}. Agradecemos sua preferência!",
         reminderTemplate: "Olá {clientName}, lembrando do seu agendamento para {serviceName} hoje às {appointmentTime}. Estamos te esperando!",
-        confirmationTemplate: "Olá {clientName}, seu agendamento para {serviceName} foi confirmado! Te esperamos no dia {appointmentDate} às {appointmentTime}.",
         cancellationTemplate: "Olá {clientName}, seu agendamento para {serviceName} marcado para {appointmentDate} às {appointmentTime} foi cancelado.",
       });
     }
