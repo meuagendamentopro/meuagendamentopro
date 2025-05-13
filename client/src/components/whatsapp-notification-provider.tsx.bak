@@ -212,6 +212,62 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
     
     // Retorna sem fazer nada - popups de novos agendamentos foram desativados
     return;
+    
+    // Verificar se temos cliente e serviço IDs para buscar dados
+    if (appointment && appointment.clientId && appointment.serviceId) {
+      try {
+        // Função segura para buscar com tratamento de erro
+        const fetchWithErrorHandling = async (url: string) => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Erro ao buscar dados: ${response.status}`);
+            }
+            return await response.json();
+          } catch (error) {
+            console.error(`Erro ao buscar ${url}:`, error);
+            throw error;
+          }
+        };
+        
+        // Buscar dados do cliente e serviço
+        Promise.all([
+          fetchWithErrorHandling(`/api/clients/${appointment.clientId}`),
+          fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
+        ]).then(([client, service]) => {
+          // Criar objeto de notificação
+          const notification: AppointmentNotification = {
+            id: appointment.id,
+            clientId: appointment.clientId,
+            clientName: client.name,
+            clientPhone: client.phone,
+            serviceId: appointment.serviceId,
+            serviceName: service.name,
+            date: new Date(appointment.date),
+            time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            type: WhatsAppNotificationType.NEW_APPOINTMENT
+          };
+          
+          // Mostrar diálogo
+          setCurrentNotification(notification);
+          setDialogOpen(true);
+        }).catch(error => {
+          console.error('Erro ao buscar dados para notificação:', error);
+          toast({
+            title: "Erro ao preparar mensagem",
+            description: "Não foi possível obter os dados do cliente ou serviço",
+            variant: "destructive"
+          });
+        });
+      } catch (error) {
+        console.error('Erro ao iniciar busca de dados:', error);
+        toast({
+          title: "Erro ao preparar mensagem",
+          description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   // Função para mostrar notificação de lembrete
@@ -458,17 +514,17 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
           setCurrentNotification(notification);
           setDialogOpen(true);
         }).catch(error => {
-          console.error('Erro ao buscar dados para notificação de cancelamento:', error);
+          console.error('Erro ao buscar dados para notificação:', error);
           toast({
-            title: "Erro ao preparar mensagem de cancelamento",
+            title: "Erro ao preparar mensagem",
             description: "Não foi possível obter os dados do cliente ou serviço",
             variant: "destructive"
           });
         });
       } catch (error) {
-        console.error('Erro ao iniciar busca de dados para cancelamento:', error);
+        console.error('Erro ao iniciar busca de dados:', error);
         toast({
-          title: "Erro ao preparar mensagem de cancelamento",
+          title: "Erro ao preparar mensagem",
           description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
           variant: "destructive"
         });
@@ -476,72 +532,62 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
     }
   };
 
-  // Fechamento e reset do diálogo
+  // Função para enviar WhatsApp
+  const handleSendWhatsApp = () => {
+    if (!currentNotification) return;
+    
+    // Criar mensagem apropriada
+    const message = createWhatsAppMessage(
+      currentNotification.type,
+      currentNotification.clientName,
+      currentNotification.serviceName,
+      currentNotification.date,
+      currentNotification.time,
+      provider?.name || 'Agenda Online'
+    );
+    
+    // Abrir WhatsApp Web - Não fechamos o diálogo automaticamente
+    // para que o usuário possa voltar depois de enviar a mensagem
+    openWhatsApp(currentNotification.clientPhone, message);
+    
+    // Não fechamos o diálogo automaticamente
+    // O usuário deve fechar manualmente após enviar a mensagem no WhatsApp
+    // setDialogOpen(false);
+    // setCurrentNotification(null);
+  };
+
+  // Função para fechar o diálogo
   const handleCloseDialog = () => {
     setDialogOpen(false);
-    // Limpar a notificação atual após um delay para permitir a animação de fechamento
-    setTimeout(() => setCurrentNotification(null), 300);
-  };
-
-  // Manipulador para mensagem enviada (opcional: registrar ou atualizar algo quando uma mensagem é enviada)
-  const handleMessageSent = () => {
-    console.log('Mensagem enviada com sucesso para:', currentNotification?.clientPhone);
-    // Opcional: Fechar diálogo após envio bem-sucedido
-    // handleCloseDialog();
-  };
-
-  // Formatação do texto da mensagem baseado no tipo de notificação
-  const getMessageText = () => {
-    if (!currentNotification) return '';
-    
-    const businessName = provider?.name || 'Empresa';
-    const clientName = currentNotification.clientName;
-    const serviceName = currentNotification.serviceName;
-    const date = currentNotification.date.toLocaleDateString('pt-BR');
-    const time = currentNotification.time;
-    
-    switch (currentNotification.type) {
-      case WhatsAppNotificationType.NEW_APPOINTMENT:
-        return `Olá ${clientName}, confirmamos seu agendamento de ${serviceName} para ${date} às ${time} em ${businessName}. Agradecemos a preferência!`;
-      
-      case WhatsAppNotificationType.REMINDER:
-        return `Olá ${clientName}, lembramos que você tem um agendamento de ${serviceName} hoje às ${time} em ${businessName}. Estamos aguardando sua visita!`;
-      
-      case WhatsAppNotificationType.CANCELLATION:
-        return `Olá ${clientName}, informamos que seu agendamento de ${serviceName} para ${date} às ${time} em ${businessName} foi cancelado. Para mais informações, entre em contato conosco.`;
-      
-      case WhatsAppNotificationType.CONFIRMATION:
-        return `Olá ${clientName}, confirmamos seu agendamento de ${serviceName} para ${date} às ${time} em ${businessName}. Agradecemos a preferência e aguardamos sua visita!`;
-      
-      default:
-        return '';
-    }
+    setCurrentNotification(null);
   };
 
   return (
-    <>
-      <WhatsAppNotificationContext.Provider
-        value={{
-          showNewAppointmentNotification,
-          showReminderNotification,
-          showCancellationNotification,
-          showConfirmationNotification
-        }}
-      >
-        {children}
-      </WhatsAppNotificationContext.Provider>
+    <WhatsAppNotificationContext.Provider
+      value={{
+        showNewAppointmentNotification,
+        showReminderNotification,
+        showCancellationNotification,
+        showConfirmationNotification
+      }}
+    >
+      {children}
       
+      {/* Dialog de notificação WhatsApp */}
       {currentNotification && (
         <WhatsAppNotificationDialog
           open={dialogOpen}
-          onClose={handleCloseDialog}
-          notificationType={currentNotification.type}
+          onOpenChange={setDialogOpen}
+          type={currentNotification.type}
           clientName={currentNotification.clientName}
           clientPhone={currentNotification.clientPhone}
-          messageText={getMessageText()}
-          onMessageSent={handleMessageSent}
+          serviceName={currentNotification.serviceName}
+          appointmentDate={currentNotification.date}
+          appointmentTime={currentNotification.time}
+          onSendWhatsApp={handleSendWhatsApp}
+          onCancel={handleCloseDialog}
         />
       )}
-    </>
+    </WhatsAppNotificationContext.Provider>
   );
 };
