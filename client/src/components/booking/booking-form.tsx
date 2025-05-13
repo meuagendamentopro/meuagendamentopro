@@ -39,6 +39,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const [requiresPayment, setRequiresPayment] = useState(false);
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<string>('pending');
   
   // Função para resetar o formulário
   const resetForm = () => {
@@ -485,8 +486,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
                 {formatDate(selectedDate)} às {selectedTime}
               </p>
               {requiresPayment && (
-                <p className={`font-medium mt-2 ${appointmentId ? 'text-green-600' : 'text-amber-600'}`}>
-                  Status: {appointmentId ? 'Pagamento confirmado' : 'Aguardando pagamento'}
+                <p className={`font-medium mt-2 ${
+                  paymentStatus === 'paid' || paymentStatus === 'confirmed' || paymentStatus === 'approved' 
+                    ? 'text-green-600' 
+                    : 'text-amber-600'
+                }`}>
+                  Status: {
+                    paymentStatus === 'paid' || paymentStatus === 'confirmed' || paymentStatus === 'approved'
+                      ? 'Pagamento confirmado' 
+                      : 'Aguardando pagamento'
+                  }
                 </p>
               )}
             </div>
