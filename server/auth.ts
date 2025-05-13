@@ -32,6 +32,25 @@ export async function comparePasswords(supplied: string, stored: string): Promis
   return bcrypt.compare(supplied, stored);
 }
 
+/**
+ * Verifica se a assinatura de um usuário está expirada
+ * @param user Objeto do usuário
+ * @returns true se a assinatura estiver expirada ou não existir
+ */
+export function isSubscriptionExpired(user: SchemaUser): boolean {
+  // Se o usuário tem flag de nunca expirar, a assinatura é válida
+  if (user.neverExpires) return false;
+  
+  // Se o usuário não tem data de expiração, a assinatura é considerada expirada
+  if (!user.subscriptionExpiry) return true;
+  
+  // Verifica se a data de expiração já passou
+  const now = new Date();
+  const expiry = new Date(user.subscriptionExpiry);
+  
+  return now > expiry;
+}
+
 // Limpa sessões antigas e inválidas
 async function cleanupOldSessions() {
   try {
@@ -105,17 +124,10 @@ export function setupAuth(app: Express) {
         }
         
         // Verificar expiração da assinatura (apenas para provedores, não para admins)
-        if (user.role === 'provider' && !user.neverExpires) {
-          const now = new Date();
-          const expiry = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) : null;
+        if (user.role === 'provider') {
+          console.log(`Verificando expiração de assinatura para usuário ${user.username}`);
           
-          console.log(`Verificando expiração de assinatura para usuário ${user.username}:`, {
-            agora: now,
-            expiracao: expiry,
-            nuncaExpira: user.neverExpires
-          });
-          
-          if (expiry && now > expiry) {
+          if (isSubscriptionExpired(user)) {
             console.log(`Assinatura expirada para ${user.username}`);
             return done(null, false, { message: "Assinatura expirada", expired: true });
           }
