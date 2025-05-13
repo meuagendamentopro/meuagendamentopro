@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import Layout from "@/components/layout/layout";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -206,8 +205,7 @@ const MessageTemplatesPage: React.FC = () => {
   };
 
   return (
-    <Layout>
-      <div className="container py-6 max-w-5xl">
+    <div className="container py-6 max-w-5xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Templates de Mensagens</h1>
           <p className="text-muted-foreground mt-2">
@@ -369,7 +367,6 @@ const MessageTemplatesPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </Layout>
   );
 };
 

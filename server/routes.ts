@@ -24,7 +24,8 @@ import {
   InsertTimeExclusion,
   subscriptionPlans,
   subscriptionTransactions,
-  users
+  users,
+  messageTemplates
 } from "@shared/schema";
 import { and, eq, gt, gte, lte, ne, sql, desc } from "drizzle-orm";
 import { z } from "zod";
