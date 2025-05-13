@@ -74,6 +74,11 @@ export const providers = pgTable("providers", {
   enableAppointmentConfirmation: boolean("enable_appointment_confirmation").default(true),
   enableAppointmentReminder: boolean("enable_appointment_reminder").default(true),
   enableCancellationNotice: boolean("enable_cancellation_notice").default(true),
+  // Templates de mensagens WhatsApp
+  whatsappTemplateConfirmation: text("whatsapp_template_confirmation"),
+  whatsappTemplateReminder: text("whatsapp_template_reminder"),
+  whatsappTemplateCancellation: text("whatsapp_template_cancellation"),
+  whatsappTemplateReschedule: text("whatsapp_template_reschedule"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
