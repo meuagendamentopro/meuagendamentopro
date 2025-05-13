@@ -1,62 +1,101 @@
 /**
- * Utilitários gerais para uso no servidor
+ * Funções utilitárias para o servidor
  */
 
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 /**
- * Formata uma data para exibição no formato brasileiro
- * @param date A data a ser formatada
- * @param includeTime Se deve incluir o horário na formatação (default: false)
- * @returns String formatada (ex: "01/01/2023" ou "01/01/2023 14:30")
+ * Formata uma data para exibição em formato brasileiro
+ * @param date Data a ser formatada
+ * @param includeTime Se deve incluir a hora na formatação
+ * @returns String formatada (DD/MM/YYYY HH:mm ou DD/MM/YYYY)
  */
-export function formatDateBR(date: Date, includeTime = false): string {
-  const formatStr = includeTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy';
-  return format(date, formatStr, { locale: ptBR });
-}
-
-/**
- * Verifica se uma string é um número de telefone válido
- * @param phone O número de telefone a ser validado
- * @returns Boolean indicando se é válido
- */
-export function isValidPhoneNumber(phone: string): boolean {
-  // Implementação simples para verificar se é um número de telefone válido
-  // Aceita formato internacional com ou sem '+' e com ou sem espaços
-  // E.g. +5511999999999, 5511999999999, +55 11 99999-9999
-  return /^(\+)?[0-9\s-]{10,15}$/.test(phone);
-}
-
-/**
- * Normaliza um número de telefone para o formato E.164
- * @param phone O número de telefone a ser normalizado
- * @returns String no formato E.164 (ex: +5511999999999)
- */
-export function normalizePhoneNumber(phone: string): string {
-  // Remove tudo que não for dígito
-  const digits = phone.replace(/\D/g, '');
+export function formatDateBr(date: Date | string, includeTime = false): string {
+  const parsedDate = typeof date === 'string' ? parseISO(date) : date;
   
-  // Se começar com 55 (Brasil), adiciona o "+"
-  if (digits.startsWith('55') && digits.length >= 12) {
-    return `+${digits}`;
+  return format(
+    parsedDate,
+    includeTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy',
+    { locale: ptBR }
+  );
+}
+
+/**
+ * Formata uma hora para exibição (HH:mm)
+ * @param date Data contendo a hora a ser formatada
+ * @returns String formatada (HH:mm)
+ */
+export function formatTime(date: Date | string): string {
+  const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+  return format(parsedDate, 'HH:mm');
+}
+
+/**
+ * Extrai a data e hora de um objeto Date para strings formatadas
+ * @param date Data a ser processada
+ * @returns Objeto contendo data e hora formatadas
+ */
+export function extractDateAndTime(date: Date): { 
+  formattedDate: string; 
+  formattedTime: string;
+} {
+  return {
+    formattedDate: formatDateBr(date),
+    formattedTime: formatTime(date)
+  };
+}
+
+/**
+ * Verifica se um número de telefone está no formato internacional válido
+ * @param phoneNumber Número de telefone a ser validado
+ * @returns true se for válido, false caso contrário
+ */
+export function isValidPhoneNumber(phoneNumber: string): boolean {
+  // Formato internacional: +XXXXXXXXXXXX (pelo menos 8 dígitos após o código do país)
+  // Ex: +5511999999999
+  const phoneRegex = /^\+\d{2,3}\d{8,}$/;
+  return phoneRegex.test(phoneNumber);
+}
+
+/**
+ * Adiciona parâmetros à URL mantendo os existentes
+ * @param url URL base
+ * @param params Objeto com parâmetros a adicionar
+ * @returns URL com parâmetros adicionados
+ */
+export function addParamsToUrl(url: string, params: Record<string, string>): string {
+  const urlObj = new URL(url);
+  
+  Object.entries(params).forEach(([key, value]) => {
+    urlObj.searchParams.set(key, value);
+  });
+  
+  return urlObj.toString();
+}
+
+/**
+ * Gera uma string aleatória de tamanho específico
+ * @param length Tamanho da string
+ * @returns String aleatória
+ */
+export function generateRandomString(length: number): string {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
   }
   
-  // Se não tiver o código do país, assume Brasil (+55)
-  if (digits.length === 10 || digits.length === 11) {
-    return `+55${digits}`;
-  }
-  
-  // Se já estiver em outro formato, apenas adiciona o "+" se não tiver
-  return phone.startsWith('+') ? phone : `+${digits}`;
+  return result;
 }
 
 /**
- * Formata um preço para exibição no formato brasileiro
- * @param value O valor a ser formatado
- * @returns String formatada (ex: "R$ 10,50")
+ * Formata um valor monetário em Real brasileiro
+ * @param value Valor a ser formatado
+ * @returns String formatada (R$ X,XX)
  */
-export function formatPrice(value: number): string {
+export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'

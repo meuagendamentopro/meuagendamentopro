@@ -58,7 +58,7 @@ export async function saveNotificationSettings(providerId: number, settings: Not
         await twilioClient.api.accounts(settings.accountSid).fetch();
       } catch (err) {
         const error = err as Error;
-        logger.error('Erro ao validar credenciais do Twilio', error.message);
+        logger.error(`Erro ao validar credenciais do Twilio: ${error.message}`);
         return { 
           success: false, 
           message: "Credenciais do Twilio inválidas. Verifique Account SID e Auth Token." 
@@ -83,7 +83,7 @@ export async function saveNotificationSettings(providerId: number, settings: Not
     return { success: true };
   } catch (err) {
     const error = err as Error;
-    logger.error(`Erro ao salvar configurações de notificação para o provedor ${providerId}`, error.message);
+    logger.error(`Erro ao salvar configurações de notificação para o provedor ${providerId}: ${error.message}`);
     return { 
       success: false, 
       message: "Erro ao salvar configurações. Tente novamente." 
@@ -125,7 +125,7 @@ export async function getNotificationSettings(providerId: number): Promise<Notif
     };
   } catch (err) {
     const error = err as Error;
-    logger.error(`Erro ao obter configurações de notificação para o provedor ${providerId}`, error.message);
+    logger.error(`Erro ao obter configurações de notificação para o provedor ${providerId}: ${error.message}`);
     
     // Retorna valores padrão em caso de erro
     return {

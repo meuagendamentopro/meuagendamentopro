@@ -75,11 +75,15 @@ export default {
   /**
    * Log de nível error - para erros e exceções
    */
-  error: (message: any, error?: Error): void => {
+  error: (message: any, error?: Error | string): void => {
     if (currentLevel <= LOG_LEVELS.ERROR) {
       console.error(formatLogMessage('ERROR', message));
-      if (error && error.stack) {
-        console.error(error.stack);
+      if (error) {
+        if (typeof error === 'string') {
+          console.error(error);
+        } else if (error.stack) {
+          console.error(error.stack);
+        }
       }
     }
   }
