@@ -1,6 +1,6 @@
-import { WhatsAppNotificationType } from "@/components/whatsapp-notification-dialog";
+import { WhatsAppNotificationType } from '@/components/whatsapp-notification-dialog';
 
-// Interface para armazenar dados de agendamentos que precisam de notificações
+// Interface para as notificações
 export interface AppointmentNotification {
   id: number;
   clientId: number;
@@ -15,13 +15,13 @@ export interface AppointmentNotification {
   isRead: boolean;
 }
 
-// Interface para o storage local
+// Interface para o storage
 interface NotificationStorage {
   pendingNotifications: AppointmentNotification[];
   lastCheckedTime: number;
 }
 
-// Nome da chave para armazenamento no localStorage
+// Chave para o localStorage
 const STORAGE_KEY = 'appointment_notifications';
 
 /**
@@ -32,15 +32,15 @@ const STORAGE_KEY = 'appointment_notifications';
 export function checkUpcomingAppointments(
   appointments: any[]
 ): AppointmentNotification[] {
-  // Filtrar apenas agendamentos confirmados ou pendentes
+  const now = new Date();
+  const notifications: AppointmentNotification[] = [];
+  
+  // Filtra agendamentos confirmados ou pendentes
   const activeAppointments = appointments.filter(
-    (appt) => appt.status === 'confirmed' || appt.status === 'pending'
+    appt => appt.status === 'confirmed' || appt.status === 'pending'
   );
   
-  // Verificar quais agendamentos estão próximos (entre 55 e 65 minutos para evitar duplicações)
-  const now = new Date();
-  const upcomingNotifications: AppointmentNotification[] = [];
-  
+  // Verifica cada agendamento
   activeAppointments.forEach(appt => {
     try {
       // Converter string ISO para objeto Date
@@ -52,50 +52,59 @@ export function checkUpcomingAppointments(
       
       // Se estiver entre 55 e 65 minutos antes do agendamento
       if (diffMinutes >= 55 && diffMinutes <= 65) {
-        upcomingNotifications.push({
-          id: appt.id,
-          clientId: appt.clientId,
-          clientName: appt.clientName || 'Cliente',
-          clientPhone: appt.clientPhone || '',
-          serviceId: appt.serviceId,
-          serviceName: appt.serviceName || 'Serviço',
-          date: apptDate,
-          time: appt.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          type: WhatsAppNotificationType.REMINDER,
-          createdAt: now,
-          isRead: false
-        });
+        // Se temos dados do cliente e serviço
+        if (appt.client && appt.service) {
+          const notification: AppointmentNotification = {
+            id: appt.id,
+            clientId: appt.clientId,
+            clientName: appt.client.name,
+            clientPhone: appt.client.phone,
+            serviceId: appt.serviceId,
+            serviceName: appt.service.name,
+            date: apptDate,
+            time: appt.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            type: WhatsAppNotificationType.REMINDER,
+            createdAt: new Date(),
+            isRead: false
+          };
+          
+          notifications.push(notification);
+        }
       }
     } catch (error) {
       console.error('Erro ao processar agendamento:', error);
     }
   });
   
-  return upcomingNotifications;
+  return notifications;
 }
 
 /**
  * Adiciona uma notificação para um novo agendamento
  */
 export function addNewAppointmentNotification(
-  appointment: any
+  appointment: any,
+  client?: any,
+  service?: any
 ): AppointmentNotification {
-  // Criar objeto de notificação
+  const now = new Date();
+  const apptDate = new Date(appointment.date);
+  
   const notification: AppointmentNotification = {
     id: appointment.id,
     clientId: appointment.clientId,
-    clientName: appointment.clientName || 'Cliente',
-    clientPhone: appointment.clientPhone || '',
+    clientName: client?.name || appointment.clientName,
+    clientPhone: client?.phone || appointment.clientPhone,
     serviceId: appointment.serviceId,
-    serviceName: appointment.serviceName || 'Serviço',
-    date: new Date(appointment.date),
-    time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    serviceName: service?.name || appointment.serviceName,
+    date: apptDate,
+    time: appointment.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     type: WhatsAppNotificationType.NEW_APPOINTMENT,
-    createdAt: new Date(),
+    createdAt: now,
     isRead: false
   };
   
-  // Adicionar ao storage
+  // Salvar notificação
   saveNotification(notification);
   
   return notification;
@@ -105,24 +114,28 @@ export function addNewAppointmentNotification(
  * Adiciona uma notificação para um agendamento cancelado
  */
 export function addCancellationNotification(
-  appointment: any
+  appointment: any,
+  client?: any,
+  service?: any
 ): AppointmentNotification {
-  // Criar objeto de notificação
+  const now = new Date();
+  const apptDate = new Date(appointment.date);
+  
   const notification: AppointmentNotification = {
     id: appointment.id,
     clientId: appointment.clientId,
-    clientName: appointment.clientName || 'Cliente',
-    clientPhone: appointment.clientPhone || '',
+    clientName: client?.name || appointment.clientName,
+    clientPhone: client?.phone || appointment.clientPhone,
     serviceId: appointment.serviceId,
-    serviceName: appointment.serviceName || 'Serviço',
-    date: new Date(appointment.date),
-    time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    serviceName: service?.name || appointment.serviceName,
+    date: apptDate,
+    time: appointment.time || apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     type: WhatsAppNotificationType.CANCELLATION,
-    createdAt: new Date(),
+    createdAt: now,
     isRead: false
   };
   
-  // Adicionar ao storage
+  // Salvar notificação
   saveNotification(notification);
   
   return notification;
@@ -134,21 +147,14 @@ export function addCancellationNotification(
 export function getPendingNotifications(): AppointmentNotification[] {
   try {
     const storageData = localStorage.getItem(STORAGE_KEY);
-    
-    if (!storageData) {
-      return [];
-    }
+    if (!storageData) return [];
     
     const data: NotificationStorage = JSON.parse(storageData);
     
-    // Converter strings de data para objetos Date
-    return data.pendingNotifications.map(notification => ({
-      ...notification,
-      date: new Date(notification.date),
-      createdAt: new Date(notification.createdAt)
-    }));
+    // Filtrar apenas notificações não lidas
+    return data.pendingNotifications.filter(notification => !notification.isRead);
   } catch (error) {
-    console.error('Erro ao buscar notificações pendentes:', error);
+    console.error('Erro ao buscar notificações:', error);
     return [];
   }
 }
@@ -158,29 +164,30 @@ export function getPendingNotifications(): AppointmentNotification[] {
  */
 export function saveNotification(notification: AppointmentNotification): void {
   try {
-    // Buscar notificações existentes
-    const existingNotifications = getPendingNotifications();
+    // Buscar dados existentes ou inicializar
+    const storageData = localStorage.getItem(STORAGE_KEY);
+    const data: NotificationStorage = storageData 
+      ? JSON.parse(storageData)
+      : { 
+          pendingNotifications: [], 
+          lastCheckedTime: Date.now() 
+        };
     
-    // Verificar se já existe uma notificação com o mesmo ID e tipo
-    const isDuplicate = existingNotifications.some(
+    // Verificar se já existe uma notificação idêntica
+    const isDuplicate = data.pendingNotifications.some(
       n => n.id === notification.id && n.type === notification.type
     );
     
-    if (isDuplicate) {
-      console.log('Notificação duplicada, ignorando.');
-      return;
+    if (!isDuplicate) {
+      // Adicionar nova notificação
+      data.pendingNotifications.push(notification);
+      
+      // Atualizar timestamp
+      data.lastCheckedTime = Date.now();
+      
+      // Salvar no localStorage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
-    
-    // Adicionar nova notificação
-    const updatedNotifications = [...existingNotifications, notification];
-    
-    // Salvar no localStorage
-    const storageData: NotificationStorage = {
-      pendingNotifications: updatedNotifications,
-      lastCheckedTime: Date.now()
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
   } catch (error) {
     console.error('Erro ao salvar notificação:', error);
   }
@@ -191,20 +198,24 @@ export function saveNotification(notification: AppointmentNotification): void {
  */
 export function markNotificationAsRead(id: number, type: WhatsAppNotificationType): void {
   try {
-    const existingNotifications = getPendingNotifications();
+    // Buscar dados existentes
+    const storageData = localStorage.getItem(STORAGE_KEY);
+    if (!storageData) return;
     
-    // Filtrar para remover a notificação específica
-    const updatedNotifications = existingNotifications.filter(
+    const data: NotificationStorage = JSON.parse(storageData);
+    
+    // Filtrar notificações, removendo a que foi lida
+    const updatedNotifications = data.pendingNotifications.filter(
       n => !(n.id === id && n.type === type)
     );
     
-    // Salvar lista atualizada
-    const storageData: NotificationStorage = {
+    // Atualizar storage
+    const updatedData: NotificationStorage = {
       pendingNotifications: updatedNotifications,
       lastCheckedTime: Date.now()
     };
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
   } catch (error) {
     console.error('Erro ao marcar notificação como lida:', error);
   }
