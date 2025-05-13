@@ -37,6 +37,7 @@ import passport from "passport";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
 import { handleTestWhatsAppSend } from './routes/test-whatsapp';
+import { sendAppointmentConfirmation } from './whatsapp-service';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
@@ -2585,8 +2586,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Aqui enviaríamos uma confirmação via WhatsApp
-      console.log(`Agendamento ${appointment.id} criado com sucesso! Confirmação seria enviada para ${client.phone}.`);
+      // Enviar confirmação via WhatsApp
+      try {
+        // Buscar serviço e provider para compor a mensagem
+        const service = await storage.getService(appointment.serviceId);
+        const provider = await storage.getProvider(appointment.providerId);
+        
+        if (service && provider && client) {
+          // Tentar enviar a mensagem
+          const sent = await sendAppointmentConfirmation(
+            appointment, 
+            service, 
+            provider, 
+            client
+          );
+          
+          if (sent) {
+            console.log(`✓ Confirmação WhatsApp enviada para ${client.phone} (agendamento #${appointment.id})`);
+          } else {
+            console.log(`! Não foi possível enviar confirmação WhatsApp para ${client.phone} (agendamento #${appointment.id})`);
+          }
+        } else {
+          console.error(`Dados incompletos para envio de WhatsApp: service=${!!service}, provider=${!!provider}, client=${!!client}`);
+        }
+      } catch (error) {
+        console.error("Erro ao enviar confirmação de agendamento via WhatsApp:", error);
+      }
       
       res.status(201).json({
         success: true,
