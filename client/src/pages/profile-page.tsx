@@ -11,6 +11,7 @@ import { Bell, Camera, InfoIcon, MessageSquare, ShieldIcon, Trash2, X } from "lu
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -293,6 +294,10 @@ export default function ProfilePage() {
   function onPasswordSubmit(data: PasswordFormValues) {
     updatePasswordMutation.mutate(data);
   }
+
+  function onNotificationSubmit(data: NotificationSettingsValues) {
+    updateNotificationSettingsMutation.mutate(data);
+  }
   
   // Gerar iniciais para o avatar
   const initials = user?.name 
@@ -514,6 +519,186 @@ export default function ProfilePage() {
                         disabled={updatePasswordMutation.isPending || !passwordForm.formState.isDirty}
                       >
                         {updatePasswordMutation.isPending ? "Atualizando..." : "Atualizar senha"}
+                      </Button>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="notifications" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Notificações</CardTitle>
+                  <CardDescription>Configure como seus clientes receberão notificações de agendamentos.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Form {...notificationForm}>
+                    <form onSubmit={notificationForm.handleSubmit(onNotificationSubmit)} className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <h3 className="text-base font-medium">Notificações por WhatsApp</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Enviar confirmações e lembretes de agendamentos via WhatsApp
+                            </p>
+                          </div>
+                          <FormField
+                            control={notificationForm.control}
+                            name="enableWhatsApp"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center space-x-2">
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      {notificationForm.watch("enableWhatsApp") && (
+                        <>
+                          <Separator />
+                          <div className="space-y-4">
+                            <h3 className="text-base font-medium">Configurações do Twilio</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Configure suas credenciais do Twilio para enviar mensagens por WhatsApp.
+                              <a href="https://www.twilio.com/try-twilio" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
+                                Obter conta Twilio
+                              </a>
+                            </p>
+
+                            <FormField
+                              control={notificationForm.control}
+                              name="accountSid"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Account SID</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={notificationForm.control}
+                              name="authToken"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Auth Token</FormLabel>
+                                  <FormControl>
+                                    <Input type="password" placeholder="Seu Auth Token do Twilio" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={notificationForm.control}
+                              name="phoneNumber"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Número WhatsApp</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="+14155238886" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                  <p className="text-xs text-muted-foreground">
+                                    Número completo com código do país (Ex: +14155238886)
+                                  </p>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <Separator />
+
+                          <div className="space-y-4">
+                            <h3 className="text-base font-medium">Tipos de notificação</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Escolha quais notificações serão enviadas aos seus clientes.
+                            </p>
+
+                            <div className="space-y-2">
+                              <FormField
+                                control={notificationForm.control}
+                                name="enableAppointmentConfirmation"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-base">Confirmação de agendamento</FormLabel>
+                                      <FormDescription>
+                                        Notificar cliente quando um agendamento for criado
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={notificationForm.control}
+                                name="enableAppointmentReminder"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-base">Lembrete de agendamento</FormLabel>
+                                      <FormDescription>
+                                        Enviar lembrete 24h antes e no dia do agendamento
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={notificationForm.control}
+                                name="enableCancellationNotice"
+                                render={({ field }) => (
+                                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-base">Aviso de cancelamento</FormLabel>
+                                      <FormDescription>
+                                        Notificar cliente quando um agendamento for cancelado
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <Button 
+                        type="submit" 
+                        disabled={updateNotificationSettingsMutation.isPending || !notificationForm.formState.isDirty}
+                      >
+                        {updateNotificationSettingsMutation.isPending ? "Salvando..." : "Salvar configurações"}
                       </Button>
                     </form>
                   </Form>
