@@ -44,7 +44,7 @@ async function sendReminders() {
           gt(appointments.date, startOfTargetDay),
           lt(appointments.date, endOfTargetDay),
           eq(appointments.status, 'confirmed'),
-          isNull(appointments.reminderSent)
+          eq(appointments.reminderSent, false)
         )
       );
     
