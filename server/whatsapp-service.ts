@@ -1,4 +1,4 @@
-import { Twilio } from 'twilio';
+import twilio from 'twilio';
 import { Appointment, Service, Provider, Client } from '../shared/schema';
 import { formatDate, formatTime, formatCurrency, extractDateAndTime } from './utils';
 import logger from './logger';
@@ -9,10 +9,10 @@ const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER; // Formato: 'whatsapp:+14155238886'
 
 // Inicializar cliente do Twilio se as credenciais estiverem disponíveis
-let twilioClient: Twilio | null = null;
+let twilioClient = null;
 
 if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
-  twilioClient = new Twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+  twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
   logger.info('Serviço WhatsApp inicializado com Twilio');
 } else {
   logger.warn('Credenciais do Twilio não encontradas. Serviço de WhatsApp desativado.');
@@ -182,6 +182,9 @@ export async function sendAppointmentReschedule(
     return false;
   }
 
+  // Extrair data e hora do appointment
+  const { appointmentDate, appointmentTime } = extractDateAndTime(appointment);
+
   const message = `Olá, ${client.name}. O seu agendamento foi alterado.
 
 📅 *Serviço*: ${service.name}
@@ -191,8 +194,8 @@ export async function sendAppointmentReschedule(
 ⏰ Horário: ${oldTime}
 
 *Para:*
-📆 Data: ${formatDate(appointment.appointmentDate)}
-⏰ Horário: ${formatTime(appointment.appointmentTime)}
+📆 Data: ${formatDate(appointmentDate)}
+⏰ Horário: ${appointmentTime}
 👨‍💼 Profissional: ${provider.name}
 
 Se você tiver alguma dúvida ou precisar fazer alterações, entre em contato conosco.

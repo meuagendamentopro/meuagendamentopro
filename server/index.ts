@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startScheduler } from "./scheduler";
+import logger from "./logger";
 
 const app = express();
 app.use(express.json());
@@ -101,6 +103,14 @@ app.use((req, res, next) => {
       reusePort: true,
     }, () => {
       log(`Servidor rodando na porta ${port} em modo ${app.get("env")}`);
+      
+      // Inicia o agendador para processamento de notificações
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+        logger.info("Iniciando o agendador de notificações WhatsApp");
+        startScheduler();
+      } else {
+        logger.warn("Agendador de notificações não iniciado. Defina as variáveis TWILIO_ACCOUNT_SID e TWILIO_AUTH_TOKEN para habilitar notificações WhatsApp.");
+      }
     });
   } catch (error) {
     console.error("Erro fatal durante a inicialização do servidor:", error);
