@@ -86,7 +86,7 @@ async function sendReminders() {
           // Atualizar flag de lembrete enviado
           await db
             .update(appointments)
-            .set({ reminderSent: new Date() })
+            .set({ reminderSent: true })
             .where(eq(appointments.id, appointment.id));
           
           logger.info(`Lembrete enviado com sucesso para o agendamento ${appointment.id}`);
