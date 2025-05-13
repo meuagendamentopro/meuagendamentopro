@@ -9,7 +9,7 @@ import {
   DialogFooter 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { formatPhoneNumber } from '@/lib/format';
+import { formatPhoneNumber } from '@/lib/utils';
 import { MessageSquare, Calendar, Clock, X, Send, AlertCircle } from 'lucide-react';
 
 // Tipos de notificação

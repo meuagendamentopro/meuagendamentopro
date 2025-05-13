@@ -25,21 +25,14 @@ import { MessageCircle, AlertCircle, Check } from "lucide-react";
 import { AppointmentDetails } from "./appointment-details";
 import { useWhatsAppNotifications } from "@/components/whatsapp-notification-provider";
 
-interface AppointmentTableProps {
-  providerId: number;
-  limit?: number;
-  showTitle?: boolean;
-  onAppointmentUpdated?: () => void;
-}
-
-const AppointmentTable: React.FC<AppointmentTableProps> = ({ 
+const AppointmentTable = ({ 
   providerId, 
   limit = 5, 
   showTitle = true,
   onAppointmentUpdated
 }) => {
   const [cancellationReason, setCancellationReason] = useState("");
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   
   // Hook para notificações WhatsApp
@@ -53,7 +46,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
       return res.json();
     }
   });
-
+  
   const { data: clients, isLoading: clientsLoading } = useQuery({
     queryKey: ['/api/clients'],
     queryFn: async () => {
@@ -62,7 +55,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
       return res.json();
     }
   });
-
+  
   const { data: services, isLoading: servicesLoading } = useQuery({
     queryKey: ['/api/providers', providerId, 'services'],
     queryFn: async () => {
@@ -72,10 +65,10 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     }
   });
 
-  const handleCancelAppointment = async (id: number, reason: string) => {
+  const handleCancelAppointment = async (id, reason) => {
     try {
       // Buscar detalhes do agendamento antes de cancelar
-      const appointment = appointments?.find((a: any) => a.id === id);
+      const appointment = appointments?.find((a) => a.id === id);
       
       // Atualizar status para cancelado
       await apiRequest('PATCH', `/api/appointments/${id}/status`, { 
@@ -85,8 +78,8 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
       
       // Se temos o agendamento, buscar detalhes necessários e mostrar notificação WhatsApp
       if (appointment && clients && services) {
-        const client = clients.find((c: any) => c.id === appointment.clientId);
-        const service = services.find((s: any) => s.id === appointment.serviceId);
+        const client = clients.find((c) => c.id === appointment.clientId);
+        const service = services.find((s) => s.id === appointment.serviceId);
         
         if (client && service) {
           // Aguardar um pouco para permitir que o WebSocket atualize os dados
@@ -111,10 +104,10 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     }
   };
 
-  const handleConfirmAppointment = async (id: number) => {
+  const handleConfirmAppointment = async (id) => {
     try {
       // Buscar detalhes do agendamento antes de confirmar
-      const appointment = appointments?.find((a: any) => a.id === id);
+      const appointment = appointments?.find((a) => a.id === id);
       
       // Atualizar status para confirmado
       await apiRequest('PATCH', `/api/appointments/${id}/status`, { 
@@ -123,8 +116,8 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
       
       // Se temos o agendamento, buscar detalhes necessários e mostrar notificação WhatsApp
       if (appointment && clients && services) {
-        const client = clients.find((c: any) => c.id === appointment.clientId);
-        const service = services.find((s: any) => s.id === appointment.serviceId);
+        const client = clients.find((c) => c.id === appointment.clientId);
+        const service = services.find((s) => s.id === appointment.serviceId);
         
         if (client && service) {
           // Aguardar um pouco para permitir que o WebSocket atualize os dados
@@ -151,24 +144,24 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
 
   const isLoading = appointmentsLoading || clientsLoading || servicesLoading;
 
-  const getClientName = (clientId: number) => {
+  const getClientName = (clientId) => {
     if (!clients) return "";
-    const client = clients.find((c: any) => c.id === clientId);
+    const client = clients.find((c) => c.id === clientId);
     return client ? client.name : "";
   };
 
-  const getClientPhone = (clientId: number) => {
+  const getClientPhone = (clientId) => {
     if (!clients) return "";
-    const client = clients.find((c: any) => c.id === clientId);
+    const client = clients.find((c) => c.id === clientId);
     return client ? formatPhoneNumber(client.phone) : "";
   };
   
   // Cria URL do WhatsApp
-  const getWhatsAppUrl = (clientId: number, appointmentId: number) => {
+  const getWhatsAppUrl = (clientId, appointmentId) => {
     if (!clients || !appointments) return "";
     
-    const client = clients.find((c: any) => c.id === clientId);
-    const appointment = appointments.find((a: any) => a.id === appointmentId);
+    const client = clients.find((c) => c.id === clientId);
+    const appointment = appointments.find((a) => a.id === appointmentId);
     
     if (!client || !appointment) return "";
     
@@ -183,15 +176,15 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     return `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
-  const getServiceName = (serviceId: number) => {
+  const getServiceName = (serviceId) => {
     if (!services) return "";
-    const service = services.find((s: any) => s.id === serviceId);
+    const service = services.find((s) => s.id === serviceId);
     return service ? service.name : "";
   };
 
-  const getServiceDuration = (serviceId: number) => {
+  const getServiceDuration = (serviceId) => {
     if (!services) return "";
-    const service = services.find((s: any) => s.id === serviceId);
+    const service = services.find((s) => s.id === serviceId);
     return service ? `${service.duration}min` : "";
   };
 
@@ -203,32 +196,31 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     today.setHours(0, 0, 0, 0);
     
     return appointments
-      .filter((appointment: any) => {
-        if (appointment.status === AppointmentStatus.CANCELLED) {
-          return false;
-        }
-        
-        const appointmentDate = new Date(appointment.date);
-        if (appointmentDate >= today && 
-           (appointment.status === AppointmentStatus.PENDING || 
-            appointment.status === AppointmentStatus.CONFIRMED)) {
-          return true;
-        }
-        
-        return false;
+      .filter((a) => {
+        const date = new Date(a.date);
+        return date >= today;
       })
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateA - dateB;
+      })
       .slice(0, limit);
   }, [appointments, limit]);
 
-  const renderClientAvatar = (clientId: number) => {
-    const clientName = getClientName(clientId);
-    const initials = clientName
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2);
+  // Renderiza avatar do cliente
+  const renderClientAvatar = (clientId) => {
+    if (!clients) return null;
+    
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return null;
+    
+    const initials = client.name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
 
     return (
       <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
@@ -270,7 +262,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAppointments.map((appointment: any) => {
+                {filteredAppointments.map((appointment) => {
                   const appointmentDate = new Date(appointment.date);
                   const statusColor = getColorForStatus(appointment.status);
 
@@ -280,33 +272,26 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                         <div className="flex items-center">
                           {renderClientAvatar(appointment.clientId)}
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="font-medium">
                               {getClientName(appointment.clientId)}
                             </div>
-                            <div className="text-sm">
-                              <a 
-                                href={getWhatsAppUrl(appointment.clientId, appointment.id)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center text-primary hover:text-primary/80 transition-colors"
-                              >
-                                <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                                {getClientPhone(appointment.clientId)}
-                              </a>
+                            <div className="text-xs text-gray-500 flex items-center">
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              {getClientPhone(appointment.clientId)}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm text-gray-900">
+                        <div className="font-medium">
                           {getServiceName(appointment.serviceId)}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           {getServiceDuration(appointment.serviceId)}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm text-gray-900">
+                        <div className="font-medium">
                           {formatDate(appointmentDate)}
                         </div>
                         <div className="text-sm text-gray-500">
@@ -353,8 +338,8 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                                   size="icon" 
                                   className="text-green-600 hover:text-green-800 hover:bg-green-50"
                                   onClick={() => {
-                                    const client = clients?.find((c: any) => c.id === appointment.clientId);
-                                    const service = services?.find((s: any) => s.id === appointment.serviceId);
+                                    const client = clients?.find((c) => c.id === appointment.clientId);
+                                    const service = services?.find((s) => s.id === appointment.serviceId);
                                     
                                     if (client && service) {
                                       if (appointment.status === AppointmentStatus.CANCELLED) {
