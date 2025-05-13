@@ -437,9 +437,21 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", async (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
+    passport.authenticate("local", async (err: Error | null, user: Express.User | false, info: any) => {
       if (err) return next(err);
-      if (!user) return res.status(401).json({ error: info?.message || "Credenciais inválidas" });
+      
+      if (!user) {
+        // Verificar se a falha é devido à assinatura expirada
+        if (info && info.expired) {
+          return res.status(401).json({
+            error: info.message || "Assinatura expirada",
+            expired: true,
+            renewUrl: '/renew-subscription'
+          });
+        }
+        
+        return res.status(401).json({ error: info?.message || "Credenciais inválidas" });
+      }
       
       // Verificar se o email foi verificado (se a verificação estiver habilitada)
       if (isEmailServiceConfigured() && !user.isEmailVerified) {

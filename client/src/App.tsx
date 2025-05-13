@@ -220,6 +220,13 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/verify-email/:token" component={EmailVerificationPage} />
       
+      {/* Rota para renovação de assinatura */}
+      <Route path="/renew-subscription" component={() => {
+        // Importação dinâmica para evitar problemas com o build
+        const RenewSubscriptionPage = require("@/pages/renew-subscription").default;
+        return <RenewSubscriptionPage />;
+      }} />
+      
       {/* Rotas públicas para agendamento de clientes (ambos formatos) */}
       <Route path="/booking" component={Booking} />
       <Route path="/booking/:linkId" component={Booking} />
