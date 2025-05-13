@@ -41,6 +41,10 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ name, email, imageUrl }) => {
     navigate("/settings");
   };
   
+  const handleNavigateToSubscriptionHistory = () => {
+    navigate("/subscription-history");
+  };
+  
   const handleLogout = () => {
     logoutMutation.mutate();
   };
@@ -77,6 +81,10 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ name, email, imageUrl }) => {
           <DropdownMenuItem onClick={handleNavigateToSettings}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Configurações</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleNavigateToSubscriptionHistory}>
+            <CreditCard className="mr-2 h-4 w-4" />
+            <span>Histórico de Assinaturas</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>

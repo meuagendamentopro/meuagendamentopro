@@ -1,7 +1,7 @@
 /**
  * Serviço para gerenciar assinaturas e pagamentos
  */
-import { db } from './db';
+import { db, dbWithQueries } from './db';
 import { subscriptionPlans, subscriptionTransactions, users } from '../shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { PaymentService } from './payment-service';
@@ -17,7 +17,7 @@ export class SubscriptionService {
    */
   async getUserSubscriptionHistory(userId: number) {
     try {
-      const history = await db.query.subscriptionTransactions.findMany({
+      const history = await dbWithQueries.query.subscriptionTransactions.findMany({
         where: eq(subscriptionTransactions.userId, userId),
         with: {
           plan: true
