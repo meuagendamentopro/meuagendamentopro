@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import EmailVerificationPage from "@/pages/email-verification-page";
 import FinancialReport from "@/pages/financial-report";
 import AdminPage from "@/pages/admin-page";
 import UsersPage from "@/pages/admin/users-page";
+import RenewSubscriptionPage from "@/pages/renew-subscription";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -221,11 +222,7 @@ function Router() {
       <Route path="/verify-email/:token" component={EmailVerificationPage} />
       
       {/* Rota para renovação de assinatura */}
-      <Route path="/renew-subscription" component={() => {
-        // Importação dinâmica para evitar problemas com o build
-        const RenewSubscriptionPage = require("@/pages/renew-subscription").default;
-        return <RenewSubscriptionPage />;
-      }} />
+      <Route path="/renew-subscription" component={RenewSubscriptionPage} />
       
       {/* Rotas públicas para agendamento de clientes (ambos formatos) */}
       <Route path="/booking" component={Booking} />
