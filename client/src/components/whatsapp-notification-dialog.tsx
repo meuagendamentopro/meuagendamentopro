@@ -17,7 +17,8 @@ import { useMessageTemplates } from '@/hooks/use-message-templates';
 export enum WhatsAppNotificationType {
   NEW_APPOINTMENT = 'new_appointment',
   REMINDER = 'reminder',
-  CANCELLATION = 'cancellation'
+  CANCELLATION = 'cancellation',
+  CONFIRMATION = 'confirmation'
 }
 
 interface WhatsAppNotificationDialogProps {
