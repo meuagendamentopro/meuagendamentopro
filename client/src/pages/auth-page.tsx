@@ -60,7 +60,7 @@ export default function AuthPage() {
       toast({
         title: "Renovação Concluída",
         description: locationState.message,
-        variant: "success"
+        variant: "default"
       });
     }
   }, [user, navigate, locationState, toast]);

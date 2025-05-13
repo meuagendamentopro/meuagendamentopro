@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Lock, 
+         Calendar, CalendarCheck, Clock, Users, Link2, 
+         CreditCard, Bell, Smartphone, BadgeCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Badge } from "@/components/ui/badge";
 
 export default function RenewSubscriptionPage() {
   const [, navigate] = useLocation();
