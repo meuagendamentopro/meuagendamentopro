@@ -35,16 +35,6 @@ const AppointmentTable = ({
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   
-  // Buscar dados do provider para a mensagem de WhatsApp
-  const { data: provider } = useQuery({
-    queryKey: ['/api/my-provider'],
-    queryFn: async () => {
-      const res = await fetch('/api/my-provider');
-      if (!res.ok) throw new Error('Falha ao buscar dados do prestador');
-      return res.json();
-    },
-  });
-  
   // Hook para notificações WhatsApp
   const { showCancellationNotification, showNewAppointmentNotification } = useWhatsAppNotifications();
   
@@ -208,8 +198,7 @@ const AppointmentTable = ({
     return appointments
       .filter((a) => {
         const date = new Date(a.date);
-        // Filtrar agendamentos futuros e que não estejam cancelados
-        return date >= today && a.status !== AppointmentStatus.CANCELLED;
+        return date >= today;
       })
       .sort((a, b) => {
         const dateA = new Date(a.date);
@@ -287,46 +276,8 @@ const AppointmentTable = ({
                               {getClientName(appointment.clientId)}
                             </div>
                             <div className="text-xs text-gray-500 flex items-center">
-                              <a 
-                                href="#"
-                                className="flex items-center hover:text-primary cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  // Buscar cliente e serviço
-                                  const client = clients?.find((c) => c.id === appointment.clientId);
-                                  const service = services?.find((s) => s.id === appointment.serviceId);
-                                  
-                                  if (client && service) {
-                                    // Encaminhar diretamente para o WhatsApp
-                                    const cleanPhone = client.phone.replace(/\D/g, '');
-                                    const formattedPhone = cleanPhone.startsWith('55') 
-                                      ? cleanPhone 
-                                      : `55${cleanPhone}`;
-                                    
-                                    // Formato da data
-                                    const appointmentDate = new Date(appointment.date);
-                                    const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
-                                    const formattedTime = appointment.time || appointmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                                    
-                                    // Mensagem padrão
-                                    let message = "";
-                                    const businessName = provider?.name || 'Agenda Online';
-                                    
-                                    if (appointment.status === AppointmentStatus.CANCELLED) {
-                                      message = `Olá ${client.name}, informamos que seu agendamento para ${service.name} no dia ${formattedDate} às ${formattedTime} foi cancelado. Entre em contato caso queira reagendar! ${businessName}`;
-                                    } else {
-                                      message = `Olá ${client.name}, sua reserva para ${service.name} foi confirmada para o dia ${formattedDate} às ${formattedTime}. Agradecemos por agendar conosco! ${businessName}`;
-                                    }
-                                    
-                                    // Abrir WhatsApp em nova janela
-                                    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-                                  }
-                                }}
-                              >
-                                <MessageCircle className="h-3 w-3 mr-1" />
-                                {getClientPhone(appointment.clientId)}
-                              </a>
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              {getClientPhone(appointment.clientId)}
                             </div>
                           </div>
                         </div>
@@ -386,37 +337,26 @@ const AppointmentTable = ({
                                   variant="ghost" 
                                   size="icon" 
                                   className="text-green-600 hover:text-green-800 hover:bg-green-50"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    
+                                  onClick={() => {
                                     const client = clients?.find((c) => c.id === appointment.clientId);
                                     const service = services?.find((s) => s.id === appointment.serviceId);
                                     
                                     if (client && service) {
-                                      // Encaminhar diretamente para o WhatsApp em vez de mostrar o diálogo
-                                      const cleanPhone = client.phone.replace(/\D/g, '');
-                                      const formattedPhone = cleanPhone.startsWith('55') 
-                                        ? cleanPhone 
-                                        : `55${cleanPhone}`;
-                                      
-                                      // Formato da data
-                                      const appointmentDate = new Date(appointment.date);
-                                      const formattedDate = appointmentDate.toLocaleDateString('pt-BR');
-                                      const formattedTime = appointment.time || appointmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                                      
-                                      // Mensagem padrão
-                                      let message = "";
-                                      const businessName = provider?.name || 'Agenda Online';
-                                      
                                       if (appointment.status === AppointmentStatus.CANCELLED) {
-                                        message = `Olá ${client.name}, informamos que seu agendamento para ${service.name} no dia ${formattedDate} às ${formattedTime} foi cancelado. Entre em contato caso queira reagendar! ${businessName}`;
+                                        showCancellationNotification({
+                                          ...appointment,
+                                          clientName: client.name,
+                                          clientPhone: client.phone,
+                                          serviceName: service.name
+                                        });
                                       } else {
-                                        message = `Olá ${client.name}, sua reserva para ${service.name} foi confirmada para o dia ${formattedDate} às ${formattedTime}. Agradecemos por agendar conosco! ${businessName}`;
+                                        showNewAppointmentNotification({
+                                          ...appointment,
+                                          clientName: client.name,
+                                          clientPhone: client.phone,
+                                          serviceName: service.name
+                                        });
                                       }
-                                      
-                                      // Abrir WhatsApp em nova janela
-                                      window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
                                     }
                                   }}
                                 >

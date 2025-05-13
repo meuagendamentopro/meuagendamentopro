@@ -7,7 +7,6 @@ import {
 } from './whatsapp-notification-dialog';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useQuery } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
 
 // Interface para os dados de notificação
 interface AppointmentNotification {
@@ -27,12 +26,10 @@ const WhatsAppNotificationContext = createContext<{
   showNewAppointmentNotification: (appointment: any) => void;
   showReminderNotification: (appointment: any) => void;
   showCancellationNotification: (appointment: any) => void;
-  showConfirmationNotification: (appointment: any) => void;
 }>({
   showNewAppointmentNotification: () => {},
   showReminderNotification: () => {},
   showCancellationNotification: () => {},
-  showConfirmationNotification: () => {},
 });
 
 // Hook para usar o contexto de notificações
@@ -41,8 +38,6 @@ export const useWhatsAppNotifications = () => useContext(WhatsAppNotificationCon
 export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Estado para controlar o diálogo de notificação
   const [dialogOpen, setDialogOpen] = useState(false);
-  // Toast para mensagens de erro
-  const { toast } = useToast();
   
   // Estado para a notificação atual sendo exibida
   const [currentNotification, setCurrentNotification] = useState<AppointmentNotification | null>(null);
@@ -69,47 +64,11 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
         }
       }
       
-      // Quando um agendamento é confirmado
-      if (data.type === 'appointment_updated' && data.data?.status === 'confirmed') {
-        const appointment = data.data;
-        if (appointment) {
-          // Log detalhado para debug
-          console.log('Agendamento confirmado recebido:', appointment);
-          
-          // Buscar o agendamento completo para garantir todos os dados
-          fetch(`/api/appointments/${appointment.id}`)
-            .then(res => res.json())
-            .then(fullAppointment => {
-              console.log('Agendamento completo obtido:', fullAppointment);
-              showConfirmationNotification(fullAppointment);
-            })
-            .catch(error => {
-              console.error('Erro ao buscar agendamento completo:', error);
-              // Tenta com os dados recebidos mesmo assim
-              showConfirmationNotification(appointment);
-            });
-        }
-      }
-      
       // Quando um agendamento é cancelado
       if (data.type === 'appointment_updated' && data.data?.status === 'cancelled') {
         const appointment = data.data;
         if (appointment) {
-          // Log detalhado para debug
-          console.log('Agendamento cancelado recebido:', appointment);
-          
-          // Buscar o agendamento completo para garantir todos os dados
-          fetch(`/api/appointments/${appointment.id}`)
-            .then(res => res.json())
-            .then(fullAppointment => {
-              console.log('Agendamento completo obtido:', fullAppointment);
-              showCancellationNotification(fullAppointment);
-            })
-            .catch(error => {
-              console.error('Erro ao buscar agendamento completo:', error);
-              // Tenta com os dados recebidos mesmo assim
-              showCancellationNotification(appointment);
-            });
+          showCancellationNotification(appointment);
         }
       }
     }
@@ -125,14 +84,11 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
         if (!res.ok) return;
         
         const appointments = await res.json();
-        console.log("Verificando agendamentos próximos, encontrados:", appointments.length);
         
         // Filtrar agendamentos confirmados ou pendentes
         const activeAppointments = appointments.filter(
           (appt: any) => appt.status === 'confirmed' || appt.status === 'pending'
         );
-        
-        console.log("Agendamentos ativos:", activeAppointments.length);
         
         // Data atual
         const now = new Date();
@@ -147,42 +103,27 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
             const diffMs = apptDate.getTime() - now.getTime();
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
             
-            console.log(`Verificando agendamento ${appt.id} - Diferença: ${diffMinutes} minutos`);
-            
-            // Para teste, vamos relaxar a condição para mostrar lembretes com diferenças entre 1 e 120 minutos
-            // Depois podemos voltar para o intervalo original de 55-65 minutos
-            if (diffMinutes > 0 && diffMinutes <= 120) {
-              console.log(`Agendamento próximo encontrado! ID: ${appt.id}, ${diffMinutes} min restantes`);
-              
+            // Se estiver entre 55 e 65 minutos antes do agendamento
+            if (diffMinutes >= 55 && diffMinutes <= 65) {
               // Buscar dados do cliente
               const clientResponse = await fetch(`/api/clients/${appt.clientId}`);
-              if (!clientResponse.ok) {
-                console.error(`Erro ao buscar cliente ${appt.clientId}`);
-                continue;
-              }
+              if (!clientResponse.ok) continue;
               
               const client = await clientResponse.json();
-              console.log("Cliente encontrado:", client);
               
               // Buscar dados do serviço
               const serviceResponse = await fetch(`/api/services/${appt.serviceId}`);
-              if (!serviceResponse.ok) {
-                console.error(`Erro ao buscar serviço ${appt.serviceId}`);
-                continue;
-              }
+              if (!serviceResponse.ok) continue;
               
               const service = await serviceResponse.json();
-              console.log("Serviço encontrado:", service);
               
-              // Mostrar notificação de lembrete com todos os dados necessários
+              // Mostrar notificação de lembrete
               showReminderNotification({
                 ...appt,
                 clientName: client.name,
                 clientPhone: client.phone,
                 serviceName: service.name
               });
-              
-              console.log("Notificação de lembrete solicitada!");
               
               // Aguardar um pouco para evitar múltiplas notificações simultâneas
               await new Promise(resolve => setTimeout(resolve, 5000));
@@ -196,37 +137,56 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
       }
     };
     
-    // Verificar a cada 2 minutos (reduzido para testes)
-    const interval = setInterval(checkUpcomingAppointments, 2 * 60 * 1000);
+    // Verificar a cada 5 minutos
+    const interval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000);
     
-    // Verificar na inicialização com um pequeno delay para garantir carregamento
-    setTimeout(checkUpcomingAppointments, 5000);
+    // Verificar na inicialização
+    checkUpcomingAppointments();
     
     return () => clearInterval(interval);
   }, []);
 
-  // Função para mostrar notificação de novo agendamento - DESATIVADA conforme solicitado
+  // Função para mostrar notificação de novo agendamento
   const showNewAppointmentNotification = (appointment: any) => {
-    // Função desativada - não exibe mais popups para novos agendamentos
-    console.log("Novo agendamento recebido, mas popup desativado:", appointment);
-    
-    // Retorna sem fazer nada - popups de novos agendamentos foram desativados
-    return;
+    // Verificar se temos cliente e serviço
+    if (appointment && appointment.clientId && appointment.serviceId) {
+      // Buscar dados do cliente e serviço
+      Promise.all([
+        fetch(`/api/clients/${appointment.clientId}`).then(res => res.json()),
+        fetch(`/api/services/${appointment.serviceId}`).then(res => res.json())
+      ]).then(([client, service]) => {
+        // Criar objeto de notificação
+        const notification: AppointmentNotification = {
+          id: appointment.id,
+          clientId: appointment.clientId,
+          clientName: client.name,
+          clientPhone: client.phone,
+          serviceId: appointment.serviceId,
+          serviceName: service.name,
+          date: new Date(appointment.date),
+          time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          type: WhatsAppNotificationType.NEW_APPOINTMENT
+        };
+        
+        // Mostrar diálogo
+        setCurrentNotification(notification);
+        setDialogOpen(true);
+      }).catch(error => {
+        console.error('Erro ao buscar dados para notificação:', error);
+      });
+    }
   };
 
   // Função para mostrar notificação de lembrete
   const showReminderNotification = (appointment: any) => {
-    console.log("Preparando notificação de lembrete (1h antes):", appointment);
-    
-    // Se já temos todos os dados necessários, não precisamos buscar nada
     if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
-      // Criar objeto de notificação diretamente
+      // Criar objeto de notificação
       const notification: AppointmentNotification = {
         id: appointment.id,
-        clientId: appointment.clientId || 0,
+        clientId: appointment.clientId,
         clientName: appointment.clientName,
         clientPhone: appointment.clientPhone,
-        serviceId: appointment.serviceId || 0,
+        serviceId: appointment.serviceId,
         serviceName: appointment.serviceName,
         date: new Date(appointment.date),
         time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
@@ -236,312 +196,93 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
       // Mostrar diálogo
       setCurrentNotification(notification);
       setDialogOpen(true);
-      return;
-    }
-    
-    // Verificar se temos cliente e serviço IDs para buscar dados
-    if (appointment && appointment.clientId && appointment.serviceId) {
-      try {
-        // Função segura para buscar com tratamento de erro
-        const fetchWithErrorHandling = async (url: string) => {
-          try {
-            const response = await fetch(url);
-            if (!response.ok) {
-              throw new Error(`Erro ao buscar dados: ${response.status}`);
-            }
-            return await response.json();
-          } catch (error) {
-            console.error(`Erro ao buscar ${url}:`, error);
-            throw error;
-          }
-        };
-        
-        // Buscar dados do cliente e serviço
-        Promise.all([
-          fetchWithErrorHandling(`/api/clients/${appointment.clientId}`),
-          fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
-        ]).then(([client, service]) => {
-          console.log("Dados obtidos para lembrete:", { client, service });
-          
-          // Criar objeto de notificação
-          const notification: AppointmentNotification = {
-            id: appointment.id,
-            clientId: appointment.clientId,
-            clientName: client.name,
-            clientPhone: client.phone,
-            serviceId: appointment.serviceId,
-            serviceName: service.name,
-            date: new Date(appointment.date),
-            time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            type: WhatsAppNotificationType.REMINDER
-          };
-          
-          // Mostrar diálogo
-          setCurrentNotification(notification);
-          setDialogOpen(true);
-        }).catch(error => {
-          console.error('Erro ao buscar dados para notificação de lembrete:', error);
-          toast({
-            title: "Erro ao preparar mensagem de lembrete",
-            description: "Não foi possível obter os dados do cliente ou serviço",
-            variant: "destructive"
-          });
-        });
-      } catch (error) {
-        console.error('Erro ao iniciar busca de dados para lembrete:', error);
-        toast({
-          title: "Erro ao preparar mensagem de lembrete",
-          description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
-          variant: "destructive"
-        });
-      }
-    } else {
-      console.error("Dados insuficientes para lembrete:", appointment);
-    }
-  };
-
-  // Função para mostrar notificação de confirmação
-  const showConfirmationNotification = (appointment: any) => {
-    console.log('Preparando notificação de confirmação para agendamento:', appointment);
-    
-    // Se já temos todos os dados necessários, não precisamos buscar nada
-    if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
-      console.log('Usando dados completos já disponíveis no agendamento');
-      // Criar objeto de notificação diretamente
-      const notification: AppointmentNotification = {
-        id: appointment.id,
-        clientId: appointment.clientId || 0,
-        clientName: appointment.clientName,
-        clientPhone: appointment.clientPhone,
-        serviceId: appointment.serviceId || 0,
-        serviceName: appointment.serviceName,
-        date: new Date(appointment.date),
-        time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        type: WhatsAppNotificationType.CONFIRMATION
-      };
-      
-      // Mostrar diálogo
-      setCurrentNotification(notification);
-      setDialogOpen(true);
-      return;
-    }
-    
-    // Verificar se temos cliente e serviço IDs para buscar dados
-    if (appointment && appointment.clientId && appointment.serviceId) {
-      console.log(`Buscando dados do cliente ID ${appointment.clientId} e serviço ID ${appointment.serviceId}`);
-      
-      // Função segura para buscar com tratamento de erro
-      const fetchWithErrorHandling = async (url: string) => {
-        try {
-          console.log(`Fazendo requisição para: ${url}`);
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`Erro ao buscar dados: ${response.status}`);
-          }
-          const data = await response.json();
-          console.log(`Resposta recebida de ${url}:`, data);
-          return data;
-        } catch (error) {
-          console.error(`Erro ao buscar ${url}:`, error);
-          throw error;
-        }
-      };
-      
-      // Tentar buscar o cliente primeiro
-      fetchWithErrorHandling(`/api/clients/${appointment.clientId}`)
-        .then(client => {
-          console.log('Cliente obtido:', client);
-          
-          // Agora buscar o serviço
-          return fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
-            .then(service => {
-              console.log('Serviço obtido:', service);
-              
-              // Criar objeto de notificação
-              const notification: AppointmentNotification = {
-                id: appointment.id,
-                clientId: appointment.clientId,
-                clientName: client.name,
-                clientPhone: client.phone,
-                serviceId: appointment.serviceId,
-                serviceName: service.name,
-                date: new Date(appointment.date),
-                time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                type: WhatsAppNotificationType.CONFIRMATION
-              };
-              
-              console.log('Notificação de confirmação preparada com sucesso:', notification);
-              
-              // Mostrar diálogo
-              setCurrentNotification(notification);
-              setDialogOpen(true);
-              return notification;
-            });
-        })
-        .catch(error => {
-          console.error('Erro ao buscar dados para notificação de confirmação:', error);
-          toast({
-            title: "Erro ao preparar mensagem de confirmação",
-            description: "Não foi possível obter os dados do cliente ou serviço",
-            variant: "destructive"
-          });
-        });
-    } else {
-      console.error('Dados insuficientes no agendamento:', appointment);
-      toast({
-        title: "Erro ao preparar mensagem",
-        description: "Os dados do agendamento estão incompletos",
-        variant: "destructive"
-      });
     }
   };
 
   // Função para mostrar notificação de cancelamento
   const showCancellationNotification = (appointment: any) => {
-    // Se já temos todos os dados necessários, não precisamos buscar nada
-    if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
-      // Criar objeto de notificação diretamente
-      const notification: AppointmentNotification = {
-        id: appointment.id,
-        clientId: appointment.clientId || 0,
-        clientName: appointment.clientName,
-        clientPhone: appointment.clientPhone,
-        serviceId: appointment.serviceId || 0,
-        serviceName: appointment.serviceName,
-        date: new Date(appointment.date),
-        time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        type: WhatsAppNotificationType.CANCELLATION
-      };
-      
-      // Mostrar diálogo
-      setCurrentNotification(notification);
-      setDialogOpen(true);
-      return;
-    }
-    
-    // Verificar se temos cliente e serviço IDs para buscar dados
+    // Verificar se temos cliente e serviço
     if (appointment && appointment.clientId && appointment.serviceId) {
-      try {
-        // Função segura para buscar com tratamento de erro
-        const fetchWithErrorHandling = async (url: string) => {
-          try {
-            const response = await fetch(url);
-            if (!response.ok) {
-              throw new Error(`Erro ao buscar dados: ${response.status}`);
-            }
-            return await response.json();
-          } catch (error) {
-            console.error(`Erro ao buscar ${url}:`, error);
-            throw error;
-          }
+      // Buscar dados do cliente e serviço
+      Promise.all([
+        fetch(`/api/clients/${appointment.clientId}`).then(res => res.json()),
+        fetch(`/api/services/${appointment.serviceId}`).then(res => res.json())
+      ]).then(([client, service]) => {
+        // Criar objeto de notificação
+        const notification: AppointmentNotification = {
+          id: appointment.id,
+          clientId: appointment.clientId,
+          clientName: client.name,
+          clientPhone: client.phone,
+          serviceId: appointment.serviceId,
+          serviceName: service.name,
+          date: new Date(appointment.date),
+          time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          type: WhatsAppNotificationType.CANCELLATION
         };
         
-        // Buscar dados do cliente e serviço
-        Promise.all([
-          fetchWithErrorHandling(`/api/clients/${appointment.clientId}`),
-          fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
-        ]).then(([client, service]) => {
-          // Criar objeto de notificação
-          const notification: AppointmentNotification = {
-            id: appointment.id,
-            clientId: appointment.clientId,
-            clientName: client.name,
-            clientPhone: client.phone,
-            serviceId: appointment.serviceId,
-            serviceName: service.name,
-            date: new Date(appointment.date),
-            time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            type: WhatsAppNotificationType.CANCELLATION
-          };
-          
-          // Mostrar diálogo
-          setCurrentNotification(notification);
-          setDialogOpen(true);
-        }).catch(error => {
-          console.error('Erro ao buscar dados para notificação de cancelamento:', error);
-          toast({
-            title: "Erro ao preparar mensagem de cancelamento",
-            description: "Não foi possível obter os dados do cliente ou serviço",
-            variant: "destructive"
-          });
-        });
-      } catch (error) {
-        console.error('Erro ao iniciar busca de dados para cancelamento:', error);
-        toast({
-          title: "Erro ao preparar mensagem de cancelamento",
-          description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
-          variant: "destructive"
-        });
-      }
+        // Mostrar diálogo
+        setCurrentNotification(notification);
+        setDialogOpen(true);
+      }).catch(error => {
+        console.error('Erro ao buscar dados para notificação:', error);
+      });
     }
   };
 
-  // Fechamento e reset do diálogo
+  // Função para enviar WhatsApp
+  const handleSendWhatsApp = () => {
+    if (!currentNotification) return;
+    
+    // Criar mensagem apropriada
+    const message = createWhatsAppMessage(
+      currentNotification.type,
+      currentNotification.clientName,
+      currentNotification.serviceName,
+      currentNotification.date,
+      currentNotification.time,
+      provider?.name || 'Agenda Online'
+    );
+    
+    // Abrir WhatsApp Web
+    openWhatsApp(currentNotification.clientPhone, message);
+    
+    // Fechar diálogo
+    setDialogOpen(false);
+    setCurrentNotification(null);
+  };
+
+  // Função para fechar o diálogo
   const handleCloseDialog = () => {
     setDialogOpen(false);
-    // Limpar a notificação atual após um delay para permitir a animação de fechamento
-    setTimeout(() => setCurrentNotification(null), 300);
-  };
-
-  // Manipulador para mensagem enviada (opcional: registrar ou atualizar algo quando uma mensagem é enviada)
-  const handleMessageSent = () => {
-    console.log('Mensagem enviada com sucesso para:', currentNotification?.clientPhone);
-    // Opcional: Fechar diálogo após envio bem-sucedido
-    // handleCloseDialog();
-  };
-
-  // Formatação do texto da mensagem baseado no tipo de notificação
-  const getMessageText = () => {
-    if (!currentNotification) return '';
-    
-    const businessName = provider?.name || 'Empresa';
-    const clientName = currentNotification.clientName;
-    const serviceName = currentNotification.serviceName;
-    const date = currentNotification.date.toLocaleDateString('pt-BR');
-    const time = currentNotification.time;
-    
-    switch (currentNotification.type) {
-      case WhatsAppNotificationType.NEW_APPOINTMENT:
-        return `Olá ${clientName}, confirmamos seu agendamento de ${serviceName} para ${date} às ${time} em ${businessName}. Agradecemos a preferência!`;
-      
-      case WhatsAppNotificationType.REMINDER:
-        return `Olá ${clientName}, lembramos que você tem um agendamento de ${serviceName} hoje às ${time} em ${businessName}. Estamos aguardando sua visita!`;
-      
-      case WhatsAppNotificationType.CANCELLATION:
-        return `Olá ${clientName}, informamos que seu agendamento de ${serviceName} para ${date} às ${time} em ${businessName} foi cancelado. Para mais informações, entre em contato conosco.`;
-      
-      case WhatsAppNotificationType.CONFIRMATION:
-        return `Olá ${clientName}, confirmamos seu agendamento de ${serviceName} para ${date} às ${time} em ${businessName}. Agradecemos a preferência e aguardamos sua visita!`;
-      
-      default:
-        return '';
-    }
+    setCurrentNotification(null);
   };
 
   return (
-    <>
-      <WhatsAppNotificationContext.Provider
-        value={{
-          showNewAppointmentNotification,
-          showReminderNotification,
-          showCancellationNotification,
-          showConfirmationNotification
-        }}
-      >
-        {children}
-      </WhatsAppNotificationContext.Provider>
+    <WhatsAppNotificationContext.Provider
+      value={{
+        showNewAppointmentNotification,
+        showReminderNotification,
+        showCancellationNotification
+      }}
+    >
+      {children}
       
+      {/* Dialog de notificação WhatsApp */}
       {currentNotification && (
         <WhatsAppNotificationDialog
           open={dialogOpen}
-          onClose={handleCloseDialog}
-          notificationType={currentNotification.type}
+          onOpenChange={setDialogOpen}
+          type={currentNotification.type}
           clientName={currentNotification.clientName}
           clientPhone={currentNotification.clientPhone}
-          messageText={getMessageText()}
-          onMessageSent={handleMessageSent}
+          serviceName={currentNotification.serviceName}
+          appointmentDate={currentNotification.date}
+          appointmentTime={currentNotification.time}
+          onSendWhatsApp={handleSendWhatsApp}
+          onCancel={handleCloseDialog}
         />
       )}
-    </>
+    </WhatsAppNotificationContext.Provider>
   );
 };

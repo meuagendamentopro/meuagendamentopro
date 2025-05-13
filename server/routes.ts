@@ -24,8 +24,7 @@ import {
   InsertTimeExclusion,
   subscriptionPlans,
   subscriptionTransactions,
-  users,
-  messageTemplates
+  users
 } from "@shared/schema";
 import { and, eq, gt, gte, lte, ne, sql, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -33,15 +32,10 @@ import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import passport from "passport";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
-import { getMessageTemplates, saveMessageTemplates } from "./controllers/message-templates-controller";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
   setupAuth(app);
-  
-  // Rotas para templates de mensagens
-  app.get("/api/message-templates", getMessageTemplates);
-  app.post("/api/message-templates", saveMessageTemplates);
   
   // Rota para obter dados do usuário atual
   app.get("/api/user", (req: Request, res: Response) => {

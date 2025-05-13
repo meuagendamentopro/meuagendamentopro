@@ -19,7 +19,6 @@ import AdminPage from "@/pages/admin-page";
 import UsersPage from "@/pages/admin/users-page";
 import RenewSubscriptionPage from "@/pages/renew-subscription";
 import SubscriptionHistoryPage from "@/pages/subscription-history";
-import MessageTemplatesPage from "@/pages/message-templates";
 import MainNav from "@/components/layout/main-nav";
 import MobileNav from "@/components/layout/mobile-nav";
 import UserAvatar from "@/components/layout/user-avatar";
@@ -99,11 +98,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
       {/* WhatsApp Popup */}
-      {user && (
-        <>
-          <WhatsAppPopup />
-        </>
-      )}
+      {user && <WhatsAppPopup />}
       
       {/* MAIN NAVIGATION */}
       <nav className="bg-white shadow-sm">
@@ -304,15 +299,6 @@ function Router() {
         element={
           <MainLayout>
             <SubscriptionHistoryPage />
-          </MainLayout>
-        } 
-      />
-      
-      <ProtectedRoute 
-        path="/message-templates" 
-        element={
-          <MainLayout>
-            <MessageTemplatesPage />
           </MainLayout>
         } 
       />

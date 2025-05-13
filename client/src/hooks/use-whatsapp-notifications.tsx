@@ -9,7 +9,6 @@ import {
   markNotificationAsRead,
   checkUpcomingAppointments,
   addNewAppointmentNotification,
-  addConfirmationNotification,
   addCancellationNotification,
   AppointmentNotification
 } from '@/services/appointment-notification-service';
@@ -109,14 +108,6 @@ export function useWhatsAppNotifications() {
     setIsDialogOpen(true);
   };
   
-  // Função para processar um agendamento confirmado
-  const handleConfirmedAppointment = (appointment: any) => {
-    const notification = addConfirmationNotification(appointment);
-    // Mostrar diálogo imediatamente
-    setCurrentNotification(notification);
-    setIsDialogOpen(true);
-  };
-
   // Função para processar um agendamento cancelado
   const handleCancelledAppointment = (appointment: any) => {
     const notification = addCancellationNotification(appointment);
@@ -139,17 +130,15 @@ export function useWhatsAppNotifications() {
       provider?.name || 'Agenda Online'
     );
     
-    // Abrir WhatsApp Web - Não fechamos o diálogo automaticamente
-    // para que o usuário possa voltar depois de enviar a mensagem
+    // Abrir WhatsApp Web
     openWhatsApp(currentNotification.clientPhone, message);
     
     // Marcar notificação como lida
     markNotificationAsRead(currentNotification.id, currentNotification.type);
     
-    // Não fechamos o diálogo automaticamente
-    // O usuário deve fechar manualmente após enviar a mensagem no WhatsApp
-    // setIsDialogOpen(false);
-    // setCurrentNotification(null);
+    // Fechar diálogo
+    setIsDialogOpen(false);
+    setCurrentNotification(null);
   };
   
   // Função para cancelar e pular notificação
@@ -200,7 +189,6 @@ export function useWhatsAppNotifications() {
     currentNotification,
     setIsDialogOpen,
     handleNewAppointment,
-    handleConfirmedAppointment,
     handleCancelledAppointment,
     handleSendWhatsApp,
     handleCancelNotification

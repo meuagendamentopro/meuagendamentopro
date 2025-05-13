@@ -26,7 +26,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import PageHeader from "@/components/layout/page-header";
-import { Clock, Calendar, Phone, Smartphone, CreditCard, DollarSign, Percent, MessageCircle } from "lucide-react";
+import { Clock, Calendar, Phone, Smartphone, CreditCard, DollarSign, Percent } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import WhatsAppPopup from "@/components/whatsapp-popup";
@@ -680,36 +680,6 @@ const SettingsPage: React.FC = () => {
                   <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 </svg>
                 Testar som de notificação
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Seção de Configurações de Mensagens */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Configurações de Mensagens</CardTitle>
-          <CardDescription>
-            Gerencie os templates para mensagens enviadas aos clientes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-4">
-            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <div className="text-base font-medium">Templates de Mensagens WhatsApp</div>
-                <p className="text-sm text-muted-foreground">
-                  Configurar os modelos de mensagens enviadas por WhatsApp para confirmações, lembretes e cancelamentos
-                </p>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => window.location.href = "/message-templates"}
-                className="flex items-center gap-2"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Configurar Templates
               </Button>
             </div>
           </div>

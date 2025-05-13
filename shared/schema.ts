@@ -507,23 +507,3 @@ export type InsertSubscriptionTransaction = z.infer<typeof insertSubscriptionTra
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
-
-// Templates de mensagens personalizadas para WhatsApp
-export const messageTemplates = pgTable("message_templates", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  templates: text("templates").notNull().$type<Record<string, string>>(), // JSON com os templates
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const messageTemplatesRelations = relations(messageTemplates, ({ one }) => ({
-  user: one(users, {
-    fields: [messageTemplates.userId],
-    references: [users.id],
-  }),
-}));
-
-export const insertMessageTemplatesSchema = createInsertSchema(messageTemplates);
-export type MessageTemplates = typeof messageTemplates.$inferSelect;
-export type InsertMessageTemplates = z.infer<typeof insertMessageTemplatesSchema>;
