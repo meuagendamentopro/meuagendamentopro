@@ -122,8 +122,14 @@ export function openWhatsApp(phone: string, message: string): void {
   // Criar URL para abrir o WhatsApp Web
   const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   
-  // Abrir em nova aba
-  window.open(whatsappUrl, '_blank');
+  // Abrir em nova aba e manter a referência
+  const newWindow = window.open(whatsappUrl, '_blank');
+  
+  // Garantir que a janela foi aberta com sucesso
+  if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+    // Se a janela não abriu, mostrar alerta
+    alert('Não foi possível abrir o WhatsApp. Verifique se o bloqueador de popups está desativado.');
+  }
 }
 
 export const WhatsAppNotificationDialog: React.FC<WhatsAppNotificationDialogProps> = ({
@@ -222,7 +228,14 @@ export const WhatsAppNotificationDialog: React.FC<WhatsAppNotificationDialogProp
             Fechar
           </Button>
           
-          <Button onClick={onSendWhatsApp} className="bg-green-600 hover:bg-green-700 text-white">
+          <Button 
+            onClick={(e) => {
+              e.preventDefault();
+              onSendWhatsApp();
+              // Não fechamos o diálogo automaticamente
+            }} 
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
             <Send className="h-4 w-4 mr-2" />
             Enviar WhatsApp
           </Button>

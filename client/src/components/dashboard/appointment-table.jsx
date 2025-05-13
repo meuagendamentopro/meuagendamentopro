@@ -277,8 +277,36 @@ const AppointmentTable = ({
                               {getClientName(appointment.clientId)}
                             </div>
                             <div className="text-xs text-gray-500 flex items-center">
-                              <MessageCircle className="h-3 w-3 mr-1" />
-                              {getClientPhone(appointment.clientId)}
+                              <button 
+                                className="flex items-center hover:text-primary cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Buscar cliente e serviço
+                                  const client = clients?.find((c) => c.id === appointment.clientId);
+                                  const service = services?.find((s) => s.id === appointment.serviceId);
+                                  
+                                  if (client && service) {
+                                    if (appointment.status === AppointmentStatus.CANCELLED) {
+                                      showCancellationNotification({
+                                        ...appointment,
+                                        clientName: client.name,
+                                        clientPhone: client.phone,
+                                        serviceName: service.name
+                                      });
+                                    } else {
+                                      showNewAppointmentNotification({
+                                        ...appointment,
+                                        clientName: client.name,
+                                        clientPhone: client.phone,
+                                        serviceName: service.name
+                                      });
+                                    }
+                                  }
+                                }}
+                              >
+                                <MessageCircle className="h-3 w-3 mr-1" />
+                                {getClientPhone(appointment.clientId)}
+                              </button>
                             </div>
                           </div>
                         </div>
