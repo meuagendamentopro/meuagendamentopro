@@ -87,11 +87,14 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
         if (!res.ok) return;
         
         const appointments = await res.json();
+        console.log("Verificando agendamentos próximos, encontrados:", appointments.length);
         
         // Filtrar agendamentos confirmados ou pendentes
         const activeAppointments = appointments.filter(
           (appt: any) => appt.status === 'confirmed' || appt.status === 'pending'
         );
+        
+        console.log("Agendamentos ativos:", activeAppointments.length);
         
         // Data atual
         const now = new Date();
@@ -106,27 +109,42 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
             const diffMs = apptDate.getTime() - now.getTime();
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
             
-            // Se estiver entre 55 e 65 minutos antes do agendamento
-            if (diffMinutes >= 55 && diffMinutes <= 65) {
+            console.log(`Verificando agendamento ${appt.id} - Diferença: ${diffMinutes} minutos`);
+            
+            // Para teste, vamos relaxar a condição para mostrar lembretes com diferenças entre 1 e 120 minutos
+            // Depois podemos voltar para o intervalo original de 55-65 minutos
+            if (diffMinutes > 0 && diffMinutes <= 120) {
+              console.log(`Agendamento próximo encontrado! ID: ${appt.id}, ${diffMinutes} min restantes`);
+              
               // Buscar dados do cliente
               const clientResponse = await fetch(`/api/clients/${appt.clientId}`);
-              if (!clientResponse.ok) continue;
+              if (!clientResponse.ok) {
+                console.error(`Erro ao buscar cliente ${appt.clientId}`);
+                continue;
+              }
               
               const client = await clientResponse.json();
+              console.log("Cliente encontrado:", client);
               
               // Buscar dados do serviço
               const serviceResponse = await fetch(`/api/services/${appt.serviceId}`);
-              if (!serviceResponse.ok) continue;
+              if (!serviceResponse.ok) {
+                console.error(`Erro ao buscar serviço ${appt.serviceId}`);
+                continue;
+              }
               
               const service = await serviceResponse.json();
+              console.log("Serviço encontrado:", service);
               
-              // Mostrar notificação de lembrete
+              // Mostrar notificação de lembrete com todos os dados necessários
               showReminderNotification({
                 ...appt,
                 clientName: client.name,
                 clientPhone: client.phone,
                 serviceName: service.name
               });
+              
+              console.log("Notificação de lembrete solicitada!");
               
               // Aguardar um pouco para evitar múltiplas notificações simultâneas
               await new Promise(resolve => setTimeout(resolve, 5000));
@@ -140,11 +158,11 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
       }
     };
     
-    // Verificar a cada 5 minutos
-    const interval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000);
+    // Verificar a cada 2 minutos (reduzido para testes)
+    const interval = setInterval(checkUpcomingAppointments, 2 * 60 * 1000);
     
-    // Verificar na inicialização
-    checkUpcomingAppointments();
+    // Verificar na inicialização com um pequeno delay para garantir carregamento
+    setTimeout(checkUpcomingAppointments, 5000);
     
     return () => clearInterval(interval);
   }, []);
@@ -231,14 +249,17 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
 
   // Função para mostrar notificação de lembrete
   const showReminderNotification = (appointment: any) => {
+    console.log("Preparando notificação de lembrete (1h antes):", appointment);
+    
+    // Se já temos todos os dados necessários, não precisamos buscar nada
     if (appointment && appointment.clientName && appointment.clientPhone && appointment.serviceName) {
-      // Criar objeto de notificação
+      // Criar objeto de notificação diretamente
       const notification: AppointmentNotification = {
         id: appointment.id,
-        clientId: appointment.clientId,
+        clientId: appointment.clientId || 0,
         clientName: appointment.clientName,
         clientPhone: appointment.clientPhone,
-        serviceId: appointment.serviceId,
+        serviceId: appointment.serviceId || 0,
         serviceName: appointment.serviceName,
         date: new Date(appointment.date),
         time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
@@ -248,6 +269,67 @@ export const WhatsAppNotificationProvider: React.FC<{ children: React.ReactNode 
       // Mostrar diálogo
       setCurrentNotification(notification);
       setDialogOpen(true);
+      return;
+    }
+    
+    // Verificar se temos cliente e serviço IDs para buscar dados
+    if (appointment && appointment.clientId && appointment.serviceId) {
+      try {
+        // Função segura para buscar com tratamento de erro
+        const fetchWithErrorHandling = async (url: string) => {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Erro ao buscar dados: ${response.status}`);
+            }
+            return await response.json();
+          } catch (error) {
+            console.error(`Erro ao buscar ${url}:`, error);
+            throw error;
+          }
+        };
+        
+        // Buscar dados do cliente e serviço
+        Promise.all([
+          fetchWithErrorHandling(`/api/clients/${appointment.clientId}`),
+          fetchWithErrorHandling(`/api/services/${appointment.serviceId}`)
+        ]).then(([client, service]) => {
+          console.log("Dados obtidos para lembrete:", { client, service });
+          
+          // Criar objeto de notificação
+          const notification: AppointmentNotification = {
+            id: appointment.id,
+            clientId: appointment.clientId,
+            clientName: client.name,
+            clientPhone: client.phone,
+            serviceId: appointment.serviceId,
+            serviceName: service.name,
+            date: new Date(appointment.date),
+            time: appointment.time || new Date(appointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            type: WhatsAppNotificationType.REMINDER
+          };
+          
+          // Mostrar diálogo
+          setCurrentNotification(notification);
+          setDialogOpen(true);
+        }).catch(error => {
+          console.error('Erro ao buscar dados para notificação de lembrete:', error);
+          toast({
+            title: "Erro ao preparar mensagem de lembrete",
+            description: "Não foi possível obter os dados do cliente ou serviço",
+            variant: "destructive"
+          });
+        });
+      } catch (error) {
+        console.error('Erro ao iniciar busca de dados para lembrete:', error);
+        toast({
+          title: "Erro ao preparar mensagem de lembrete",
+          description: "Ocorreu um erro ao tentar preparar a mensagem do WhatsApp",
+          variant: "destructive"
+        });
+      }
+    } else {
+      console.error("Dados insuficientes para lembrete:", appointment);
     }
   };
 

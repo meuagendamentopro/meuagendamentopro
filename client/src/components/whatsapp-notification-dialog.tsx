@@ -236,31 +236,46 @@ export const WhatsAppNotificationDialog: React.FC<WhatsAppNotificationDialogProp
             Fechar
           </Button>
           
-          <a 
-            href={`https://wa.me/${formatPhoneNumber(clientPhone).replace(/\D/g, '')}?text=${encodeURIComponent(createWhatsAppMessage(
-              type,
-              clientName,
-              serviceName,
-              appointmentDate,
-              appointmentTime,
-              'Agenda Online'
-            ))}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-green-600 hover:bg-green-700 text-white h-10 py-2 px-4"
+          <Button
+            className="bg-green-600 hover:bg-green-700 text-white"
             onClick={(e) => {
-              // Impedir o fechamento do diálogo, deixando a navegação acontecer
               e.stopPropagation();
+
+              // Preparar mensagem
+              const message = createWhatsAppMessage(
+                type,
+                clientName,
+                serviceName,
+                appointmentDate,
+                appointmentTime,
+                'Agenda Online'
+              );
               
-              // Chamar o callback apenas para marcar como lido (se aplicável)
+              // Limpar o telefone
+              const phone = formatPhoneNumber(clientPhone).replace(/\D/g, '');
+              
+              // Certifique-se que temos o código do país (55 para Brasil)
+              const formattedPhone = phone.startsWith('55') 
+                ? phone 
+                : `55${phone}`;
+              
+              // Criar URL para abrir o WhatsApp Web
+              const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+              
+              // Abrir em nova aba
+              window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+              
+              // Chamar o callback para marcar como lido (se aplicável)
               if (onSendWhatsApp) {
                 onSendWhatsApp();
               }
+              
+              console.log("WhatsApp aberto em nova aba!");
             }}
           >
             <Send className="h-4 w-4 mr-2" />
             Enviar WhatsApp
-          </a>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
