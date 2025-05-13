@@ -15,20 +15,31 @@
  * $ npx tsx scripts/migrate-to-local-db.ts
  */
 
+import { db as sourceDb, pool as sourcePool } from '../server/db';
 import { Pool } from 'pg';
-import * as schema from '../shared/schema';
-import { db } from '../server/db';
-import { eq, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
+import { sql } from 'drizzle-orm';
+import * as schema from '../shared/schema';
 import { hashPassword } from '../server/auth';
-import { closeDb } from '../server/db';
+import chalk from 'chalk';
+import readline from 'readline';
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
+// Cores para console
+const colors = {
+  success: chalk.green,
+  error: chalk.red,
+  warning: chalk.yellow,
+  info: chalk.blue,
+  bold: chalk.bold,
+};
+
 // Configuração do banco de dados local
-// Você pode alterar esses valores conforme necessário
+// Se não quiser usar variáveis de ambiente, configure diretamente aqui
 const localDbConfig = {
   host: process.env.LOCAL_DB_HOST || 'localhost',
   port: parseInt(process.env.LOCAL_DB_PORT || '5432'),
@@ -39,585 +50,392 @@ const localDbConfig = {
 
 // Criar pool de conexão para o banco local
 const localPool = new Pool(localDbConfig);
-const localDb = drizzle(localPool, { schema });
 
-// Função para extrair todos os dados do banco atual
+// Interface para leitura de input
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+// Função para perguntar ao usuário
+const ask = (question: string): Promise<string> => {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      resolve(answer);
+    });
+  });
+};
+
+// 1. Extrair dados do banco atual
 async function extractData() {
-  console.log('Extraindo dados do banco atual...');
+  console.log(colors.info('Extraindo dados do banco de dados atual...'));
   
-  const users = await db.select().from(schema.users);
-  console.log(`Extraídos ${users.length} usuários`);
-  
-  const providers = await db.select().from(schema.providers);
-  console.log(`Extraídos ${providers.length} provedores`);
-  
-  const clients = await db.select().from(schema.clients);
-  console.log(`Extraídos ${clients.length} clientes`);
-  
-  const providerClients = await db.select().from(schema.providerClients);
-  console.log(`Extraídas ${providerClients.length} associações provedor-cliente`);
-  
-  const services = await db.select().from(schema.services);
-  console.log(`Extraídos ${services.length} serviços`);
-  
-  const appointments = await db.select().from(schema.appointments);
-  console.log(`Extraídos ${appointments.length} agendamentos`);
-  
-  const notifications = await db.select().from(schema.notifications);
-  console.log(`Extraídas ${notifications.length} notificações`);
-  
-  const timeExclusions = await db.select().from(schema.timeExclusions);
-  console.log(`Extraídas ${timeExclusions.length} exclusões de horário`);
-  
-  return {
-    users,
-    providers,
-    clients,
-    providerClients,
-    services,
-    appointments,
-    notifications,
-    timeExclusions
-  };
-}
-
-// Função para criar as tabelas no banco local
-async function createTables() {
-  console.log('Criando tabelas no banco local...');
+  const data: Record<string, any[]> = {};
   
   try {
-    // Verificar se as tabelas já existem
-    const tablesExist = await localPool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
+    // Extrair dados de todas as tabelas
+    data.users = await sourceDb.select().from(schema.users);
+    data.providers = await sourceDb.select().from(schema.providers);
+    data.clients = await sourceDb.select().from(schema.clients);
+    data.services = await sourceDb.select().from(schema.services);
+    data.appointments = await sourceDb.select().from(schema.appointments);
+    data.notifications = await sourceDb.select().from(schema.notifications);
+    data.providerClients = await sourceDb.select().from(schema.providerClients);
+    data.timeExclusions = await sourceDb.select().from(schema.timeExclusions);
+    data.subscriptionPlans = await sourceDb.select().from(schema.subscriptionPlans);
+    data.subscriptionTransactions = await sourceDb.select().from(schema.subscriptionTransactions);
+    
+    console.log(colors.success('✓ Dados extraídos com sucesso'));
+    
+    // Mostrar resumo
+    for (const [table, rows] of Object.entries(data)) {
+      console.log(`  - ${table}: ${rows.length} registros`);
+    }
+    
+    return data;
+  } catch (error: any) {
+    console.error(colors.error(`Erro ao extrair dados: ${error.message}`));
+    throw error;
+  }
+}
+
+// 2. Criar tabelas no banco local
+async function createTables() {
+  console.log(colors.info('\nCriando tabelas no banco de dados local...'));
+  
+  try {
+    // Verificar se o banco já tem tabelas
+    const existingTablesResult = await localPool.query(`
+      SELECT table_name FROM information_schema.tables 
       WHERE table_schema = 'public'
     `);
     
-    if (tablesExist.rows.length > 0) {
-      console.log('Tabelas já existem no banco local. Realizando limpeza...');
+    const existingTables = existingTablesResult.rows.map(row => row.table_name);
+    
+    if (existingTables.length > 0) {
+      console.log(colors.warning(`Encontradas ${existingTables.length} tabelas existentes no banco local:`));
+      console.log(`  ${existingTables.join(', ')}`);
       
-      // Desativar verificações de chave estrangeira temporariamente
-      await localPool.query('SET session_replication_role = replica;');
+      const shouldDrop = (await ask(colors.warning('Deseja excluir todas as tabelas existentes e criar novas? (s/N): '))).toLowerCase() === 's';
       
-      // Limpar todas as tabelas existentes
-      await localPool.query(`TRUNCATE TABLE 
-        users, providers, clients, provider_clients, 
-        services, appointments, notifications, time_exclusions
-        CASCADE;`);
+      if (shouldDrop) {
+        console.log(colors.info('Excluindo tabelas existentes...'));
+        await localPool.query(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
+        console.log(colors.success('✓ Tabelas existentes excluídas'));
+      } else {
+        console.log(colors.info('Mantendo tabelas existentes. A migração pode falhar se a estrutura for incompatível.'));
+      }
+    }
+    
+    // Ler e executar script SQL de criação das tabelas
+    const sqlPath = path.join(__dirname, 'schema.sql');
+    
+    // Se não temos o arquivo schema.sql, vamos criar um
+    if (!fs.existsSync(sqlPath)) {
+      console.log(colors.info('Criando script de schema.sql...'));
       
-      // Reativar verificações de chave estrangeira
-      await localPool.query('SET session_replication_role = DEFAULT;');
-      
-      console.log('Limpeza concluída.');
-    } else {
-      console.log('Criando esquema do banco de dados...');
-      
-      // Aplicar o esquema de migração usando drizzle-kit
-      await localPool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          username VARCHAR(255) NOT NULL,
-          password VARCHAR(255) NOT NULL,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255),
-          role VARCHAR(50) DEFAULT 'user' NOT NULL,
-          subscription_expiry TIMESTAMP,
-          never_expires BOOLEAN DEFAULT FALSE,
-          verification_token VARCHAR(255),
-          verification_token_expiry TIMESTAMP,
-          is_email_verified BOOLEAN DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-        
-        CREATE TABLE IF NOT EXISTS providers (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255),
-          phone VARCHAR(50),
-          description TEXT,
-          timezone VARCHAR(50) DEFAULT 'America/Sao_Paulo',
-          working_hours VARCHAR(255) DEFAULT '09:00-18:00',
-          working_days VARCHAR(50) DEFAULT '1,2,3,4,5',
-          booking_link VARCHAR(255),
-          active BOOLEAN DEFAULT TRUE,
-          is_blocked BOOLEAN DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-        
-        CREATE TABLE IF NOT EXISTS clients (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          phone VARCHAR(50) NOT NULL,
-          email VARCHAR(255),
-          notes TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          is_active BOOLEAN DEFAULT TRUE
-        );
-        
-        CREATE TABLE IF NOT EXISTS provider_clients (
-          id SERIAL PRIMARY KEY,
-          provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-          client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-        
-        CREATE TABLE IF NOT EXISTS services (
-          id SERIAL PRIMARY KEY,
-          provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-          name VARCHAR(255) NOT NULL,
-          description TEXT,
-          duration INTEGER NOT NULL,
-          price INTEGER NOT NULL,
-          color VARCHAR(50),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          is_active BOOLEAN DEFAULT TRUE
-        );
-        
-        CREATE TABLE IF NOT EXISTS appointments (
-          id SERIAL PRIMARY KEY,
-          provider_id INTEGER NOT NULL REFERENCES providers(id),
-          client_id INTEGER NOT NULL REFERENCES clients(id),
-          service_id INTEGER NOT NULL REFERENCES services(id),
-          date TIMESTAMP NOT NULL,
-          end_time TIMESTAMP NOT NULL,
-          status VARCHAR(50) DEFAULT 'pending' NOT NULL,
-          notes TEXT,
-          cancellation_reason TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-        
-        CREATE TABLE IF NOT EXISTS notifications (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          title VARCHAR(255) NOT NULL,
-          message TEXT NOT NULL,
-          type VARCHAR(50) NOT NULL,
-          is_read BOOLEAN DEFAULT FALSE,
-          appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
-        
-        CREATE TABLE IF NOT EXISTS time_exclusions (
-          id SERIAL PRIMARY KEY,
-          provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-          day_of_week INTEGER,
-          start_time TIME NOT NULL,
-          end_time TIME NOT NULL,
-          recurring BOOLEAN DEFAULT FALSE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-        );
+      // Usar o Drizzle para gerar o schema
+      const schemaSql = await sourceDb.execute(sql`
+        SELECT 
+          'CREATE TABLE IF NOT EXISTS ' || tablename || ' (' ||
+          array_to_string(
+            array_agg(
+              column_name || ' ' || 
+              data_type || 
+              CASE WHEN character_maximum_length IS NOT NULL 
+                THEN '(' || character_maximum_length || ')' 
+                ELSE '' 
+              END || 
+              CASE WHEN is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END
+            ), 
+            ', '
+          ) || ');' as create_statement
+        FROM pg_tables
+        JOIN information_schema.columns ON tablename = table_name
+        WHERE schemaname = 'public'
+        GROUP BY tablename;
       `);
       
-      console.log('Esquema do banco de dados criado com sucesso.');
+      let schemaContent = '';
+      for (const row of schemaSql) {
+        schemaContent += row.create_statement + '\n\n';
+      }
+      
+      fs.writeFileSync(sqlPath, schemaContent);
+      console.log(colors.success('✓ Arquivo schema.sql criado'));
     }
-  } catch (error) {
-    console.error('Erro ao criar tabelas:', error);
+    
+    // Executar o script SQL
+    const schemaSql = fs.readFileSync(sqlPath, 'utf8');
+    await localPool.query(schemaSql);
+    
+    console.log(colors.success('✓ Tabelas criadas com sucesso no banco local'));
+    return true;
+  } catch (error: any) {
+    console.error(colors.error(`Erro ao criar tabelas: ${error.message}`));
     throw error;
   }
 }
 
-// Função para inserir os dados no banco local
+// 3. Inserir dados no banco local
 async function insertData(data: any) {
-  console.log('Inserindo dados no banco local...');
-  
-  // Desativar verificações de chave estrangeira temporariamente
-  await localPool.query('SET session_replication_role = replica;');
+  console.log(colors.info('\nInserindo dados no banco local...'));
   
   try {
-    // Inserir usuários
-    console.log('Inserindo usuários...');
-    for (const user of data.users) {
-      await localPool.query(`
-        INSERT INTO users (
-          id, username, password, name, email, role, 
-          subscription_expiry, never_expires, verification_token, 
-          verification_token_expiry, is_email_verified, created_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-        )
-      `, [
-        user.id,
-        user.username,
-        user.password,
-        user.name,
-        user.email,
-        user.role,
-        user.subscriptionExpiry,
-        user.neverExpires,
-        user.verificationToken,
-        user.verificationTokenExpiry,
-        user.isEmailVerified,
-        user.createdAt
-      ]);
+    const client = await localPool.connect();
+    
+    try {
+      // Iniciar transação
+      await client.query('BEGIN');
+      
+      // Inserir dados em cada tabela
+      for (const [table, rows] of Object.entries(data)) {
+        if (rows.length === 0) {
+          console.log(`  - ${table}: Nenhum dado para inserir`);
+          continue;
+        }
+        
+        console.log(`  - ${table}: Inserindo ${rows.length} registros...`);
+        
+        // Obter colunas da primeira linha para construir a query
+        const columns = Object.keys(rows[0]);
+        
+        // Processar cada linha
+        for (const row of rows) {
+          // Construir valores parametrizados
+          const values = columns.map((col, i) => `$${i + 1}`).join(', ');
+          const query = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${values})`;
+          
+          // Extrair valores na ordem das colunas
+          const params = columns.map(col => row[col]);
+          
+          // Executar insert
+          await client.query(query, params);
+        }
+      }
+      
+      // Commit da transação
+      await client.query('COMMIT');
+      
+      console.log(colors.success('✓ Dados inseridos com sucesso no banco local'));
+      return true;
+    } catch (e) {
+      // Rollback em caso de erro
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      // Liberar cliente
+      client.release();
     }
-    
-    // Inserir provedores
-    console.log('Inserindo provedores...');
-    for (const provider of data.providers) {
-      await localPool.query(`
-        INSERT INTO providers (
-          id, user_id, name, email, phone, description, 
-          timezone, working_hours, working_days, booking_link,
-          active, is_blocked, created_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-        )
-      `, [
-        provider.id,
-        provider.userId,
-        provider.name,
-        provider.email,
-        provider.phone,
-        provider.description,
-        provider.timezone,
-        provider.workingHours,
-        provider.workingDays,
-        provider.bookingLink,
-        provider.active,
-        provider.isBlocked,
-        provider.createdAt
-      ]);
-    }
-    
-    // Inserir clientes
-    console.log('Inserindo clientes...');
-    for (const client of data.clients) {
-      await localPool.query(`
-        INSERT INTO clients (
-          id, name, phone, email, notes, created_at, is_active
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7
-        )
-      `, [
-        client.id,
-        client.name,
-        client.phone,
-        client.email,
-        client.notes,
-        client.createdAt,
-        client.isActive
-      ]);
-    }
-    
-    // Inserir associações provedor-cliente
-    console.log('Inserindo associações provedor-cliente...');
-    for (const pc of data.providerClients) {
-      await localPool.query(`
-        INSERT INTO provider_clients (
-          id, provider_id, client_id, created_at
-        ) VALUES (
-          $1, $2, $3, $4
-        )
-      `, [
-        pc.id,
-        pc.providerId,
-        pc.clientId,
-        pc.createdAt
-      ]);
-    }
-    
-    // Inserir serviços
-    console.log('Inserindo serviços...');
-    for (const service of data.services) {
-      await localPool.query(`
-        INSERT INTO services (
-          id, provider_id, name, description, duration, 
-          price, color, created_at, is_active
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9
-        )
-      `, [
-        service.id,
-        service.providerId,
-        service.name,
-        service.description,
-        service.duration,
-        service.price,
-        service.color,
-        service.createdAt,
-        service.isActive
-      ]);
-    }
-    
-    // Inserir agendamentos
-    console.log('Inserindo agendamentos...');
-    for (const appointment of data.appointments) {
-      await localPool.query(`
-        INSERT INTO appointments (
-          id, provider_id, client_id, service_id, date, 
-          end_time, status, notes, cancellation_reason, created_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-        )
-      `, [
-        appointment.id,
-        appointment.providerId,
-        appointment.clientId,
-        appointment.serviceId,
-        appointment.date,
-        appointment.endTime,
-        appointment.status,
-        appointment.notes,
-        appointment.cancellationReason,
-        appointment.createdAt
-      ]);
-    }
-    
-    // Inserir notificações
-    console.log('Inserindo notificações...');
-    for (const notification of data.notifications) {
-      await localPool.query(`
-        INSERT INTO notifications (
-          id, user_id, title, message, type, 
-          is_read, appointment_id, created_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8
-        )
-      `, [
-        notification.id,
-        notification.userId,
-        notification.title,
-        notification.message,
-        notification.type,
-        notification.isRead,
-        notification.appointmentId,
-        notification.createdAt
-      ]);
-    }
-    
-    // Inserir exclusões de horário
-    console.log('Inserindo exclusões de horário...');
-    for (const exclusion of data.timeExclusions) {
-      await localPool.query(`
-        INSERT INTO time_exclusions (
-          id, provider_id, day_of_week, start_time, 
-          end_time, recurring, created_at
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7
-        )
-      `, [
-        exclusion.id,
-        exclusion.providerId,
-        exclusion.dayOfWeek,
-        exclusion.startTime,
-        exclusion.endTime,
-        exclusion.recurring,
-        exclusion.createdAt
-      ]);
-    }
-    
-    // Atualizar as sequências
-    await updateSequences();
-    
-  } catch (error) {
-    console.error('Erro ao inserir dados:', error);
+  } catch (error: any) {
+    console.error(colors.error(`Erro ao inserir dados: ${error.message}`));
     throw error;
-  } finally {
-    // Reativar verificações de chave estrangeira
-    await localPool.query('SET session_replication_role = DEFAULT;');
   }
-  
-  console.log('Dados inseridos com sucesso!');
 }
 
-// Função para atualizar as sequências após a inserção de dados
+// 4. Atualizar sequências
 async function updateSequences() {
-  console.log('Atualizando sequências de ID...');
+  console.log(colors.info('\nAtualizando sequências de IDs...'));
   
-  const tables = [
-    'users', 'providers', 'clients', 'provider_clients', 
-    'services', 'appointments', 'notifications', 'time_exclusions'
-  ];
-  
-  for (const table of tables) {
-    await localPool.query(`
-      SELECT setval(pg_get_serial_sequence('${table}', 'id'), 
-        (SELECT MAX(id) FROM ${table}), true);
+  try {
+    // Obter todas as sequências
+    const sequencesResult = await localPool.query(`
+      SELECT sequence_name 
+      FROM information_schema.sequences 
+      WHERE sequence_schema = 'public'
     `);
+    
+    const sequences = sequencesResult.rows.map(row => row.sequence_name);
+    
+    for (const sequence of sequences) {
+      // Extrair nome da tabela e coluna da sequência (assumindo nomenclatura padrão)
+      const match = sequence.match(/(.+)_(.+)_seq/);
+      
+      if (match) {
+        const tableName = match[1];
+        const columnName = match[2];
+        
+        // Encontrar o valor máximo na coluna
+        const maxResult = await localPool.query(`
+          SELECT COALESCE(MAX(${columnName}), 0) + 1 as max_value 
+          FROM ${tableName}
+        `);
+        
+        const maxValue = maxResult.rows[0].max_value;
+        
+        // Atualizar a sequência
+        await localPool.query(`
+          ALTER SEQUENCE ${sequence} RESTART WITH ${maxValue}
+        `);
+        
+        console.log(`  - ${sequence}: Reiniciada em ${maxValue}`);
+      }
+    }
+    
+    console.log(colors.success('✓ Sequências atualizadas com sucesso'));
+    return true;
+  } catch (error: any) {
+    console.error(colors.error(`Erro ao atualizar sequências: ${error.message}`));
+    return false;
   }
+}
+
+// 5. Criar credenciais de teste
+async function createTestCredentials() {
+  console.log(colors.info('\nVerificando credenciais de teste...'));
   
-  console.log('Sequências atualizadas.');
+  try {
+    // Verificar se já existe usuário admin
+    const adminResult = await localPool.query(`
+      SELECT * FROM users WHERE role = 'admin' LIMIT 1
+    `);
+    
+    if (adminResult.rows.length > 0) {
+      console.log(colors.info(`Já existe um usuário admin: ${adminResult.rows[0].username}`));
+      
+      const resetPassword = (await ask(colors.warning('Deseja resetar a senha do admin? (s/N): '))).toLowerCase() === 's';
+      
+      if (resetPassword) {
+        const hashedPassword = await hashPassword('password123');
+        
+        await localPool.query(`
+          UPDATE users SET password = $1 WHERE id = $2
+        `, [hashedPassword, adminResult.rows[0].id]);
+        
+        console.log(colors.success(`✓ Senha do usuário admin resetada para: password123`));
+      }
+    } else {
+      // Criar usuário admin
+      const hashedPassword = await hashPassword('password123');
+      
+      await localPool.query(`
+        INSERT INTO users (
+          name, username, email, password, role, is_active, never_expires,
+          is_email_verified, created_at, updated_at
+        ) VALUES (
+          'Admin', 'admin', 'admin@example.com', $1, 'admin', true, true,
+          true, NOW(), NOW()
+        )
+      `, [hashedPassword]);
+      
+      console.log(colors.success('✓ Usuário admin criado com sucesso'));
+      console.log(colors.info('   Credenciais: admin / password123'));
+    }
+    
+    // Verificar se já existe usuário link
+    const linkResult = await localPool.query(`
+      SELECT * FROM users WHERE username = 'link' LIMIT 1
+    `);
+    
+    if (linkResult.rows.length > 0) {
+      console.log(colors.info(`Já existe um usuário link: ${linkResult.rows[0].username}`));
+      
+      const resetPassword = (await ask(colors.warning('Deseja resetar a senha do usuário link? (s/N): '))).toLowerCase() === 's';
+      
+      if (resetPassword) {
+        const hashedPassword = await hashPassword('password123');
+        
+        await localPool.query(`
+          UPDATE users SET password = $1 WHERE id = $2
+        `, [hashedPassword, linkResult.rows[0].id]);
+        
+        console.log(colors.success(`✓ Senha do usuário link resetada para: password123`));
+      }
+    } else {
+      // Criar usuário link
+      const hashedPassword = await hashPassword('password123');
+      
+      // Inserir usuário link
+      const userResult = await localPool.query(`
+        INSERT INTO users (
+          name, username, email, password, role, is_active, never_expires,
+          is_email_verified, created_at, updated_at
+        ) VALUES (
+          'Lincoln', 'link', 'link@example.com', $1, 'provider', true, false,
+          true, NOW(), NOW()
+        ) RETURNING id
+      `, [hashedPassword]);
+      
+      const userId = userResult.rows[0].id;
+      
+      // Inserir provider para o usuário link
+      await localPool.query(`
+        INSERT INTO providers (
+          user_id, name, email, phone, bio, website, business_hours,
+          booking_link, is_active, created_at, updated_at
+        ) VALUES (
+          $1, 'Lincoln', 'link@example.com', '+5511999999999', 
+          'Prestador de serviços teste', 'https://example.com',
+          '{"Segunda":"09:00-18:00","Terça":"09:00-18:00","Quarta":"09:00-18:00","Quinta":"09:00-18:00","Sexta":"09:00-18:00"}',
+          'link', true, NOW(), NOW()
+        )
+      `, [userId]);
+      
+      console.log(colors.success('✓ Usuário link e provider criados com sucesso'));
+      console.log(colors.info('   Credenciais: link / password123'));
+    }
+    
+    return true;
+  } catch (error: any) {
+    console.error(colors.error(`Erro ao criar credenciais de teste: ${error.message}`));
+    return false;
+  }
 }
 
 // Função principal
 async function migrateToLocalDb() {
-  console.log('Iniciando migração para banco de dados local...');
+  console.log(colors.bold('\n=== MIGRAÇÃO PARA BANCO DE DADOS LOCAL ===\n'));
   
   try {
+    // Verificar conexão com o banco local
+    try {
+      await localPool.query('SELECT 1');
+      console.log(colors.success('✓ Conexão com banco de dados local estabelecida'));
+    } catch (error: any) {
+      console.error(colors.error(`Erro ao conectar ao banco local: ${error.message}`));
+      console.error(colors.warning('Verifique se:'));
+      console.error('  1. O PostgreSQL está instalado e rodando');
+      console.error('  2. O banco de dados existe (crie com: CREATE DATABASE agendadb)');
+      console.error('  3. As credenciais estão corretas');
+      process.exit(1);
+    }
+    
     // Extrair dados do banco atual
     const data = await extractData();
     
     // Criar tabelas no banco local
     await createTables();
     
-    // Inserir dados extraídos no banco local
+    // Inserir dados no banco local
     await insertData(data);
     
-    // Configuração de credenciais padrão para desenvolvimento
-    console.log('Criando credenciais de teste, se não existirem...');
+    // Atualizar sequências
+    await updateSequences();
+    
+    // Criar credenciais de teste
     await createTestCredentials();
     
-    console.log('\n✅ Migração concluída com sucesso!');
-    console.log(`\nBanco de dados local configurado em: ${localDbConfig.host}:${localDbConfig.port}/${localDbConfig.database}`);
-    console.log('\nCredenciais de acesso:');
-    console.log('- Usuário Admin: admin / password123');
-    console.log('- Usuário Link: link / password123');
+    console.log(colors.bold('\n=== MIGRAÇÃO CONCLUÍDA COM SUCESSO ===\n'));
+    console.log(colors.success('O banco de dados foi migrado com sucesso para o ambiente local.'));
+    console.log('Você pode agora:');
+    console.log('  1. Iniciar a aplicação com `npm run dev`');
+    console.log('  2. Fazer login com as credenciais:');
+    console.log('     - Admin: admin / password123');
+    console.log('     - Provider: link / password123');
     
-    console.log('\nPara usar o banco local, atualize suas variáveis de ambiente:');
-    console.log(`DATABASE_URL=postgres://${localDbConfig.user}:${localDbConfig.password}@${localDbConfig.host}:${localDbConfig.port}/${localDbConfig.database}`);
-    
-  } catch (error) {
-    console.error('Erro durante a migração:', error);
+  } catch (error: any) {
+    console.error(colors.error('\nErro durante a migração:'), error.message);
+    console.error(colors.warning('A migração foi interrompida devido a erros.'));
   } finally {
     // Fechar conexões
-    await closeDb();
+    await sourcePool.end();
     await localPool.end();
+    rl.close();
   }
 }
 
-// Função para criar credenciais de teste se não existirem
-async function createTestCredentials() {
-  // Verificar se os usuários admin e link já existem
-  const adminResult = await localPool.query(`SELECT * FROM users WHERE username = 'admin'`);
-  const linkResult = await localPool.query(`SELECT * FROM users WHERE username = 'link'`);
-  
-  if (adminResult.rows.length === 0) {
-    console.log('Criando usuário admin...');
-    const hashedPassword = await hashPassword('password123');
-    
-    // Inserir usuário admin
-    const adminInsertResult = await localPool.query(`
-      INSERT INTO users (
-        username, password, name, email, role, 
-        never_expires, is_email_verified, created_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8
-      ) RETURNING *
-    `, [
-      'admin',
-      hashedPassword,
-      'Administrador',
-      'admin@example.com',
-      'admin',
-      true,
-      true,
-      new Date()
-    ]);
-    
-    const admin = adminInsertResult.rows[0];
-    
-    // Criar provedor para o admin
-    await localPool.query(`
-      INSERT INTO providers (
-        user_id, name, email, phone, description, 
-        working_hours, working_days, booking_link, active, created_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-      )
-    `, [
-      admin.id,
-      'Administrador',
-      'admin@example.com',
-      '11999999999',
-      'Administrador do sistema',
-      JSON.stringify({
-        '0': [], // Domingo
-        '1': [{'start': '09:00', 'end': '18:00'}], // Segunda
-        '2': [{'start': '09:00', 'end': '18:00'}], // Terça
-        '3': [{'start': '09:00', 'end': '18:00'}], // Quarta
-        '4': [{'start': '09:00', 'end': '18:00'}], // Quinta
-        '5': [{'start': '09:00', 'end': '18:00'}], // Sexta
-        '6': [] // Sábado
-      }),
-      '1,2,3,4,5',
-      'admin',
-      true,
-      new Date()
-    ]);
-    
-    console.log('Usuário admin criado com sucesso!');
-  }
-  
-  if (linkResult.rows.length === 0) {
-    console.log('Criando usuário link...');
-    const hashedPassword = await hashPassword('password123');
-    
-    // Inserir usuário link
-    const linkInsertResult = await localPool.query(`
-      INSERT INTO users (
-        username, password, name, email, role, 
-        never_expires, is_email_verified, subscription_expiry, created_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9
-      ) RETURNING *
-    `, [
-      'link',
-      hashedPassword,
-      'Lincoln',
-      'link@example.com',
-      'user',
-      false,
-      true,
-      new Date(Date.now() + 1000 * 60 * 60 * 24 * 90), // 90 dias
-      new Date()
-    ]);
-    
-    const link = linkInsertResult.rows[0];
-    
-    // Criar provedor para o link
-    const providerInsertResult = await localPool.query(`
-      INSERT INTO providers (
-        user_id, name, email, phone, description, 
-        working_hours, working_days, booking_link, active, created_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-      ) RETURNING *
-    `, [
-      link.id,
-      'Lincoln',
-      'link@example.com',
-      '11987654321',
-      'Provedor de serviços',
-      JSON.stringify({
-        '0': [], // Domingo
-        '1': [{'start': '09:00', 'end': '18:00'}], // Segunda
-        '2': [{'start': '09:00', 'end': '18:00'}], // Terça
-        '3': [{'start': '09:00', 'end': '18:00'}], // Quarta
-        '4': [{'start': '09:00', 'end': '18:00'}], // Quinta
-        '5': [{'start': '09:00', 'end': '18:00'}], // Sexta
-        '6': [] // Sábado
-      }),
-      '1,2,3,4,5',
-      'link',
-      true,
-      new Date()
-    ]);
-    
-    const provider = providerInsertResult.rows[0];
-    
-    // Criar um serviço de exemplo para o link
-    await localPool.query(`
-      INSERT INTO services (
-        provider_id, name, description, duration, 
-        price, color, is_active, created_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8
-      )
-    `, [
-      provider.id,
-      'Serviço de Exemplo',
-      'Este é um serviço de exemplo',
-      60,
-      10000, // R$ 100,00
-      '#4f46e5',
-      true,
-      new Date()
-    ]);
-    
-    console.log('Usuário link criado com sucesso!');
-  }
-}
-
-// Executar a migração
-migrateToLocalDb();
+// Iniciar migração
+migrateToLocalDb().catch(error => {
+  console.error(colors.error('Erro fatal durante a migração:'), error);
+  process.exit(1);
+});

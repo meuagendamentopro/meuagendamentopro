@@ -9,220 +9,152 @@
  * 4. Exibe um relatório detalhado do estado do banco de dados
  */
 
-const { Pool } = require('pg');
+const { Pool } = require('@neondatabase/serverless');
 require('dotenv').config();
 
-// Cores para o console
-const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m'
-};
-
-// Tabelas para verificar
-const REQUIRED_TABLES = [
-  'users',
-  'providers',
-  'clients',
-  'provider_clients',
-  'services',
-  'appointments',
-  'notifications',
-  'time_exclusions'
-];
-
-// Obter a URL do banco de dados
-let databaseUrl = process.argv[2] || process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  console.error(`${colors.red}Erro: DATABASE_URL não fornecida.${colors.reset}`);
-  console.log(`Por favor, passe a URL como argumento ou defina DATABASE_URL no arquivo .env:`);
-  console.log(`  node scripts/check-database-connection.js "postgres://usuario:senha@host:porta/banco"`);
-  process.exit(1);
-}
-
-// Mascara a senha na URL para exibição
+// Função para mascarar a URL do banco de dados por motivos de segurança
 function maskDatabaseUrl(url) {
-  return url.replace(/\/\/([^:]+):([^@]+)@/, '//\\1:********@');
+  try {
+    const dbUrl = new URL(url);
+    if (dbUrl.password) {
+      dbUrl.password = '****';
+    }
+    return dbUrl.toString();
+  } catch (e) {
+    return 'URL inválida';
+  }
 }
 
 // Função principal
 async function checkDatabaseConnection() {
-  console.log(`\n${colors.bright}${colors.blue}=== VERIFICAÇÃO DE CONEXÃO COM BANCO DE DADOS ===${colors.reset}\n`);
-  console.log(`${colors.cyan}Conectando ao banco de dados: ${colors.yellow}${maskDatabaseUrl(databaseUrl)}${colors.reset}\n`);
+  // Obter a URL do banco de dados
+  let databaseUrl = process.argv[2] || process.env.DATABASE_URL;
+  
+  if (!databaseUrl) {
+    console.error('Erro: DATABASE_URL não definida. Forneça a URL como argumento ou defina a variável de ambiente.');
+    process.exit(1);
+  }
+  
+  console.log(`\n=== VERIFICAÇÃO DA CONEXÃO COM O BANCO DE DADOS ===`);
+  console.log(`URL do banco de dados: ${maskDatabaseUrl(databaseUrl)}\n`);
   
   // Criar pool de conexão
   const pool = new Pool({ connectionString: databaseUrl });
   
   try {
-    // Testar conexão
-    console.log(`${colors.cyan}Testando conexão...${colors.reset}`);
-    const connectionStart = Date.now();
-    const connectionResult = await pool.query('SELECT NOW()');
-    const connectionTime = Date.now() - connectionStart;
+    // 1. Testar conexão básica
+    console.log('1. Testando conexão básica...');
+    const connResult = await pool.query('SELECT 1 as test');
     
-    console.log(`${colors.green}✓ Conexão bem-sucedida!${colors.reset}`);
-    console.log(`${colors.cyan}  Tempo de resposta: ${colors.yellow}${connectionTime}ms${colors.reset}`);
-    console.log(`${colors.cyan}  Horário do servidor: ${colors.yellow}${connectionResult.rows[0].now}${colors.reset}\n`);
-    
-    // Verificar versão do PostgreSQL
-    console.log(`${colors.cyan}Verificando versão do PostgreSQL...${colors.reset}`);
-    const versionResult = await pool.query('SELECT version()');
-    console.log(`${colors.green}✓ Versão do PostgreSQL: ${colors.yellow}${versionResult.rows[0].version.split(',')[0]}${colors.reset}\n`);
-    
-    // Verificar tabelas
-    console.log(`${colors.cyan}Verificando tabelas...${colors.reset}`);
-    
-    const tablesResult = await pool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-    `);
-    
-    const existingTables = tablesResult.rows.map(row => row.table_name);
-    
-    console.log(`${colors.cyan}  Tabelas encontradas: ${colors.yellow}${existingTables.length}${colors.reset}`);
-    
-    let allTablesExist = true;
-    
-    for (const table of REQUIRED_TABLES) {
-      if (existingTables.includes(table)) {
-        console.log(`${colors.green}  ✓ Tabela ${colors.yellow}${table}${colors.green} encontrada${colors.reset}`);
-      } else {
-        console.log(`${colors.red}  ✗ Tabela ${colors.yellow}${table}${colors.red} não encontrada${colors.reset}`);
-        allTablesExist = false;
-      }
-    }
-    
-    if (!allTablesExist) {
-      console.log(`\n${colors.yellow}Aviso: Algumas tabelas necessárias não foram encontradas.${colors.reset}`);
-      console.log(`${colors.yellow}Execute o script de migração para criar as tabelas:${colors.reset}`);
-      console.log(`  npm run db:push`);
+    if (connResult?.rows?.[0]?.test === 1) {
+      console.log('✅ Conexão estabelecida com sucesso!');
     } else {
-      console.log(`\n${colors.green}✓ Todas as tabelas necessárias existem.${colors.reset}\n`);
-      
-      // Verificar contagem de registros
-      console.log(`${colors.cyan}Verificando dados...${colors.reset}`);
-      
-      const counts = {};
-      
-      for (const table of REQUIRED_TABLES) {
-        const countResult = await pool.query(`SELECT COUNT(*) FROM ${table}`);
-        counts[table] = parseInt(countResult.rows[0].count, 10);
-        
-        if (counts[table] > 0) {
-          console.log(`${colors.green}  ✓ Tabela ${colors.yellow}${table}${colors.green} contém ${colors.yellow}${counts[table]}${colors.green} registros${colors.reset}`);
-        } else {
-          console.log(`${colors.yellow}  ! Tabela ${colors.yellow}${table}${colors.yellow} está vazia${colors.reset}`);
-        }
-      }
-      
-      // Verificar relações
-      if (counts.users > 0 && counts.providers > 0) {
-        console.log(`\n${colors.cyan}Verificando relações entre usuários e provedores...${colors.reset}`);
-        
-        const relationResult = await pool.query(`
-          SELECT u.id as user_id, u.username, p.id as provider_id, p.name
-          FROM users u
-          LEFT JOIN providers p ON u.id = p.user_id
-          LIMIT 5
-        `);
-        
-        if (relationResult.rows.length > 0) {
-          console.log(`${colors.green}  ✓ Relações usuário-provedor estão intactas${colors.reset}`);
-          console.log(`${colors.cyan}  Amostra de dados:${colors.reset}`);
-          
-          relationResult.rows.forEach(row => {
-            console.log(`    Usuário: ${colors.yellow}${row.username}${colors.reset} → Provedor: ${colors.yellow}${row.name || 'Nenhum'}${colors.reset}`);
-          });
-        } else {
-          console.log(`${colors.yellow}  ! Não foi possível encontrar relações entre usuários e provedores${colors.reset}`);
-        }
-      }
-      
-      // Verificar conexões ativas
-      console.log(`\n${colors.cyan}Verificando conexões ativas no banco de dados...${colors.reset}`);
-      
-      const connectionsResult = await pool.query(`
-        SELECT count(*) FROM pg_stat_activity 
-        WHERE datname = current_database()
-      `);
-      
-      console.log(`${colors.green}  ✓ Conexões ativas: ${colors.yellow}${connectionsResult.rows[0].count}${colors.reset}\n`);
+      console.log('❌ A conexão foi aceita, mas a resposta não é a esperada.');
     }
     
-    // Verificar configurações
-    console.log(`${colors.cyan}Verificando configurações...${colors.reset}`);
+    // 2. Verificar se as tabelas principais existem
+    console.log('\n2. Verificando tabelas principais...');
     
-    const settings = [
-      { name: 'max_connections', description: 'Máximo de conexões' },
-      { name: 'timezone', description: 'Fuso horário' },
-      { name: 'work_mem', description: 'Memória de trabalho' },
-      { name: 'statement_timeout', description: 'Timeout de consultas' }
+    const tables = [
+      'users', 'providers', 'clients', 'services', 
+      'appointments', 'notifications', 'subscription_plans'
     ];
     
-    for (const setting of settings) {
+    for (const table of tables) {
       try {
-        const settingResult = await pool.query(`SHOW ${setting.name}`);
-        console.log(`${colors.green}  ✓ ${setting.description}: ${colors.yellow}${settingResult.rows[0][setting.name]}${colors.reset}`);
-      } catch (err) {
-        console.log(`${colors.yellow}  ! Não foi possível verificar ${setting.description}${colors.reset}`);
+        const tableQuery = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = $1
+          ) as exists
+        `, [table]);
+        
+        const exists = tableQuery.rows[0]?.exists;
+        
+        if (exists) {
+          // Contar registros na tabela
+          const countQuery = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
+          const count = countQuery.rows[0]?.count || 0;
+          
+          console.log(`✅ Tabela '${table}' existe (${count} registros)`);
+        } else {
+          console.log(`❌ Tabela '${table}' não encontrada`);
+        }
+      } catch (error) {
+        console.log(`❌ Erro ao verificar tabela '${table}': ${error.message}`);
       }
     }
     
-    // Resumo
-    console.log(`\n${colors.bright}${colors.green}=== RESUMO DA VERIFICAÇÃO ===${colors.reset}\n`);
-    console.log(`${colors.green}✓ Conexão com o banco de dados: ${colors.bright}SUCESSO${colors.reset}`);
-    console.log(`${colors.green}✓ Estrutura das tabelas: ${allTablesExist ? colors.bright + 'COMPLETA' : colors.yellow + 'INCOMPLETA'}${colors.reset}`);
+    // 3. Verificar usuários
+    console.log('\n3. Verificando usuários...');
     
-    const hasData = Object.values(counts).some(count => count > 0);
-    console.log(`${colors.green}✓ Dados presentes: ${hasData ? colors.bright + 'SIM' : colors.yellow + 'NÃO'}${colors.reset}\n`);
-    
-    console.log(`${colors.blue}Recomendações:${colors.reset}`);
-    
-    if (!allTablesExist) {
-      console.log(`${colors.yellow}• Execute "npm run db:push" para criar as tabelas necessárias${colors.reset}`);
-    } else if (!hasData) {
-      console.log(`${colors.yellow}• Execute "node scripts/migrate-to-local-db.js" para popular o banco com dados iniciais${colors.reset}`);
-    } else {
-      console.log(`${colors.green}• O banco de dados está pronto para uso!${colors.reset}`);
+    try {
+      const usersQuery = await pool.query(`
+        SELECT id, username, role, subscription_expiry, never_expires 
+        FROM users 
+        LIMIT 5
+      `);
+      
+      if (usersQuery.rows.length > 0) {
+        console.log(`✅ Encontrados ${usersQuery.rows.length} usuários:`);
+        
+        // Formatar a data de expiração da assinatura
+        usersQuery.rows.forEach(user => {
+          const expiryDate = user.subscription_expiry 
+            ? new Date(user.subscription_expiry).toLocaleDateString()
+            : 'N/A';
+          
+          console.log(`   - ID: ${user.id}, Usuário: ${user.username}, Função: ${user.role}, Expiração: ${expiryDate}`);
+        });
+      } else {
+        console.log('⚠️ Nenhum usuário encontrado no sistema');
+      }
+    } catch (error) {
+      console.log(`❌ Erro ao verificar usuários: ${error.message}`);
     }
     
-    console.log(`\n${colors.blue}Para iniciar o servidor de desenvolvimento:${colors.reset}`);
-    console.log(`  npm run dev\n`);
+    // 4. Testar consulta JOIN para verificar integridade referencial
+    console.log('\n4. Verificando integridade referencial...');
     
-  } catch (err) {
-    console.error(`\n${colors.red}Erro ao conectar ao banco de dados:${colors.reset}`);
-    console.error(`${colors.red}${err.message}${colors.reset}\n`);
-    
-    console.log(`${colors.yellow}Possíveis causas:${colors.reset}`);
-    
-    if (err.message.includes('connect ECONNREFUSED')) {
-      console.log(`${colors.yellow}• O servidor PostgreSQL não está em execução no host especificado${colors.reset}`);
-      console.log(`${colors.yellow}• O host ou porta estão incorretos${colors.reset}`);
-    } else if (err.message.includes('password authentication failed')) {
-      console.log(`${colors.yellow}• Credenciais (usuário/senha) incorretas${colors.reset}`);
-    } else if (err.message.includes('database') && err.message.includes('does not exist')) {
-      console.log(`${colors.yellow}• O banco de dados especificado não existe${colors.reset}`);
-      console.log(`${colors.yellow}• Você precisa criar o banco de dados:${colors.reset}`);
-      console.log(`    createdb -h ${databaseUrl.match(/@([^:]+):/)[1]} -U <usuário> <nome_do_banco>`);
+    try {
+      const joinQuery = await pool.query(`
+        SELECT p.id, p.name, u.username
+        FROM providers p
+        JOIN users u ON p.user_id = u.id
+        LIMIT 3
+      `);
+      
+      if (joinQuery.rows.length > 0) {
+        console.log(`✅ Integridade referencial verificada (providers -> users):`);
+        joinQuery.rows.forEach(row => {
+          console.log(`   - Provider: ${row.name} (ID: ${row.id}), Usuário: ${row.username}`);
+        });
+      } else {
+        console.log('⚠️ Nenhum provider encontrado ou problema na relação entre tabelas');
+      }
+    } catch (error) {
+      console.log(`❌ Erro ao verificar integridade referencial: ${error.message}`);
     }
     
-    console.log(`\n${colors.yellow}Para mais informações, consulte:${colors.reset}`);
-    console.log(`  docs/postgresql-troubleshooting.md\n`);
+    console.log('\n=== VERIFICAÇÃO CONCLUÍDA ===');
+    console.log('Resumo:');
+    console.log('- Conexão com o banco de dados: ✅');
+    console.log(`- Tabelas verificadas: ${tables.length}`);
+    
+  } catch (error) {
+    console.error(`\n❌ ERRO DE CONEXÃO: ${error.message}`);
+    console.error('Verifique se:');
+    console.error('1. A URL do banco de dados está correta');
+    console.error('2. O banco de dados está acessível na rede');
+    console.error('3. As credenciais estão corretas');
   } finally {
-    // Fechar a conexão
+    // Fechar conexão
     await pool.end();
   }
 }
 
-// Executar função principal
-checkDatabaseConnection()
-  .catch(err => {
-    console.error(`\n${colors.red}Erro fatal:${colors.reset}`, err);
-    process.exit(1);
-  });
+// Executar o script
+checkDatabaseConnection().catch(error => {
+  console.error('Erro fatal:', error);
+  process.exit(1);
+});
