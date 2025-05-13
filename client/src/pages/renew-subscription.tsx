@@ -71,6 +71,23 @@ export default function RenewSubscriptionPage() {
     }
   });
   
+  // Extrair ID do usuário da URL, se disponível
+  const [location] = useLocation();
+  const [urlUserId, setUrlUserId] = useState<number | null>(null);
+  
+  useEffect(() => {
+    // Extrair userId da URL, se presente
+    const params = new URLSearchParams(location.split('?')[1]);
+    const userIdParam = params.get('userId');
+    if (userIdParam) {
+      const parsedId = parseInt(userIdParam, 10);
+      if (!isNaN(parsedId)) {
+        setUrlUserId(parsedId);
+        console.log(`ID do usuário extraído da URL: ${parsedId}`);
+      }
+    }
+  }, [location]);
+  
   // Formatar preço em reais
   const formatCurrency = (valueInCents: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -83,12 +100,8 @@ export default function RenewSubscriptionPage() {
   const handleSelectPlan = async (planId: number) => {
     setSelectedPlanId(planId);
     
-    // Se o usuário não estiver autenticado, solicitamos credenciais
-    if (!user) {
-      setPaymentStep('login');
-      return;
-    }
-    
+    // Sempre tentamos gerar o pagamento diretamente, sem pedir login
+    // O backend já foi modificado para aceitar usuários expirados
     await generatePayment(planId);
   };
   
@@ -109,6 +122,12 @@ export default function RenewSubscriptionPage() {
     try {
       // Preparar dados do pagamento com ou sem credenciais
       const paymentData: any = { planId };
+      
+      // Se temos o ID do usuário extraído da URL, incluímos no payload
+      if (urlUserId) {
+        paymentData.userId = urlUserId;
+        console.log(`Incluindo userId ${urlUserId} da URL no pagamento`);
+      }
       
       // Se temos credenciais de login, incluímos no payload
       if (loginCredentials) {

@@ -3271,17 +3271,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  // Rota para gerar pagamento de assinatura (permite usuário expirado)
-  app.post("/api/subscription/generate-payment", allowExpiredSubscription, async (req: Request, res: Response) => {
+  // Rota para gerar pagamento de assinatura (permite usuário expirado e extrai do token)
+  app.post("/api/subscription/generate-payment", async (req: Request, res: Response) => {
     try {
-      const { planId, username, password } = req.body;
+      const { planId, username, password, userId: explicitUserId } = req.body;
       if (!planId) {
         return res.status(400).json({ error: "ID do plano é obrigatório" });
       }
       
-      // Se temos username/password mas não temos user no req, usamos os dados para identificar o usuário
-      let userId = req.user?.id;
+      // Usar ID explícito da URL se fornecido (para renovação de assinatura)
+      let userId = explicitUserId;
       
+      // Se não temos ID explícito, usamos o usuário autenticado
+      if (!userId && req.isAuthenticated()) {
+        userId = req.user.id;
+      }
+      
+      // Se ainda não temos ID mas temos username/password, tentamos autenticar
       if (!userId && username) {
         const user = await storage.getUserByUsername(username);
         if (!user) {
@@ -3299,10 +3305,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId = user.id;
       }
       
+      // Se ainda não temos ID, verificamos se temos um token especial de renovação
+      if (!userId && req.query.token) {
+        try {
+          // Este é um caso especial - no momento não temos token para renovação
+          // Poderíamos implementar no futuro usando JWT ou outra forma de token seguro
+          console.log("Token de renovação recebido, mas não implementado ainda");
+        } catch (err) {
+          console.error("Erro ao processar token de renovação:", err);
+        }
+      }
+      
       if (!userId) {
         return res.status(401).json({ 
-          error: "Autenticação necessária", 
-          message: "Forneça suas credenciais para renovar a assinatura" 
+          error: "Identificação necessária", 
+          message: "Não foi possível identificar o usuário para renovação de assinatura" 
         });
       }
       
@@ -3314,8 +3331,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Rota para verificar status do pagamento
-  app.get("/api/subscription/payment-status/:transactionId", isAuthenticated, async (req: Request, res: Response) => {
+  // Rota para verificar status do pagamento (sem exigir autenticação)
+  app.get("/api/subscription/payment-status/:transactionId", async (req: Request, res: Response) => {
     try {
       const { transactionId } = req.params;
       if (!transactionId) {
