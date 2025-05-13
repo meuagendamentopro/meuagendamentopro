@@ -157,6 +157,24 @@ export default function SubscriptionHistoryPage() {
   const isInTrialPeriod = (user: any) => {
     if (!user) return false;
     
+    // Se temos dados de histórico de assinaturas, o usuário não está em período de teste
+    if (history && history.length > 0) {
+      return false;
+    }
+    
+    // Verificar se o usuário tem uma assinatura paga
+    // Se a data de expiração estiver longe no futuro (mais de 7 dias), não é período de teste
+    if (user.subscriptionExpiry) {
+      const expiryDate = new Date(user.subscriptionExpiry);
+      const now = new Date();
+      const daysUntilExpiry = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Se a expiração estiver mais de 7 dias no futuro, é uma assinatura paga
+      if (daysUntilExpiry > 7) {
+        return false;
+      }
+    }
+    
     // Verificar data de criação, se o usuário foi criado recentemente (menos de 7 dias)
     if (user.createdAt) {
       const createdAt = new Date(user.createdAt);
@@ -164,18 +182,17 @@ export default function SubscriptionHistoryPage() {
       const daysSinceCreation = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
       
       // Usuário criado há menos de 7 dias é considerado em período de teste
-      return daysSinceCreation < 7;
-    }
-    
-    // Verificar data de expiração
-    // Se a data de expiração está a menos de 3 dias no futuro a partir da data de criação
-    if (user.subscriptionExpiry && user.createdAt) {
-      const expiryDate = new Date(user.subscriptionExpiry);
-      const createdAt = new Date(user.createdAt);
-      const daysUntilExpiry = Math.floor((expiryDate.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Se a expiração está entre 3 e 4 dias após a criação, é período de teste
-      return daysUntilExpiry > 0 && daysUntilExpiry <= 4;
+      if (daysSinceCreation < 7) {
+        // Verificar data de expiração - usuários em teste têm expiração próxima (3-4 dias)
+        if (user.subscriptionExpiry) {
+          const expiryDate = new Date(user.subscriptionExpiry);
+          const daysUntilExpiry = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Se a expiração está próxima e o usuário é novo, é período de teste
+          return daysUntilExpiry <= 4;
+        }
+        return true;
+      }
     }
     
     return false;
@@ -212,8 +229,8 @@ export default function SubscriptionHistoryPage() {
         </div>
       </div>
 
-      {/* Seção de Renovação Antecipada */}
-      {user && user.subscriptionExpiry && (
+      {/* Seção de Renovação Antecipada - Apenas para assinaturas que não estão em período de teste */}
+      {user && user.subscriptionExpiry && !isInTrialPeriod(user) && (
         <div className="mb-6">
           <Alert 
             className="bg-muted hover:bg-muted/80 cursor-pointer transition-colors"

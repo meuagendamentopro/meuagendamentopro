@@ -3470,24 +3470,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Verificar se o usuário está em período de teste (novos usuários recebem 3 dias)
-      // Consideramos que um usuário está em período de teste quando:
-      // 1. Tem data de expiração no futuro
-      // 2. Nunca fez uma assinatura antes (não temos transações reais)
-      // 3. Foi criado há menos de 7 dias (margem de segurança para o período de teste de 3 dias)
-      const userDetails = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      
-      if (userDetails && userDetails.length > 0) {
-        const userCreatedAt = new Date(userDetails[0].createdAt);
-        const now = new Date();
-        const daysSinceCreation = Math.floor((now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+      // Se não temos transações reais, verificar se o usuário é novo e está em período de teste
+      try {
+        // Buscar o usuário diretamente para verificar quando foi criado
+        const userDetails = await db.select().from(users).where(eq(users.id, userId)).limit(1);
         
-        // Se o usuário foi criado há menos de 7 dias e não possui assinaturas reais
-        // retornar lista vazia - usuário em período de teste
-        if (daysSinceCreation < 7) {
-          console.log(`Usuário ${userId} está em período de teste (criado há ${daysSinceCreation} dias). Retornando lista vazia.`);
-          return res.json([]);
+        // O usuário existe e tem dados para verificar
+        if (userDetails && userDetails.length > 0) {
+          // Verifica se o usuário tem transações de pagamento reais no sistema
+          // (isso indica que não é um usuário em período de teste)
+          const paidTransactions = await db.select()
+            .from(subscriptionTransactions)
+            .where(and(
+              eq(subscriptionTransactions.userId, userId),
+              eq(subscriptionTransactions.status, "paid")
+            ))
+            .limit(1);
+            
+          // Se o usuário já tem transações pagas, não está em período de teste
+          if (paidTransactions && paidTransactions.length > 0) {
+            console.log(`Usuário ${userId} possui transações pagas, não está em período de teste.`);
+          } else {
+            // Verificar se é um usuário novo (criado há menos de 7 dias)
+            const userCreatedAt = new Date(userDetails[0].createdAt);
+            const now = new Date();
+            const daysSinceCreation = Math.floor((now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+            
+            // Se o usuário foi criado há menos de 7 dias e não possui transações reais
+            // retornar lista vazia - usuário em período de teste
+            if (daysSinceCreation < 7) {
+              console.log(`Usuário ${userId} está em período de teste (criado há ${daysSinceCreation} dias). Retornando lista vazia.`);
+              return res.json([]);
+            }
+          }
         }
+      } catch (error) {
+        console.error("Erro ao verificar período de teste:", error);
+        // Se ocorrer erro, continuamos com o fallback
       }
       
       // Se não está em período de teste, usar fallback com dados de exemplo
