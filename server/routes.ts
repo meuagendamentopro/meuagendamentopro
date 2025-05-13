@@ -2862,10 +2862,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============== Rotas para Configurações de Notificação WhatsApp ==============
   
   // Obter configurações de notificação do provider
-  app.get("/api/notification-settings", loadUserProvider, async (req: Request, res: Response) => {
+  app.get("/api/notification-settings", (req: Request, res: Response, next: NextFunction) => {
+    console.log("Requisição recebida para /api/notification-settings");
+    console.log("Usuário autenticado?", req.isAuthenticated());
+    console.log("ID do usuário:", req.user?.id);
+    if (req.isAuthenticated()) {
+      next();
+    } else {
+      res.status(401).json({ error: "Não autenticado" });
+    }
+  }, async (req: Request, res: Response) => {
     try {
-      const provider = (req as any).provider;
+      if (!req.user || !req.user.id) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+      
+      // Busca o provider associado ao usuário atual
+      const provider = await storage.getProviderByUserId(req.user.id);
+      
+      if (!provider) {
+        return res.status(404).json({ 
+          error: "Perfil de prestador não encontrado", 
+          message: "Você não tem um perfil de prestador de serviços configurado."
+        });
+      }
+      
+      console.log("Provider encontrado:", provider.id);
       const settings = await getNotificationSettings(provider.id);
+      console.log("Configurações obtidas:", {
+        enableWhatsApp: settings.enableWhatsApp,
+        hasSid: !!settings.accountSid,
+        hasToken: !!settings.authToken,
+        hasPhone: !!settings.phoneNumber
+      });
       res.json(settings);
     } catch (error) {
       console.error("Erro ao obter configurações de notificação:", error);
