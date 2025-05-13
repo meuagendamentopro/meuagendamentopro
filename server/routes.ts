@@ -36,6 +36,7 @@ import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import passport from "passport";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
+import { handleTestWhatsAppSend } from './routes/test-whatsapp';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configurar autenticação
@@ -3735,6 +3736,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message || "Falha ao atualizar preço do plano" });
     }
   });
+
+  // Rota para testar envio de mensagem WhatsApp
+  app.post("/api/test-whatsapp-send", handleTestWhatsAppSend);
 
   return httpServer;
 }

@@ -552,6 +552,17 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <WhatsAppSettings />
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="pt-4">
+                    <h3 className="text-lg font-medium mb-4">Testar Envio de WhatsApp</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Use esta ferramenta para testar se suas configurações de WhatsApp estão funcionando corretamente.
+                    </p>
+                    
+                    <TestWhatsAppSend />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
