@@ -427,6 +427,18 @@ export default function RenewSubscriptionPage() {
             </div>
             
             <div className="text-center space-y-2 text-sm text-muted-foreground">
+              <div className="mb-4">
+                <div className="flex items-center justify-center gap-1 text-orange-600 font-medium">
+                  <Clock className="h-4 w-4" />
+                  <span>Tempo restante:</span>
+                  <span>
+                    {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+                <div className="w-full max-w-xs mx-auto mt-2">
+                  <Progress value={progressValue} className="h-2" />
+                </div>
+              </div>
               <p>Abra o aplicativo do seu banco e realize o pagamento via PIX.</p>
               <p>Após o pagamento, sua assinatura será renovada automaticamente.</p>
               <p className="text-xs">O pagamento pode levar alguns instantes para ser confirmado.</p>
@@ -557,44 +569,70 @@ export default function RenewSubscriptionPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {plans?.map((plan: any) => (
-          <Card key={plan.id} className={`overflow-hidden ${selectedPlanId === plan.id ? 'border-primary ring-1 ring-primary' : ''}`}>
-            <div className="p-1 bg-gradient-to-r from-primary/80 to-primary"></div>
-            <CardHeader>
-              <CardTitle className="text-xl">{plan.name}</CardTitle>
+          <Card key={plan.id} className={`overflow-hidden ${selectedPlanId === plan.id ? 'border-primary ring-1 ring-primary shadow-lg scale-[1.02]' : 'hover:border-primary/50 hover:shadow'} transition-all`}>
+            <div className="p-1 bg-gradient-to-r from-primary to-primary/80"></div>
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-center mb-1">
+                <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                {plan.durationMonths >= 12 && (
+                  <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                    <BadgeCheck className="w-3 h-3 mr-1 inline" />
+                    Melhor valor
+                  </Badge>
+                )}
+                {plan.durationMonths === 3 && (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                    <Clock className="w-3 h-3 mr-1 inline" />
+                    Popular
+                  </Badge>
+                )}
+              </div>
               <CardDescription>
                 {plan.description}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mt-1 mb-5">
-                <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
+                <span className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+                  {formatCurrency(plan.price)}
+                </span>
                 {plan.durationMonths === 1 ? (
                   <span className="text-muted-foreground ml-1">/mês</span>
                 ) : (
                   <span className="text-muted-foreground ml-1">/{plan.durationMonths} meses</span>
                 )}
+                
+                {plan.durationMonths > 1 && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Equivalente a {formatCurrency(Math.round(plan.price / plan.durationMonths))}/mês
+                  </div>
+                )}
               </div>
               
-              <div className="space-y-2 text-sm">
+              <div className="space-y-3 text-sm">
                 <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <CalendarCheck className="h-4 w-4 mr-2 text-green-500" />
                   <span>Agendamentos ilimitados</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                  <span>Gestão de clientes</span>
+                  <Users className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Gestão completa de clientes</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <Link2 className="h-4 w-4 mr-2 text-green-500" />
                   <span>Link de agendamento personalizado</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <CreditCard className="h-4 w-4 mr-2 text-green-500" />
                   <span>Pagamento via PIX</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                  <Bell className="h-4 w-4 mr-2 text-green-500" />
                   <span>Notificações em tempo real</span>
+                </div>
+                <div className="flex items-center">
+                  <Smartphone className="h-4 w-4 mr-2 text-green-500" />
+                  <span>Acesso em dispositivos móveis</span>
                 </div>
               </div>
             </CardContent>
@@ -603,6 +641,7 @@ export default function RenewSubscriptionPage() {
                 className="w-full" 
                 onClick={() => handleSelectPlan(plan.id)}
                 disabled={isGeneratingPix}
+                variant={selectedPlanId === plan.id ? "default" : "outline"}
               >
                 {isGeneratingPix && selectedPlanId === plan.id ? (
                   <>
