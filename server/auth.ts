@@ -129,8 +129,12 @@ export function setupAuth(app: Express) {
           
           if (isSubscriptionExpired(user)) {
             console.log(`Assinatura expirada para ${user.username}`);
-            // @ts-ignore - Adicionando propriedade personalizada para controle de assinatura expirada
-            return done(null, false, { message: "Assinatura expirada", expired: true });
+            // IMPORTANTE: Agora permitimos o login mesmo com assinatura expirada
+            // Apenas adicionamos uma flag para o frontend saber que precisa renovar
+            // Em vez de barrar o login, autorizamos e marcamos como expirado
+            // @ts-ignore - Adicionando propriedade personalizada
+            user.subscriptionExpired = true;
+            return done(null, user);
           }
         }
         

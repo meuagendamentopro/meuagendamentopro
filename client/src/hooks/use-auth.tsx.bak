@@ -92,14 +92,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw customError;
         }
         
-        // Se chegamos até aqui, é um erro de autenticação padrão
+        // Verificar se é um erro de assinatura expirada - REMOVIDO
+        // Agora o backend permite o login mesmo com assinatura expirada
+        // Qualquer erro de autenticação é tratado da mesma forma
         const error = new Error(errorData.error || "Erro de autenticação");
-        const customError: any = error;
-        customError.response = {
-          status: res.status,
-          data: errorData
-        };
-        throw customError;
+          const customError: any = error;
+          customError.response = {
+            status: res.status,
+            data: errorData
+          };
+          throw customError;
+        }
+        
+        throw new Error(errorData.error || "Falha no login");
       }
       return await res.json();
     },
