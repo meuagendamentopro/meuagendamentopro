@@ -7,6 +7,7 @@ import logger from './logger';
 import twilio from 'twilio';
 import { Appointment, Client, Provider, Service } from '../shared/schema';
 import { getNotificationSettings } from './notification-settings';
+import { getWhatsAppTemplates } from './whatsapp-templates';
 
 // Cliente Twilio será inicializado sob demanda com as credenciais de cada provider
 let twilioClient: ReturnType<typeof twilio> | null = null;
@@ -118,22 +119,42 @@ export async function sendAppointmentConfirmation(
     // Preço formatado
     const formattedPrice = formatCurrency(service.price);
     
-    // Montar a mensagem
-    const message = [
-      `Olá ${client.name}!`,
-      '',
-      `Seu agendamento com ${provider.name} foi confirmado com sucesso.`,
-      '',
-      `*Detalhes do agendamento:*`,
-      `📅 Data: ${formattedDate}`,
-      `⏰ Horário: ${formattedTime}`,
-      `✨ Serviço: ${service.name}`,
-      `💰 Valor: ${formattedPrice}`,
-      '',
-      `Para cancelar ou reagendar, entre em contato pelo telefone ${provider.phone}.`,
-      '',
-      `Obrigado por agendar conosco!`
-    ].join('\n');
+    // Buscar template personalizado
+    let message;
+    try {
+      const templates = await getWhatsAppTemplates(provider.id);
+      if (templates && templates.confirmation) {
+        // Usar template personalizado
+        message = templates.confirmation
+          .replace(/{name}/g, client.name)
+          .replace(/{provider}/g, provider.name)
+          .replace(/{date}/g, formattedDate)
+          .replace(/{time}/g, formattedTime)
+          .replace(/{service}/g, service.name)
+          .replace(/{price}/g, formattedPrice)
+          .replace(/{phone}/g, provider.phone || '');
+      } else {
+        throw new Error('Template não disponível');
+      }
+    } catch (templateError) {
+      // Fallback para mensagem padrão se o template não estiver disponível
+      logger.warn(`Template personalizado não disponível, usando mensagem padrão: ${templateError}`);
+      message = [
+        `Olá ${client.name}!`,
+        '',
+        `Seu agendamento com ${provider.name} foi confirmado com sucesso.`,
+        '',
+        `*Detalhes do agendamento:*`,
+        `📅 Data: ${formattedDate}`,
+        `⏰ Horário: ${formattedTime}`,
+        `✨ Serviço: ${service.name}`,
+        `💰 Valor: ${formattedPrice}`,
+        '',
+        `Para cancelar ou reagendar, entre em contato pelo telefone ${provider.phone}.`,
+        '',
+        `Obrigado por agendar conosco!`
+      ].join('\n');
+    }
     
     // Enviar a mensagem
     return await sendWhatsAppMessage(
@@ -186,27 +207,50 @@ export async function sendAppointmentReminder(
       appointmentDate.getMonth() === now.getMonth() && 
       appointmentDate.getFullYear() === now.getFullYear();
     
-    // Texto contextual com base no dia do agendamento
-    const reminderText = isSameDay ? 
-      `Lembrete do seu agendamento hoje com ${provider.name}.` : 
-      `Lembrete do seu agendamento amanhã com ${provider.name}.`;
-    
-    // Montar a mensagem
-    const message = [
-      `Olá ${client.name}!`,
-      '',
-      reminderText,
-      '',
-      `*Detalhes do agendamento:*`,
-      `📅 Data: ${formattedDate}`,
-      `⏰ Horário: ${formattedTime}`,
-      `✨ Serviço: ${service.name}`,
-      '',
-      `Por favor, confirme sua presença respondendo esta mensagem.`,
-      `Para reagendar ou cancelar, entre em contato o quanto antes pelo telefone ${provider.phone}.`,
-      '',
-      `Estamos ansiosos para recebê-lo(a)!`
-    ].join('\n');
+    // Buscar template personalizado
+    let message;
+    try {
+      const templates = await getWhatsAppTemplates(provider.id);
+      // Escolha o template apropriado com base no dia (hoje ou amanhã)
+      const templateKey = isSameDay ? 'sameDayReminder' : 'reminder';
+      
+      if (templates && templates[templateKey]) {
+        // Usar template personalizado
+        message = templates[templateKey]
+          .replace(/{name}/g, client.name)
+          .replace(/{provider}/g, provider.name)
+          .replace(/{date}/g, formattedDate)
+          .replace(/{time}/g, formattedTime)
+          .replace(/{service}/g, service.name)
+          .replace(/{phone}/g, provider.phone || '');
+      } else {
+        throw new Error(`Template ${templateKey} não disponível`);
+      }
+    } catch (templateError) {
+      // Fallback para mensagem padrão
+      logger.warn(`Template personalizado não disponível, usando mensagem padrão: ${templateError}`);
+      
+      // Texto contextual com base no dia do agendamento
+      const reminderText = isSameDay ? 
+        `Lembrete do seu agendamento hoje com ${provider.name}.` : 
+        `Lembrete do seu agendamento amanhã com ${provider.name}.`;
+      
+      message = [
+        `Olá ${client.name}!`,
+        '',
+        reminderText,
+        '',
+        `*Detalhes do agendamento:*`,
+        `📅 Data: ${formattedDate}`,
+        `⏰ Horário: ${formattedTime}`,
+        `✨ Serviço: ${service.name}`,
+        '',
+        `Por favor, confirme sua presença respondendo esta mensagem.`,
+        `Para reagendar ou cancelar, entre em contato o quanto antes pelo telefone ${provider.phone}.`,
+        '',
+        `Estamos ansiosos para recebê-lo(a)!`
+      ].join('\n');
+    }
     
     // Enviar a mensagem
     return await sendWhatsAppMessage(

@@ -50,7 +50,7 @@ export default function WhatsAppTemplatesPage() {
       </PageHeader>
 
       <div className="grid gap-8 mt-8">
-        <MessageTemplates providerId={provider.id} />
+        <MessageTemplates providerId={provider?.id} />
       </div>
     </div>
   );

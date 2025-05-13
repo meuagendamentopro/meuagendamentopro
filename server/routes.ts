@@ -3772,11 +3772,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
     if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
 
-    const providerId = req.providerData?.id;
-    if (!providerId) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
+    const provider = (req as any).provider;
+    if (!provider || !provider.id) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
 
     try {
-      const templates = await getWhatsAppTemplates(providerId);
+      const templates = await getWhatsAppTemplates(provider.id);
       res.status(200).json(templates);
     } catch (error) {
       logger.error(`Erro ao buscar templates de WhatsApp: ${error}`);
@@ -3788,12 +3788,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/whatsapp/templates", loadUserProvider, async (req: Request, res: Response) => {
     if (!req.user) return res.status(401).json({ message: 'Não autenticado' });
 
-    const providerId = req.providerData?.id;
-    if (!providerId) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
+    const provider = (req as any).provider;
+    if (!provider || !provider.id) return res.status(403).json({ message: 'Nenhum provedor associado à conta' });
 
     try {
       const templates = req.body as WhatsAppTemplates;
-      const success = await saveWhatsAppTemplates(providerId, templates);
+      const success = await saveWhatsAppTemplates(provider.id, templates);
       
       if (success) {
         res.status(200).json({ message: 'Templates de WhatsApp salvos com sucesso' });
