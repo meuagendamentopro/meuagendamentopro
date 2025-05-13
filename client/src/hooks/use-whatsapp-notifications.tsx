@@ -109,6 +109,14 @@ export function useWhatsAppNotifications() {
     setIsDialogOpen(true);
   };
   
+  // Função para processar um agendamento confirmado
+  const handleConfirmedAppointment = (appointment: any) => {
+    const notification = addConfirmationNotification(appointment);
+    // Mostrar diálogo imediatamente
+    setCurrentNotification(notification);
+    setIsDialogOpen(true);
+  };
+
   // Função para processar um agendamento cancelado
   const handleCancelledAppointment = (appointment: any) => {
     const notification = addCancellationNotification(appointment);
@@ -192,6 +200,7 @@ export function useWhatsAppNotifications() {
     currentNotification,
     setIsDialogOpen,
     handleNewAppointment,
+    handleConfirmedAppointment,
     handleCancelledAppointment,
     handleSendWhatsApp,
     handleCancelNotification
