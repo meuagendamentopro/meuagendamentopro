@@ -26,6 +26,7 @@ import {
 import { and, eq, gt, gte, lte, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
+import passport from "passport";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
 
@@ -3241,16 +3242,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   };
+  
+  // Middleware para processamento de assinatura (aceita usuário expirado)
+  const allowExpiredSubscription = (req: Request, res: Response, next: NextFunction) => {
+    // Se o usuário tem usuário e senha na requisição, tenta fazer login
+    if (req.body.username && req.body.password && !req.isAuthenticated()) {
+      passport.authenticate('local', { session: false }, (err: any, user: any, info: any) => {
+        if (err) {
+          return next(err);
+        }
+        if (!user) {
+          return res.status(401).json({ error: "Credenciais inválidas" });
+        }
+        
+        // Usuário autenticado, mas não criamos sessão
+        req.user = user;
+        return next();
+      })(req, res, next);
+    } else if (req.isAuthenticated()) {
+      // Usuário já está autenticado, seguir
+      return next();
+    } else {
+      // Nenhuma credencial fornecida
+      return res.status(401).json({ 
+        error: "Autenticação necessária", 
+        message: "Forneça suas credenciais para renovar a assinatura"
+      });
+    }
+  };
 
-  // Rota para gerar pagamento de assinatura
-  app.post("/api/subscription/generate-payment", isAuthenticated, async (req: Request, res: Response) => {
+  // Rota para gerar pagamento de assinatura (permite usuário expirado)
+  app.post("/api/subscription/generate-payment", allowExpiredSubscription, async (req: Request, res: Response) => {
     try {
-      const { planId } = req.body;
+      const { planId, username, password } = req.body;
       if (!planId) {
         return res.status(400).json({ error: "ID do plano é obrigatório" });
       }
       
-      const paymentData = await subscriptionService.generatePayment(req.user!.id, planId);
+      // Se temos username/password mas não temos user no req, usamos os dados para identificar o usuário
+      let userId = req.user?.id;
+      
+      if (!userId && username) {
+        const user = await storage.getUserByUsername(username);
+        if (!user) {
+          return res.status(401).json({ error: "Usuário não encontrado" });
+        }
+        
+        // Se temos senha, verificamos
+        if (password) {
+          const isValid = await comparePasswords(password, user.password);
+          if (!isValid) {
+            return res.status(401).json({ error: "Senha incorreta" });
+          }
+        }
+        
+        userId = user.id;
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ 
+          error: "Autenticação necessária", 
+          message: "Forneça suas credenciais para renovar a assinatura" 
+        });
+      }
+      
+      const paymentData = await subscriptionService.generatePayment(userId, planId);
       res.json(paymentData);
     } catch (error: any) {
       console.error("Erro ao gerar pagamento de assinatura:", error);
