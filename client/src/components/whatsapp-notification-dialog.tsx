@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { formatPhoneNumber } from '@/lib/utils';
 import { MessageSquare, Calendar, Clock, X, Send, AlertCircle } from 'lucide-react';
+import { useMessageTemplates } from '@/hooks/use-message-templates';
 
 // Tipos de notificação
 export enum WhatsAppNotificationType {
@@ -44,20 +45,16 @@ export function createWhatsAppMessage(
   // Formatar a data para o formato brasileiro
   const formattedDate = format(appointmentDate, "dd/MM/yyyy", { locale: ptBR });
   
-  // Buscar templates personalizados
-  const fetchTemplates = async () => {
-    try {
-      const response = await fetch('/api/message-templates');
-      if (response.ok) {
-        return await response.json();
-      }
-    } catch (error) {
-      console.error('Erro ao buscar templates:', error);
-    }
-    return null;
+  // Configurar as substituições
+  const replacements = {
+    clientName,
+    serviceName,
+    appointmentDate: formattedDate,
+    appointmentTime,
+    businessName
   };
   
-  // Templates padrão caso não consiga buscar os personalizados
+  // Templates padrão
   let defaultMessage = "";
   
   switch (type) {
@@ -78,14 +75,37 @@ export function createWhatsAppMessage(
       break;
   }
   
-  // Buscar templates personalizados (para uso futuro com async/await)
-  fetchTemplates().then(templates => {
-    if (templates) {
-      // Implementação futura
-      console.log('Templates personalizados carregados:', templates);
+  try {
+    // Tentar buscar os templates do servidor de forma síncrona
+    // Este é um fallback que garante que sempre teremos um template
+    const cachedTemplates = localStorage.getItem('messageTemplates');
+    if (cachedTemplates) {
+      const templates = JSON.parse(cachedTemplates);
+      if (type === WhatsAppNotificationType.NEW_APPOINTMENT && templates.newAppointmentTemplate) {
+        let template = templates.newAppointmentTemplate;
+        Object.entries(replacements).forEach(([key, value]) => {
+          template = template.replace(new RegExp(`{${key}}`, 'g'), value);
+        });
+        return template;
+      } else if (type === WhatsAppNotificationType.REMINDER && templates.reminderTemplate) {
+        let template = templates.reminderTemplate;
+        Object.entries(replacements).forEach(([key, value]) => {
+          template = template.replace(new RegExp(`{${key}}`, 'g'), value);
+        });
+        return template;
+      } else if (type === WhatsAppNotificationType.CANCELLATION && templates.cancellationTemplate) {
+        let template = templates.cancellationTemplate;
+        Object.entries(replacements).forEach(([key, value]) => {
+          template = template.replace(new RegExp(`{${key}}`, 'g'), value);
+        });
+        return template;
+      }
     }
-  });
+  } catch (error) {
+    console.error('Erro ao processar templates em cache:', error);
+  }
   
+  // Se não conseguir usar templates personalizados, retorna a mensagem padrão
   return defaultMessage;
 }
 

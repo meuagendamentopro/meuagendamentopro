@@ -76,8 +76,8 @@ export const AppointmentDetection: React.FC = () => {
       setLastAppointmentId(latestAppointment.id);
       
       // Buscar informações do cliente e serviço
-      const client = clients.find(c => c.id === latestAppointment.clientId);
-      const service = services.find(s => s.id === latestAppointment.serviceId);
+      const client = clients.find(function(c) { return c.id === latestAppointment.clientId; });
+      const service = services.find(function(s) { return s.id === latestAppointment.serviceId; });
       
       if (client && service) {
         // Preparar objeto com informações completas

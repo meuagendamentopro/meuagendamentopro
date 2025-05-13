@@ -26,9 +26,8 @@ import { AlertCircle, MessageCircle, Save } from "lucide-react";
 
 // Definição do schema para templates de mensagens
 const messageTemplateSchema = z.object({
-  welcomeTemplate: z.string().min(1, { message: "O template de boas-vindas é obrigatório" }),
+  newAppointmentTemplate: z.string().min(1, { message: "O template de novo agendamento é obrigatório" }),
   reminderTemplate: z.string().min(1, { message: "O template de lembrete é obrigatório" }),
-  confirmationTemplate: z.string().min(1, { message: "O template de confirmação é obrigatório" }),
   cancellationTemplate: z.string().min(1, { message: "O template de cancelamento é obrigatório" }),
 });
 
@@ -36,7 +35,7 @@ type MessageTemplateFormValues = z.infer<typeof messageTemplateSchema>;
 
 const MessageTemplatesPage: React.FC = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<string>("welcome");
+  const [activeTab, setActiveTab] = useState<string>("new");
   
   // Buscar templates existentes
   const { data: templates, isLoading } = useQuery({
@@ -54,10 +53,9 @@ const MessageTemplatesPage: React.FC = () => {
   const form = useForm<MessageTemplateFormValues>({
     resolver: zodResolver(messageTemplateSchema),
     defaultValues: {
-      welcomeTemplate: templates?.welcomeTemplate || "Olá {clientName}, seu agendamento para {serviceName} foi confirmado para {appointmentDate} às {appointmentTime}. Agradecemos sua preferência!",
-      reminderTemplate: templates?.reminderTemplate || "Olá {clientName}, lembrando do seu agendamento para {serviceName} hoje às {appointmentTime}. Estamos te esperando!",
-      confirmationTemplate: templates?.confirmationTemplate || "Olá {clientName}, seu agendamento para {serviceName} foi confirmado! Te esperamos no dia {appointmentDate} às {appointmentTime}.",
-      cancellationTemplate: templates?.cancellationTemplate || "Olá {clientName}, seu agendamento para {serviceName} marcado para {appointmentDate} às {appointmentTime} foi cancelado.",
+      newAppointmentTemplate: templates?.newAppointmentTemplate || "Olá {clientName}, sua reserva para {serviceName} foi confirmada para o dia {appointmentDate} às {appointmentTime}. Agradecemos por agendar conosco! {businessName}",
+      reminderTemplate: templates?.reminderTemplate || "Olá {clientName}, estamos enviando este lembrete para o seu agendamento de {serviceName} hoje às {appointmentTime}. Estamos ansiosos para recebê-lo! {businessName}",
+      cancellationTemplate: templates?.cancellationTemplate || "Olá {clientName}, informamos que seu agendamento para {serviceName} no dia {appointmentDate} às {appointmentTime} foi cancelado. Entre em contato caso queira reagendar! {businessName}",
     },
     values: templates || undefined,
   });
@@ -141,26 +139,25 @@ const MessageTemplatesPage: React.FC = () => {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-4 mb-6">
-                  <TabsTrigger value="welcome">Boas-vindas</TabsTrigger>
+                <TabsList className="grid grid-cols-3 mb-6">
+                  <TabsTrigger value="new">Novo Agendamento</TabsTrigger>
                   <TabsTrigger value="reminder">Lembrete</TabsTrigger>
-                  <TabsTrigger value="confirmation">Confirmação</TabsTrigger>
                   <TabsTrigger value="cancellation">Cancelamento</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="welcome">
+                <TabsContent value="new">
                   <FormField
                     control={form.control}
-                    name="welcomeTemplate"
+                    name="newAppointmentTemplate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Template de Boas-vindas</FormLabel>
+                        <FormLabel>Template de Novo Agendamento</FormLabel>
                         <FormDescription>
                           Mensagem enviada quando um novo agendamento é criado
                         </FormDescription>
                         <FormControl>
                           <Textarea
-                            placeholder="Digite a mensagem de boas-vindas"
+                            placeholder="Digite a mensagem para novos agendamentos"
                             className="min-h-[150px]"
                             {...field}
                           />
@@ -173,12 +170,12 @@ const MessageTemplatesPage: React.FC = () => {
                   <div className="mt-4 p-4 border rounded-md bg-muted/40">
                     <h4 className="font-medium mb-2">Prévia:</h4>
                     <div className="whitespace-pre-line">
-                      {form.watch("welcomeTemplate")
+                      {form.watch("newAppointmentTemplate")
                         .replace("{clientName}", "Maria")
                         .replace("{serviceName}", "Corte de Cabelo")
                         .replace("{appointmentDate}", "15/05/2025")
                         .replace("{appointmentTime}", "14:30")
-                        .replace("{providerName}", "João")}
+                        .replace("{businessName}", "Salão da Beleza")}
                     </div>
                   </div>
                 </TabsContent>
@@ -213,42 +210,7 @@ const MessageTemplatesPage: React.FC = () => {
                         .replace("{serviceName}", "Corte de Cabelo")
                         .replace("{appointmentDate}", "15/05/2025")
                         .replace("{appointmentTime}", "14:30")
-                        .replace("{providerName}", "João")}
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="confirmation">
-                  <FormField
-                    control={form.control}
-                    name="confirmationTemplate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Template de Confirmação</FormLabel>
-                        <FormDescription>
-                          Mensagem enviada quando um agendamento é confirmado
-                        </FormDescription>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Digite a mensagem de confirmação"
-                            className="min-h-[150px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="mt-4 p-4 border rounded-md bg-muted/40">
-                    <h4 className="font-medium mb-2">Prévia:</h4>
-                    <div className="whitespace-pre-line">
-                      {form.watch("confirmationTemplate")
-                        .replace("{clientName}", "Maria")
-                        .replace("{serviceName}", "Corte de Cabelo")
-                        .replace("{appointmentDate}", "15/05/2025")
-                        .replace("{appointmentTime}", "14:30")
-                        .replace("{providerName}", "João")}
+                        .replace("{businessName}", "Salão da Beleza")}
                     </div>
                   </div>
                 </TabsContent>
@@ -283,7 +245,7 @@ const MessageTemplatesPage: React.FC = () => {
                         .replace("{serviceName}", "Corte de Cabelo")
                         .replace("{appointmentDate}", "15/05/2025")
                         .replace("{appointmentTime}", "14:30")
-                        .replace("{providerName}", "João")}
+                        .replace("{businessName}", "Salão da Beleza")}
                     </div>
                   </div>
                 </TabsContent>
