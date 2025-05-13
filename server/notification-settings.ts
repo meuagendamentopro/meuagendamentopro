@@ -54,10 +54,11 @@ export async function saveNotificationSettings(providerId: number, settings: Not
       // Testar credenciais do Twilio
       try {
         // Criamos um cliente Twilio apenas para verificar se as credenciais estão corretas
-        const twilioClient = new Twilio(settings.accountSid, settings.authToken);
+        const twilioClient = twilio(settings.accountSid, settings.authToken);
         await twilioClient.api.accounts(settings.accountSid).fetch();
-      } catch (error) {
-        logger.error('Erro ao validar credenciais do Twilio', error);
+      } catch (err) {
+        const error = err as Error;
+        logger.error('Erro ao validar credenciais do Twilio', error.message);
         return { 
           success: false, 
           message: "Credenciais do Twilio inválidas. Verifique Account SID e Auth Token." 
@@ -80,8 +81,9 @@ export async function saveNotificationSettings(providerId: number, settings: Not
 
     logger.info(`Configurações de notificação atualizadas para o provedor ${providerId}`);
     return { success: true };
-  } catch (error) {
-    logger.error(`Erro ao salvar configurações de notificação para o provedor ${providerId}`, error);
+  } catch (err) {
+    const error = err as Error;
+    logger.error(`Erro ao salvar configurações de notificação para o provedor ${providerId}`, error.message);
     return { 
       success: false, 
       message: "Erro ao salvar configurações. Tente novamente." 
@@ -121,8 +123,9 @@ export async function getNotificationSettings(providerId: number): Promise<Notif
       enableAppointmentReminder: provider.enableAppointmentReminder || true,
       enableCancellationNotice: provider.enableCancellationNotice || true
     };
-  } catch (error) {
-    logger.error(`Erro ao obter configurações de notificação para o provedor ${providerId}`, error);
+  } catch (err) {
+    const error = err as Error;
+    logger.error(`Erro ao obter configurações de notificação para o provedor ${providerId}`, error.message);
     
     // Retorna valores padrão em caso de erro
     return {
