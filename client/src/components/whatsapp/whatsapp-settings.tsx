@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, MessageSquare } from "lucide-react";
+import { Link } from "wouter";
 
 // Tipo para as configurações de notificação
 interface WhatsAppSettings {
