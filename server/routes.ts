@@ -3235,6 +3235,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rota para obter informações de usuário público para renovação
+  app.get("/api/subscription/user-info", async (req: Request, res: Response) => {
+    try {
+      // Aceitar username como query param
+      const { username } = req.query;
+      if (!username) {
+        return res.status(400).json({ error: "Nome de usuário é obrigatório" });
+      }
+      
+      // Buscar usuário por username
+      const user = await storage.getUserByUsername(username as string);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Retornar apenas informações públicas
+      res.json({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        subscriptionExpiry: user.subscriptionExpiry,
+        isExpired: user.subscriptionExpiry && new Date(user.subscriptionExpiry) < new Date()
+      });
+    } catch (error: any) {
+      console.error("Erro ao buscar informações do usuário:", error);
+      res.status(500).json({ error: error.message || "Falha ao buscar informações do usuário" });
+    }
+  });
+  
   // Middleware de autenticação
   const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
@@ -3271,7 +3300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  // Rota para gerar pagamento de assinatura (permite usuário expirado e extrai do token)
+  // Rota para gerar pagamento de assinatura (permite usuário expirado)
   app.post("/api/subscription/generate-payment", async (req: Request, res: Response) => {
     try {
       const { planId, username, password, userId: explicitUserId } = req.body;
@@ -3279,47 +3308,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "ID do plano é obrigatório" });
       }
       
-      // Usar ID explícito da URL se fornecido (para renovação de assinatura)
+      // Usar ID explícito do corpo da requisição se fornecido (para renovação de assinatura)
       let userId = explicitUserId;
+      let userInfo = null;
       
       // Se não temos ID explícito, usamos o usuário autenticado
       if (!userId && req.isAuthenticated()) {
         userId = req.user.id;
+        userInfo = req.user;
       }
       
-      // Se ainda não temos ID mas temos username/password, tentamos autenticar
+      // Se ainda não temos ID mas temos username na URL, buscamos o usuário
+      if (!userId && req.query.username) {
+        const user = await storage.getUserByUsername(req.query.username as string);
+        if (user) {
+          userId = user.id;
+          userInfo = user;
+          console.log(`Usuário identificado pela URL: ${user.name} (ID: ${user.id})`);
+        }
+      }
+      
+      // Se ainda não temos ID mas temos username no corpo, buscamos o usuário
       if (!userId && username) {
         const user = await storage.getUserByUsername(username);
-        if (!user) {
-          return res.status(401).json({ error: "Usuário não encontrado" });
-        }
-        
-        // Se temos senha, verificamos
-        if (password) {
-          const isValid = await comparePasswords(password, user.password);
-          if (!isValid) {
-            return res.status(401).json({ error: "Senha incorreta" });
-          }
-        }
-        
-        userId = user.id;
-      }
-      
-      // Se ainda não temos ID, verificamos se temos um token especial de renovação
-      if (!userId && req.query.token) {
-        try {
-          // Este é um caso especial - no momento não temos token para renovação
-          // Poderíamos implementar no futuro usando JWT ou outra forma de token seguro
-          console.log("Token de renovação recebido, mas não implementado ainda");
-        } catch (err) {
-          console.error("Erro ao processar token de renovação:", err);
+        if (user) {
+          userId = user.id;
+          userInfo = user;
+          console.log(`Usuário identificado pelo corpo da requisição: ${user.name} (ID: ${user.id})`);
         }
       }
       
+      // Se obtivemos um ID de usuário, prosseguimos com o pagamento
       if (!userId) {
         return res.status(401).json({ 
           error: "Identificação necessária", 
-          message: "Não foi possível identificar o usuário para renovação de assinatura" 
+          message: "Não foi possível identificar o usuário para renovação de assinatura. Verifique o link ou informe seu usuário." 
         });
       }
       

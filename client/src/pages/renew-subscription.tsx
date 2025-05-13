@@ -71,20 +71,48 @@ export default function RenewSubscriptionPage() {
     }
   });
   
-  // Extrair ID do usuário da URL, se disponível
+  // Extrair dados do usuário da URL
   const [location] = useLocation();
   const [urlUserId, setUrlUserId] = useState<number | null>(null);
+  const [expiredUser, setExpiredUser] = useState<any>(null);
   
   useEffect(() => {
-    // Extrair userId da URL, se presente
+    // Extrair username e userId da URL
     const params = new URLSearchParams(location.split('?')[1]);
+    const username = params.get('username');
     const userIdParam = params.get('userId');
+    
+    // Se temos userId direto
     if (userIdParam) {
       const parsedId = parseInt(userIdParam, 10);
       if (!isNaN(parsedId)) {
         setUrlUserId(parsedId);
         console.log(`ID do usuário extraído da URL: ${parsedId}`);
       }
+    }
+    
+    // Se temos username, consultar a API para obter informações
+    if (username) {
+      console.log(`Username extraído da URL: ${username}`);
+      
+      // Buscar informações do usuário
+      const fetchUserInfo = async () => {
+        try {
+          const res = await apiRequest('GET', `/api/subscription/user-info?username=${encodeURIComponent(username)}`);
+          if (res.ok) {
+            const userData = await res.json();
+            setExpiredUser(userData);
+            setUrlUserId(userData.id);
+            console.log(`Informações do usuário obtidas: ${userData.name} (ID: ${userData.id})`);
+          } else {
+            console.error('Erro ao buscar informações do usuário:', await res.json());
+          }
+        } catch (error) {
+          console.error('Falha ao buscar informações do usuário:', error);
+        }
+      };
+      
+      fetchUserInfo();
     }
   }, [location]);
   
@@ -135,8 +163,24 @@ export default function RenewSubscriptionPage() {
         paymentData.password = loginCredentials.password;
       }
       
+      // Se temos informações do usuário expirado
+      if (expiredUser?.username) {
+        paymentData.username = expiredUser.username;
+        console.log(`Incluindo username ${expiredUser.username} no pagamento`);
+      }
+      
+      // Extrair parâmetros da URL para identificação adicional
+      const params = new URLSearchParams(location.split('?')[1]);
+      const usernameParam = params.get('username');
+      
+      // Construir a URL com parâmetros para identificação
+      let url = '/api/subscription/generate-payment';
+      if (usernameParam) {
+        url += `?username=${encodeURIComponent(usernameParam)}`;
+      }
+      
       // Chamar API para gerar o PIX
-      const response = await apiRequest('POST', '/api/subscription/generate-payment', paymentData);
+      const response = await apiRequest('POST', url, paymentData);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -180,12 +224,34 @@ export default function RenewSubscriptionPage() {
     }
   };
   
+  // Desabilitar conexão WebSocket na página de renovação para evitar erros
+  // já que o usuário não está autenticado
+  useEffect(() => {
+    // Desabilitar conexão WebSocket durante a renovação para evitar erros
+    const originalWebSocket = window.WebSocket;
+    window.WebSocket = function MockWebSocket() {
+      console.log("WebSocket desabilitado durante renovação de assinatura");
+      return {} as any;
+    } as any;
+    
+    return () => {
+      // Restaurar WebSocket ao sair da página
+      window.WebSocket = originalWebSocket;
+    };
+  }, []);
+  
   // Verificar status do pagamento periodicamente
   useEffect(() => {
     if (pixData?.transactionId && paymentStep === 'payment') {
       const checkPaymentStatus = async () => {
         try {
-          const response = await apiRequest('GET', `/api/subscription/payment-status/${pixData.transactionId}`);
+          // Construir URL com parâmetros para identificação
+          let url = `/api/subscription/payment-status/${pixData.transactionId}`;
+          if (expiredUser?.username) {
+            url += `?username=${encodeURIComponent(expiredUser.username)}`;
+          }
+          
+          const response = await apiRequest('GET', url);
           if (!response.ok) {
             return;
           }
@@ -204,7 +270,7 @@ export default function RenewSubscriptionPage() {
             
             // Redirecionar após 3 segundos
             setTimeout(() => {
-              navigate('/');
+              navigate('/auth');
             }, 3000);
           }
         } catch (error) {
@@ -216,7 +282,7 @@ export default function RenewSubscriptionPage() {
       const interval = setInterval(checkPaymentStatus, 5000);
       return () => clearInterval(interval);
     }
-  }, [pixData, paymentStep, navigate, toast]);
+  }, [pixData, paymentStep, navigate, toast, expiredUser]);
   
   // Timer de expiração para o PIX
   useEffect(() => {
@@ -454,13 +520,23 @@ export default function RenewSubscriptionPage() {
     <div className="container max-w-6xl mx-auto p-4">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Renovação de Assinatura</h1>
+        
+        {/* Saudação personalizada com o nome do usuário */}
+        {expiredUser?.name && (
+          <p className="text-xl font-medium text-primary mb-4">
+            Olá, {expiredUser.name}!
+          </p>
+        )}
+        
         <p className="text-lg text-muted-foreground mb-4">
-          Escolha o plano que melhor se adapta às suas necessidades
+          Não deixe de utilizar o melhor sistema de agendamentos. Temos as seguintes ofertas para você:
         </p>
-        {user?.subscriptionExpiry && (
+        
+        {/* Mensagem sobre expiração da assinatura */}
+        {(user?.subscriptionExpiry || expiredUser?.subscriptionExpiry) && (
           <div className="inline-block bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 text-sm">
             <p className="font-medium text-yellow-800">
-              Sua assinatura expirou em {new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR')}
+              Sua assinatura expirou em {new Date(user?.subscriptionExpiry || expiredUser?.subscriptionExpiry).toLocaleDateString('pt-BR')}
             </p>
           </div>
         )}
