@@ -125,11 +125,21 @@ export async function sendAppointmentConfirmation(
   client: Client
 ): Promise<boolean> {
   try {
+    // Log detalhado para depuração
+    logger.info(`Tentativa de envio de confirmação para client [ID: ${client.id}, Nome: ${client.name}]`);
+    logger.info(`Telefone original do cliente: "${client.phone}"`);
+    
     // Verificar se o provedor tem notificações de WhatsApp habilitadas
     const settings = await getNotificationSettings(provider.id);
     
     if (!settings.enableWhatsApp || !settings.enableAppointmentConfirmation) {
       logger.info(`Notificação WhatsApp desabilitada para o provedor ${provider.id}`);
+      return false;
+    }
+    
+    // Verificar se o cliente tem um número de telefone
+    if (!client.phone) {
+      logger.error(`Cliente ID ${client.id} não tem número de telefone para envio de WhatsApp`);
       return false;
     }
     
@@ -176,16 +186,43 @@ export async function sendAppointmentConfirmation(
       ].join('\n');
     }
     
+    // Formatar o número do telefone e adicionar logs
+    const rawPhoneNumber = client.phone;
+    const formattedPhoneNumber = formatWhatsAppNumber(rawPhoneNumber);
+    
+    logger.info(`Formatação do número: "${rawPhoneNumber}" -> "${formattedPhoneNumber}"`);
+    
     // Enviar a mensagem
-    return await sendWhatsAppMessage(
-      client.phone,
-      message,
-      {
-        accountSid: settings.accountSid,
-        authToken: settings.authToken,
-        phoneNumber: settings.phoneNumber
+    logger.info(`Tentando enviar mensagem WhatsApp com credenciais do provedor ${provider.id}`);
+    logger.info(`SID, Token e Telefone Twilio estão presentes: ${!!settings.accountSid}, ${!!settings.authToken}, ${!!settings.phoneNumber}`);
+    
+    // Tentar enviar a mensagem
+    try {
+      const result = await sendWhatsAppMessage(
+        client.phone,
+        message,
+        {
+          accountSid: settings.accountSid,
+          authToken: settings.authToken,
+          phoneNumber: settings.phoneNumber
+        }
+      );
+      
+      if (result) {
+        logger.info(`Mensagem WhatsApp enviada com sucesso para ${formattedPhoneNumber}`);
+      } else {
+        logger.error(`Falha ao enviar mensagem WhatsApp para ${formattedPhoneNumber}`);
       }
-    );
+      
+      return result;
+    } catch (whatsappError) {
+      const error = whatsappError as Error;
+      logger.error(`Erro específico ao enviar WhatsApp: ${error.message}`);
+      if (error instanceof Error && error.stack) {
+        logger.error(`Stack trace: ${error.stack}`);
+      }
+      return false;
+    }
   } catch (err) {
     const error = err as Error;
     logger.error(`Erro ao enviar confirmação de agendamento: ${error.message}`);
