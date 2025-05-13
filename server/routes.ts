@@ -2863,9 +2863,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Obter configurações de notificação do provider
   app.get("/api/notification-settings", (req: Request, res: Response, next: NextFunction) => {
-    console.log("Requisição recebida para /api/notification-settings");
-    console.log("Usuário autenticado?", req.isAuthenticated());
-    console.log("ID do usuário:", req.user?.id);
+    console.log("=== DEBUG: Requisição recebida para /api/notification-settings ===");
+    console.log("=== DEBUG: URL completa:", req.originalUrl);
+    console.log("=== DEBUG: Método:", req.method);
+    console.log("=== DEBUG: Usuário autenticado?", req.isAuthenticated());
+    console.log("=== DEBUG: ID do usuário:", req.user?.id);
+    console.log("=== DEBUG: Headers:", req.headers);
     if (req.isAuthenticated()) {
       next();
     } else {

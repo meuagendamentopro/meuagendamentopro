@@ -70,17 +70,46 @@ export default function ProfilePage() {
   
   // Adicionando logs para debug
   console.log('User role:', user?.role);
-  console.log('Is query enabled?', user?.role === 'provider');
+  console.log('Is query enabled?', !!user && user?.role === 'provider');
+  
+  // Fazendo uma requisição manual para debug
+  useEffect(() => {
+    if (user?.role === 'provider') {
+      console.log('Testando requisição direta para /api/notification-settings...');
+      fetch('/api/notification-settings', {
+        credentials: 'include'
+      })
+      .then(response => {
+        console.log('Resposta direta recebida:', {
+          status: response.status,
+          ok: response.ok,
+          statusText: response.statusText
+        });
+        if (response.ok) {
+          return response.json();
+        } else {
+          throw new Error(`Status: ${response.status}`);
+        }
+      })
+      .then(data => {
+        console.log('Dados diretos recebidos:', data);
+      })
+      .catch(err => {
+        console.error('Erro na requisição direta:', err);
+      });
+    }
+  }, [user]);
   
   // Consulta para buscar configurações de notificação
-  const { data: notificationSettings, isLoading: isLoadingNotificationSettings, error: notificationError } = useQuery<NotificationSettingsValues>({
+  const { data: notificationSettings, isLoading: isLoadingNotificationSettings, error: notificationError, refetch: refetchNotificationSettings } = useQuery<NotificationSettingsValues>({
     queryKey: ['/api/notification-settings'],
-    enabled: !!user && user.role === 'provider',
+    enabled: !!user && user?.role === 'provider',
     refetchOnMount: 'always', // Sempre recarregar os dados ao montar o componente
     refetchOnWindowFocus: true, // Recarrega ao focar na janela
     staleTime: 0, // Considera os dados sempre obsoletos para forçar nova requisição
-    retry: 3, // Tenta mais vezes em caso de falha
-    refetchInterval: 5000 // Recarrega a cada 5 segundos
+    retry: 5, // Aumentando o número de tentativas
+    retryDelay: 1000, // Delay de 1 segundo entre tentativas
+    // refetchInterval foi removido para evitar requisições em excesso
   });
   
   // Log quaisquer erros na consulta

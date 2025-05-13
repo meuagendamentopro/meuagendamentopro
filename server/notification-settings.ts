@@ -98,6 +98,22 @@ export async function saveNotificationSettings(providerId: number, settings: Not
  */
 export async function getNotificationSettings(providerId: number): Promise<NotificationSettings> {
   try {
+    // Verificar diretamente os dados brutos do banco para debug
+    const rawProvider = await db.query.providers.findFirst({
+      where: eq(providers.id, providerId)
+    });
+    
+    logger.info(`DEBUG RAW PROVIDER DADOS: ${JSON.stringify({
+      id: rawProvider?.id,
+      whatsapp_enabled: rawProvider?.whatsappEnabled,
+      twilio_account_sid: rawProvider?.twilioAccountSid ? 'Presente' : 'Ausente',
+      twilio_auth_token: rawProvider?.twilioAuthToken ? 'Presente' : 'Ausente',
+      twilio_phone_number: rawProvider?.twilioPhoneNumber ? 'Presente' : 'Ausente',
+      enable_appointment_confirmation: rawProvider?.enableAppointmentConfirmation,
+      enable_appointment_reminder: rawProvider?.enableAppointmentReminder,
+      enable_cancellation_notice: rawProvider?.enableCancellationNotice
+    })}`);
+    
     // Consulta para obter as configurações com logs de diagnóstico
     const [provider] = await db.select({
       whatsappEnabled: providers.whatsappEnabled,
@@ -122,15 +138,15 @@ export async function getNotificationSettings(providerId: number): Promise<Notif
       throw new Error(`Provedor ${providerId} não encontrado`);
     }
 
-    // Criar o objeto de configurações garantindo valores corretos
+    // Converter valores boolean ou undefined para os tipos corretos
     const settings: NotificationSettings = {
-      enableWhatsApp: provider.whatsappEnabled === true,
+      enableWhatsApp: Boolean(provider.whatsappEnabled),
       accountSid: provider.twilioAccountSid || undefined,
       authToken: provider.twilioAuthToken || undefined,
       phoneNumber: provider.twilioPhoneNumber || undefined,
-      enableAppointmentConfirmation: provider.enableAppointmentConfirmation !== false,
-      enableAppointmentReminder: provider.enableAppointmentReminder !== false,
-      enableCancellationNotice: provider.enableCancellationNotice !== false
+      enableAppointmentConfirmation: provider.enableAppointmentConfirmation === null ? true : Boolean(provider.enableAppointmentConfirmation),
+      enableAppointmentReminder: provider.enableAppointmentReminder === null ? true : Boolean(provider.enableAppointmentReminder),
+      enableCancellationNotice: provider.enableCancellationNotice === null ? true : Boolean(provider.enableCancellationNotice)
     };
     
     // Log detalhado do que está sendo retornado
