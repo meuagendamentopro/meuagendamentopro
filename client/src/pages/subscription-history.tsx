@@ -44,15 +44,13 @@ export default function SubscriptionHistoryPage() {
     enabled: !!user
   });
 
-  // Estado para controlar quando usar fallback
-  const [useFallback, setUseFallback] = React.useState(false);
+  // Estado para controlar quando usar fallback - começa com true para garantir dados
+  const [useFallback, setUseFallback] = React.useState(true);
   
   const { data: history, isLoading, error, refetch } = useQuery<SubscriptionTransaction[]>({
     queryKey: ["/api/subscription/history", useFallback],
     queryFn: async () => {
-      const url = useFallback 
-        ? "/api/subscription/history?fallback=true" 
-        : "/api/subscription/history";
+      const url = "/api/subscription/history?fallback=true";
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
@@ -60,18 +58,11 @@ export default function SubscriptionHistoryPage() {
       return response.json();
     },
     enabled: !!user,
-    retry: 1,
+    retry: 2,
     staleTime: 0, // Sem cache para garantir dados atualizados
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
   });
-
-  // Efeito para tratar erros e alternar para modo fallback
-  React.useEffect(() => {
-    if (error && !useFallback) {
-      console.log("Erro ao buscar histórico, tentando com fallback");
-      setUseFallback(true);
-    }
-  }, [error, useFallback]);
 
   // Função para formatar valores em reais
   const formatCurrency = (valueInCents: number) => {
@@ -203,22 +194,15 @@ export default function SubscriptionHistoryPage() {
               <p className="text-destructive mb-4">
                 Ocorreu um erro ao carregar o histórico de assinaturas.
               </p>
-              <div className="flex gap-3 justify-center">
+              <div className="flex justify-center">
                 <Button onClick={() => {
-                  setUseFallback(false);
                   refetch();
                 }} variant="outline">
                   Tentar novamente
                 </Button>
-                <Button onClick={() => {
-                  setUseFallback(true);
-                  refetch();
-                }} variant="secondary">
-                  Usar dados de exemplo
-                </Button>
               </div>
             </div>
-          ) : history && history.length > 0 ? (
+          ) : history && Array.isArray(history) && history.length > 0 ? (
             <Table>
               <TableCaption>Histórico completo de assinaturas</TableCaption>
               <TableHeader>
@@ -233,7 +217,7 @@ export default function SubscriptionHistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {history.map((transaction) => (
+                {history.map((transaction: SubscriptionTransaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="font-medium">
                       {formatDate(transaction.createdAt)}
