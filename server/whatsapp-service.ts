@@ -23,16 +23,36 @@ function formatWhatsAppNumber(phoneNumber: string): string {
   // Remove qualquer prefixo whatsapp: existente para evitar duplicação
   let cleanNumber = phoneNumber.replace(/^whatsapp:/, '');
   
-  // Verifica se o número já contém o código do país
+  // Remove todos os caracteres não numéricos EXCETO o sinal de +
+  cleanNumber = cleanNumber.replace(/[^\d+]/g, '');
+  
+  // Se o número não começar com +, tratamos como um número brasileiro
   if (!cleanNumber.startsWith('+')) {
-    // Se não tiver o código do país, adiciona +55 (Brasil)
-    if (/^\d+$/.test(cleanNumber)) {
+    // Se começar com 55, adicionamos apenas o +
+    if (cleanNumber.startsWith('55')) {
+      cleanNumber = `+${cleanNumber}`;
+    } 
+    // Se for um número 9 dígitos com DDD (ex: 11987654321)
+    else if (/^[1-9]\d[9]\d{8}$/.test(cleanNumber)) {
       cleanNumber = `+55${cleanNumber}`;
-    } else {
-      // Se não for apenas dígitos, mantém como está mas garante o + inicial
-      cleanNumber = `+${cleanNumber.replace(/^\+/, '')}`;
+    }
+    // Se for um número 8 dígitos com DDD (ex: 1187654321)
+    else if (/^[1-9]\d[8]\d{7}$/.test(cleanNumber)) {
+      // Adiciona o 9 na frente do número para conformidade com padrão brasileiro atual
+      const ddd = cleanNumber.substring(0, 2);
+      const number = cleanNumber.substring(2);
+      cleanNumber = `+55${ddd}9${number}`;
+    }
+    // Se for qualquer outro formato de número (possível número completo sem +)
+    else {
+      // Se o número for muito curto (menos de 8 dígitos), provavelmente está incompleto
+      // mas vamos formatar mesmo assim para evitar erros
+      cleanNumber = `+55${cleanNumber}`;
     }
   }
+  
+  // Log para depuração
+  logger.info(`Número original: "${phoneNumber}" formatado para: "${cleanNumber}"`);
   
   // Adiciona o prefixo whatsapp: necessário para a API do Twilio
   return `whatsapp:${cleanNumber}`;
