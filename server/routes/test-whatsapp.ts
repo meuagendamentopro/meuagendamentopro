@@ -67,22 +67,18 @@ export async function handleTestWhatsAppSend(req: Request, res: Response) {
     // Inicializar o cliente Twilio
     const twilioClient = twilio(settings.accountSid, settings.authToken);
 
-    // Formatar números para WhatsApp Sandbox
-    // Garantir que o formato seja exatamente 'whatsapp:+XXXXXXXXXX'
-    let from = settings.phoneNumber;
-    if (!from.startsWith('whatsapp:')) {
-      from = 'whatsapp:' + from.replace(/^\+?/, '+');
-    }
-
+    // Para contas sandbox do Twilio, é NECESSÁRIO usar exatamente 'whatsapp:+14155238886'
+    // Este é o número do sistema Sandbox do Twilio, independente do número configurado na conta
+    const from = 'whatsapp:+14155238886';
+    
+    // Formatar o número de destino
     let to = phone;
     if (!to.startsWith('+')) {
       to = '+' + to.replace(/^\+/, '');
     }
-    if (!to.startsWith('whatsapp:')) {
-      to = 'whatsapp:' + to;
-    }
-
-    logger.info(`Enviando de ${from} para ${to}`);
+    to = 'whatsapp:' + to;
+    
+    logger.info(`Enviando de ${from} para ${to} usando número do Sandbox Twilio`);
 
     // Enviar a mensagem
     const result = await twilioClient.messages.create({
