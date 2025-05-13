@@ -8,6 +8,7 @@ import { Loader2, CheckCircle, AlertCircle, Lock,
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth';
 import { QRCodeSVG } from 'qrcode.react';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 export default function RenewSubscriptionPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user: authUser, logoutMutation } = useAuth();
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [paymentStep, setPaymentStep] = useState<'select-plan' | 'login' | 'processing' | 'payment' | 'success'>('select-plan');
   const [pixData, setPixData] = useState<any>(null);
@@ -660,16 +662,19 @@ export default function RenewSubscriptionPage() {
         <Button 
           variant="outline" 
           onClick={() => {
-            // Logout e redireciona para a página de login
-            apiRequest('POST', '/api/logout')
-              .then(() => {
-                queryClient.invalidateQueries();
+            // Usar o logoutMutation do hook useAuth para garantir consistência
+            logoutMutation.mutate(undefined, {
+              onSuccess: () => {
+                // Limpar cache e redirecionar para a página de login
+                queryClient.removeQueries({ queryKey: ['/api/user'] });
                 navigate('/auth');
-              })
-              .catch(error => {
+              },
+              onError: (error) => {
                 console.error('Erro ao fazer logout:', error);
+                // Mesmo em caso de erro, redirecionar para a página de login
                 navigate('/auth');
-              });
+              }
+            });
           }}
         >
           Sair
