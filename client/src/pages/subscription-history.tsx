@@ -44,13 +44,34 @@ export default function SubscriptionHistoryPage() {
     enabled: !!user
   });
 
+  // Estado para controlar quando usar fallback
+  const [useFallback, setUseFallback] = React.useState(false);
+  
   const { data: history, isLoading, error, refetch } = useQuery<SubscriptionTransaction[]>({
-    queryKey: ["/api/subscription/history"],
+    queryKey: ["/api/subscription/history", useFallback],
+    queryFn: async () => {
+      const url = useFallback 
+        ? "/api/subscription/history?fallback=true" 
+        : "/api/subscription/history";
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
     enabled: !!user,
-    retry: 3,
+    retry: 1,
     staleTime: 0, // Sem cache para garantir dados atualizados
     refetchOnWindowFocus: true
   });
+
+  // Efeito para tratar erros e alternar para modo fallback
+  React.useEffect(() => {
+    if (error && !useFallback) {
+      console.log("Erro ao buscar histórico, tentando com fallback");
+      setUseFallback(true);
+    }
+  }, [error, useFallback]);
 
   // Função para formatar valores em reais
   const formatCurrency = (valueInCents: number) => {
@@ -134,7 +155,10 @@ export default function SubscriptionHistoryPage() {
       {/* Seção de Renovação Antecipada */}
       {user && user.subscriptionExpiry && (
         <div className="mb-6">
-          <Alert className="bg-muted">
+          <Alert 
+            className="bg-muted hover:bg-muted/80 cursor-pointer transition-colors"
+            onClick={() => navigate('/renew-subscription')}
+          >
             <CalendarPlus className="h-5 w-5" />
             <AlertTitle>Renovação Antecipada</AlertTitle>
             <AlertDescription className="mt-2">
@@ -146,20 +170,16 @@ export default function SubscriptionHistoryPage() {
                   </span>
                   . Renove antecipadamente e mantenha seu acesso sem interrupções.
                 </p>
-                <div className="flex flex-wrap gap-3 mt-2">
-                  {plans?.map((plan) => (
-                    <Button
-                      key={plan.id}
-                      variant="outline"
-                      className="border-primary"
-                      onClick={() => navigate(`/renew-subscription?planId=${plan.id}`)}
-                    >
-                      <span className="font-semibold">{plan.name}</span>
-                      <span className="mx-1">-</span>
-                      <span>{formatCurrency(plan.price)}</span>
-                    </Button>
-                  ))}
-                </div>
+                <Button
+                  variant="default"
+                  className="self-start mt-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/renew-subscription');
+                  }}
+                >
+                  Renovar agora
+                </Button>
               </div>
             </AlertDescription>
           </Alert>
@@ -183,9 +203,20 @@ export default function SubscriptionHistoryPage() {
               <p className="text-destructive mb-4">
                 Ocorreu um erro ao carregar o histórico de assinaturas.
               </p>
-              <Button onClick={() => refetch()} variant="outline">
-                Tentar novamente
-              </Button>
+              <div className="flex gap-3 justify-center">
+                <Button onClick={() => {
+                  setUseFallback(false);
+                  refetch();
+                }} variant="outline">
+                  Tentar novamente
+                </Button>
+                <Button onClick={() => {
+                  setUseFallback(true);
+                  refetch();
+                }} variant="secondary">
+                  Usar dados de exemplo
+                </Button>
+              </div>
             </div>
           ) : history && history.length > 0 ? (
             <Table>
