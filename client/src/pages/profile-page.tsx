@@ -67,6 +67,17 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatarUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Form para configurações de notificação
+  const notificationForm = useForm<NotificationSettingsValues>({
+    resolver: zodResolver(notificationSettingsSchema),
+    defaultValues: {
+      enableWhatsApp: false,
+      enableAppointmentConfirmation: true,
+      enableAppointmentReminder: true,
+      enableCancellationNotice: true
+    }
+  });
+  
   // Se não tiver usuário, mostrar mensagem
   if (!user) {
     return (
