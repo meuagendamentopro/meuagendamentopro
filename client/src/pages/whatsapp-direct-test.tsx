@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
-import { PageHeader } from "@/components/page-header";
+import PageHeader from "@/components/layout/page-header";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 
@@ -85,7 +85,7 @@ export default function WhatsappDirectTestPage() {
   return (
     <div className="container py-8">
       <PageHeader
-        heading="Teste Direto de WhatsApp"
+        title="Teste Direto de WhatsApp"
         description="Envie uma mensagem de teste para verificar se suas configurações estão funcionando"
       >
         <Button asChild variant="outline">

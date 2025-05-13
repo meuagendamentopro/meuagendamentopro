@@ -29,7 +29,22 @@ Obrigado por agendar conosco!`,
   reminder: 
 `Olá {name}!
 
-{reminderText}
+Lembrete do seu agendamento AMANHÃ com {provider}.
+
+*Detalhes do agendamento:*
+📅 Data: {date}
+⏰ Horário: {time}
+✨ Serviço: {service}
+
+Por favor, confirme sua presença respondendo esta mensagem.
+Para reagendar ou cancelar, entre em contato o quanto antes pelo telefone {phone}.
+
+Estamos ansiosos para recebê-lo(a)!`,
+
+  sameDayReminder: 
+`Olá {name}!
+
+Lembrete do seu agendamento HOJE com {provider}.
 
 *Detalhes do agendamento:*
 📅 Data: {date}
@@ -91,6 +106,7 @@ export default function MessageTemplates({ providerId }: MessageTemplatesProps) 
   const [templates, setTemplates] = useState({
     confirmation: DEFAULT_TEMPLATES.confirmation,
     reminder: DEFAULT_TEMPLATES.reminder,
+    sameDayReminder: DEFAULT_TEMPLATES.sameDayReminder,
     cancellation: DEFAULT_TEMPLATES.cancellation,
     reschedule: DEFAULT_TEMPLATES.reschedule
   });
@@ -109,6 +125,7 @@ export default function MessageTemplates({ providerId }: MessageTemplatesProps) 
         setTemplates({
           confirmation: data.confirmation || DEFAULT_TEMPLATES.confirmation,
           reminder: data.reminder || DEFAULT_TEMPLATES.reminder,
+          sameDayReminder: data.sameDayReminder || DEFAULT_TEMPLATES.sameDayReminder,
           cancellation: data.cancellation || DEFAULT_TEMPLATES.cancellation,
           reschedule: data.reschedule || DEFAULT_TEMPLATES.reschedule
         });
@@ -218,9 +235,10 @@ export default function MessageTemplates({ providerId }: MessageTemplatesProps) 
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-4 mb-4">
+          <TabsList className="grid grid-cols-5 mb-4">
             <TabsTrigger value="confirmation">Confirmação</TabsTrigger>
-            <TabsTrigger value="reminder">Lembrete</TabsTrigger>
+            <TabsTrigger value="reminder">Lembrete 24h</TabsTrigger>
+            <TabsTrigger value="sameDayReminder">Lembrete Hoje</TabsTrigger>
             <TabsTrigger value="cancellation">Cancelamento</TabsTrigger>
             <TabsTrigger value="reschedule">Reagendamento</TabsTrigger>
           </TabsList>
@@ -256,6 +274,26 @@ export default function MessageTemplates({ providerId }: MessageTemplatesProps) 
                 <Button 
                   variant="outline" 
                   onClick={() => resetTemplate("reminder")}
+                  type="button"
+                >
+                  <RefreshCcw className="h-4 w-4 mr-2" />
+                  Restaurar Padrão
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="sameDayReminder">
+            <div className="space-y-4">
+              <Textarea 
+                className="min-h-[300px] font-mono text-sm" 
+                value={templates.sameDayReminder}
+                onChange={(e) => setTemplates({...templates, sameDayReminder: e.target.value})}
+              />
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  onClick={() => resetTemplate("sameDayReminder")}
                   type="button"
                 >
                   <RefreshCcw className="h-4 w-4 mr-2" />
