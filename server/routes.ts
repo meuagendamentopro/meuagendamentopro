@@ -3771,15 +3771,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para diagnóstico completo de WhatsApp
   app.post("/api/whatsapp/diagnostic", loadUserProvider, async (req: Request, res: Response) => {
     try {
-      // Usar o handler de diagnóstico
-      const diagnosticHandler = require('./routes/diagnostic-test').handleDiagnosticTest;
-      await diagnosticHandler(req, res);
+      // Importar o módulo diretamente em vez de usar require
+      import('./routes/diagnostic-test').then(async (module) => {
+        try {
+          await module.handleDiagnosticTest(req, res);
+        } catch (innerError) {
+          const err = innerError as Error;
+          logger.error(`Erro ao executar diagnóstico WhatsApp: ${err.message}`);
+          res.status(500).json({
+            success: false,
+            message: `Erro ao executar diagnóstico: ${err.message}`
+          });
+        }
+      }).catch((importError) => {
+        logger.error(`Erro ao importar módulo de diagnóstico: ${importError.message}`);
+        res.status(500).json({
+          success: false,
+          message: `Erro ao carregar módulo de diagnóstico: ${importError.message}`
+        });
+      });
     } catch (error) {
       const err = error as Error;
-      logger.error(`Erro ao executar diagnóstico WhatsApp: ${err.message}`);
+      logger.error(`Erro ao preparar diagnóstico WhatsApp: ${err.message}`);
       res.status(500).json({
         success: false,
-        message: `Erro ao executar diagnóstico: ${err.message}`
+        message: `Erro ao preparar diagnóstico: ${err.message}`
       });
     }
   });
