@@ -25,26 +25,56 @@ express.static.mime.define({
   'text/html': ['html']
 });
 
+// Verificar diretórios disponíveis
+console.log('Verificando diretórios disponíveis:');
+const distPath = path.join(__dirname, '../dist');
+const clientPath = path.join(__dirname, '../client');
+const assetsPath = path.join(__dirname, '../dist/assets');
+const clientAssetsPath = path.join(__dirname, '../client/assets');
+
+console.log('Diretório dist existe:', fs.existsSync(distPath));
+console.log('Diretório client existe:', fs.existsSync(clientPath));
+console.log('Diretório dist/assets existe:', fs.existsSync(assetsPath));
+console.log('Diretório client/assets existe:', fs.existsSync(clientAssetsPath));
+
 // Servir arquivos estáticos com opções de tipo MIME
-app.use(express.static(path.join(__dirname, '../dist'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js') || path.endsWith('.mjs')) {
+app.use(express.static(distPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
       res.setHeader('Content-Type', 'application/javascript');
-    } else if (path.endsWith('.html')) {
+    } else if (filePath.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html');
     }
   }
 }));
 
-app.use(express.static(path.join(__dirname, '../client'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js') || path.endsWith('.mjs')) {
+app.use(express.static(clientPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
       res.setHeader('Content-Type', 'application/javascript');
-    } else if (path.endsWith('.html')) {
+    } else if (filePath.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html');
     }
   }
 }));
+
+// Tentar copiar arquivos do cliente para dist se existirem
+try {
+  if (fs.existsSync(clientPath) && fs.existsSync(distPath)) {
+    console.log('Copiando arquivos do cliente para dist...');
+    const clientFiles = fs.readdirSync(clientPath);
+    for (const file of clientFiles) {
+      const srcPath = path.join(clientPath, file);
+      const destPath = path.join(distPath, file);
+      if (fs.statSync(srcPath).isFile()) {
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`Copiado ${srcPath} para ${destPath}`);
+      }
+    }
+  }
+} catch (error) {
+  console.error('Erro ao copiar arquivos:', error);
+}
 
 // Verificar diretórios disponíveis
 console.log('Verificando diretórios disponíveis:');

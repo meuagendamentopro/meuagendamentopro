@@ -25,6 +25,15 @@ RUN npm run build
 # Executar script para copiar o frontend
 RUN node copy-frontend.js
 
+# Copiar arquivos do diretório client para dist
+RUN if [ -d "client" ] && [ -d "dist" ]; then \
+    echo "Copiando arquivos do cliente para dist..." && \
+    cp -r client/* dist/ || echo "Falha ao copiar arquivos"; \
+  fi
+
+# Copiar arquivos estáticos para dist
+RUN cp -f static-index.html dist/index.html || echo "Arquivo static-index.html não encontrado"
+
 # Listar o conteúdo dos diretórios para verificar
 RUN echo "Conteúdo do diretório raiz:" && ls -la
 RUN echo "Conteúdo do diretório client:" && ls -la client || echo "Diretório client não encontrado"
