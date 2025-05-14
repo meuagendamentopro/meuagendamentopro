@@ -1,17 +1,7 @@
 [build]
-builder = "NIXPACKS"
-cmdOverride = "npm install --production --no-optional --no-audit"
+builder = "DOCKERFILE"
 
 [deploy]
 healthcheck_path = "/api/health"
 healthcheck = true
 restartPolicyType = "ON_FAILURE"
-startCommand = "bash start.sh"
-
-[[nixpacks.plan.phases]]
-name = "setup"
-commands = ["mkdir -p dist", "chmod +x start.sh"]
-
-[[nixpacks.plan.phases]]
-name = "install"
-commands = ["npm install --production --no-optional --no-audit"]
