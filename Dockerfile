@@ -22,6 +22,11 @@ RUN echo "Verificando arquivos do servidor:" && ls -la server || echo "Diretóri
 # Construir a aplicação
 RUN npm run build
 
+# Copiar o frontend para o diretório correto
+RUN mkdir -p dist/client
+RUN cp -r dist/* dist/client/ || echo "Nenhum arquivo para copiar"
+RUN echo "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=/client/'></head><body>Redirecionando...</body></html>" > dist/index.html
+
 # Definir variáveis de ambiente padrão
 ENV PORT=3000
 ENV NODE_ENV=production

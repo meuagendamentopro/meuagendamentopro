@@ -1,5 +1,5 @@
 [build]
-builder = "nixpacks"
+builder = "DOCKERFILE"
 
 [deploy]
 healthcheck_path = "/api/health"
