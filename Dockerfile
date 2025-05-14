@@ -14,9 +14,6 @@ RUN npm install
 # Copiar o resto dos arquivos
 COPY . .
 
-# Tornar o script de inicialização executável
-RUN chmod +x start.sh
-
 # Construir a aplicação
 RUN npm run build
 
@@ -30,5 +27,5 @@ EXPOSE 3000
 # Verificar se o diretório dist existe
 RUN ls -la dist || echo "Diretório dist não encontrado"
 
-# Comando para iniciar a aplicação usando o script de inicialização
-CMD ["/app/start.sh"]
+# Comando para iniciar o servidor simplificado
+CMD ["node", "server/server.js"]
