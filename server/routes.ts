@@ -34,6 +34,11 @@ import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelc
 import { paymentService } from "./payment-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Rota de health check para o Railway
+  app.get("/api/health", (req: Request, res: Response) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // Configurar autenticação
   setupAuth(app);
   
@@ -769,35 +774,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/clear-database", isAdmin, async (req: Request, res: Response) => {
     try {
       console.log("Iniciando limpeza do banco de dados...");
+      console.log("IMPORTANTE: Preservando usuários, provedores e planos de assinatura");
       
       // Usar diretamente as funções do Drizzle ORM
       try {
-        console.log("Limpando notificações...");
-        await db.delete(notifications);
-        console.log("Notificações removidas com sucesso");
+        // Capturar a contagem inicial de planos de assinatura
+        const initialPlanCount = await db.select({ count: sql`count(*)` }).from(subscriptionPlans);
+        console.log(`INICIAL: ${initialPlanCount[0]?.count || 0} planos de assinatura existentes`);
         
-        console.log("Limpando agendamentos...");
-        await db.delete(appointments);
-        console.log("Agendamentos removidos com sucesso");
+        // Salvar os planos de assinatura existentes antes da limpeza
+        const existingPlans = await db.select().from(subscriptionPlans);
+        console.log(`Backup de ${existingPlans.length} planos de assinatura realizado`);
         
-        console.log("Limpando associações entre provedores e clientes...");
-        await db.delete(providerClients);
-        console.log("Associações entre provedores e clientes removidas com sucesso");
+        // Tabelas que serão limpas em ordem específica para evitar problemas de chave estrangeira
+        const tablesToClean = [
+          // Primeiro limpar tabelas que dependem de outras
+          { name: "notificações", table: notifications },
+          { name: "agendamentos", table: appointments },
+          { name: "associações entre provedores e clientes", table: providerClients },
+          { name: "transações de assinatura", table: subscriptionTransactions },
+          // Depois limpar tabelas independentes
+          { name: "clientes", table: clients },
+          { name: "serviços", table: services },
+          { name: "horários de exclusão", table: timeExclusions }
+        ];
         
-        console.log("Limpando clientes...");
-        await db.delete(clients);
-        console.log("Clientes removidos com sucesso");
+        // Tabelas que serão preservadas explicitamente
+        const preservedTables = [
+          { name: "usuários", table: users },
+          { name: "planos de assinatura", table: subscriptionPlans }
+        ];
         
-        console.log("Limpando serviços...");
-        await db.delete(services);
-        console.log("Serviços removidos com sucesso");
+        // Função auxiliar para executar exclusão com tratamento de erro
+        const deleteTable = async (tableName: string, table: any) => {
+          try {
+            console.log(`Limpando ${tableName}...`);
+            const result = await db.delete(table);
+            console.log(`${tableName} removidos com sucesso. Registros afetados:`, result);
+            return true;
+          } catch (error) {
+            console.error(`ERRO ao limpar ${tableName}:`, error);
+            return false;
+          }
+        };
+        
+        // Verificar contagem antes da limpeza
+        for (const { name, table } of [...tablesToClean, ...preservedTables]) {
+          const count = await db.select({ count: sql`count(*)` }).from(table);
+          console.log(`Antes da limpeza: ${count[0]?.count || 0} registros em ${name}`);
+        }
+        
+        // Executar as exclusões apenas nas tabelas que devem ser limpas
+        for (const { name, table } of tablesToClean) {
+          await deleteTable(name, table);
+        }
+        
+        // Verificar contagem após a limpeza
+        for (const { name, table } of [...tablesToClean, ...preservedTables]) {
+          const count = await db.select({ count: sql`count(*)` }).from(table);
+          console.log(`Após limpeza: ${count[0]?.count || 0} registros em ${name}`);
+        }
+        
+        // Verificar especificamente os planos de assinatura para garantir que não foram afetados
+        const finalPlanCount = await db.select({ count: sql`count(*)` }).from(subscriptionPlans);
+        console.log(`CONFIRMAÇÃO: ${finalPlanCount[0]?.count || 0} planos de assinatura preservados`);
+        
+        // Verificar se os planos foram preservados
+        if (Number(finalPlanCount[0]?.count) !== existingPlans.length) {
+          console.error(`ALERTA: Contagem de planos de assinatura mudou! Inicial: ${existingPlans.length}, Final: ${finalPlanCount[0]?.count}`);
+          
+          // Restaurar os planos de assinatura se foram perdidos
+          if (Number(finalPlanCount[0]?.count) < existingPlans.length) {
+            console.log("Tentando restaurar planos de assinatura perdidos...");
+            
+            // Obter os planos atuais para não duplicar
+            const currentPlans = await db.select().from(subscriptionPlans);
+            const currentPlanIds = currentPlans.map(p => p.id);
+            
+            // Restaurar apenas os planos que não existem mais
+            for (const plan of existingPlans) {
+              if (!currentPlanIds.includes(plan.id)) {
+                try {
+                  await db.insert(subscriptionPlans).values(plan);
+                  console.log(`Plano restaurado: ${plan.name} (ID: ${plan.id})`);
+                } catch (restoreError) {
+                  console.error(`Erro ao restaurar plano ${plan.id}:`, restoreError);
+                }
+              }
+            }
+            
+            // Verificar novamente após a restauração
+            const restoredCount = await db.select({ count: sql`count(*)` }).from(subscriptionPlans);
+            console.log(`Após restauração: ${restoredCount[0]?.count || 0} planos de assinatura`);
+          }
+        }
         
         // Envia notificação em tempo real
         broadcastUpdate('database_cleared', { message: 'Banco de dados limpo com sucesso' });
         
         res.status(200).json({ 
           success: true, 
-          message: "Banco de dados limpo com sucesso. Todas as tabelas exceto usuários e provedores foram limpas." 
+          message: "Banco de dados limpo com sucesso. As tabelas de usuários e planos de assinatura foram preservadas." 
         });
       } catch (dbError: any) {
         console.error("Erro nas operações do banco:", dbError);
@@ -809,6 +886,228 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rotas para gerenciar planos de assinatura
+  // Listar todos os planos
+  app.get("/api/admin/subscription/plans", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const plans = await db.select().from(subscriptionPlans).orderBy(subscriptionPlans.name);
+      res.json(plans);
+    } catch (error: any) {
+      console.error("Erro ao buscar planos de assinatura:", error);
+      res.status(500).json({ error: "Falha ao buscar planos de assinatura" });
+    }
+  });
+
+  // Obter um plano específico
+  app.get("/api/admin/subscription/plans/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const planId = parseInt(req.params.id);
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "ID inválido" });
+      }
+
+      const plan = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+      
+      if (!plan || plan.length === 0) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+      
+      res.json(plan[0]);
+    } catch (error: any) {
+      console.error("Erro ao buscar plano de assinatura:", error);
+      res.status(500).json({ error: "Falha ao buscar plano de assinatura" });
+    }
+  });
+
+  // Criar novo plano
+  app.post("/api/admin/subscription/plans", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { name, description, durationMonths, price, isActive } = req.body;
+      
+      // Validar dados
+      if (!name || !durationMonths || price === undefined) {
+        return res.status(400).json({ error: "Nome, duração e preço são obrigatórios" });
+      }
+
+      // Verificar se já existe um plano com o mesmo nome
+      const existingPlan = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.name, name)).limit(1);
+      if (existingPlan && existingPlan.length > 0) {
+        return res.status(400).json({ error: "Já existe um plano com este nome" });
+      }
+
+      // Inserir novo plano
+      const result = await db.insert(subscriptionPlans).values({
+        name,
+        description: description || null,
+        durationMonths: parseInt(durationMonths),
+        price: parseInt(price),
+        isActive: isActive !== undefined ? isActive : true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      res.status(201).json(result[0]);
+    } catch (error: any) {
+      console.error("Erro ao criar plano de assinatura:", error);
+      res.status(500).json({ error: "Falha ao criar plano de assinatura" });
+    }
+  });
+
+  // Atualizar plano existente
+  app.put("/api/admin/subscription/plans/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const planId = parseInt(req.params.id);
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "ID inválido" });
+      }
+
+      const { name, description, durationMonths, price, isActive } = req.body;
+      
+      // Validar dados
+      if (!name || !durationMonths || price === undefined) {
+        return res.status(400).json({ error: "Nome, duração e preço são obrigatórios" });
+      }
+
+      // Verificar se o plano existe
+      const existingPlan = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+      if (!existingPlan || existingPlan.length === 0) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+
+      // Verificar se já existe outro plano com o mesmo nome (exceto o atual)
+      const duplicatePlan = await db.select().from(subscriptionPlans)
+        .where(and(eq(subscriptionPlans.name, name), ne(subscriptionPlans.id, planId)))
+        .limit(1);
+        
+      if (duplicatePlan && duplicatePlan.length > 0) {
+        return res.status(400).json({ error: "Já existe outro plano com este nome" });
+      }
+
+      // Atualizar plano
+      const result = await db.update(subscriptionPlans)
+        .set({
+          name,
+          description: description || null,
+          durationMonths: parseInt(durationMonths),
+          price: parseInt(price),
+          isActive: isActive !== undefined ? isActive : true,
+          updatedAt: new Date()
+        })
+        .where(eq(subscriptionPlans.id, planId))
+        .returning();
+
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error("Erro ao atualizar plano de assinatura:", error);
+      res.status(500).json({ error: "Falha ao atualizar plano de assinatura" });
+    }
+  });
+
+  // Atualizar apenas o preço do plano
+  app.patch("/api/admin/subscription/plans/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const planId = parseInt(req.params.id);
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "ID inválido" });
+      }
+
+      const { price } = req.body;
+      if (price === undefined) {
+        return res.status(400).json({ error: "Preço é obrigatório" });
+      }
+
+      // Verificar se o plano existe
+      const existingPlan = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+      if (!existingPlan || existingPlan.length === 0) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+
+      // Atualizar apenas o preço
+      const result = await db.update(subscriptionPlans)
+        .set({
+          price: parseInt(price),
+          updatedAt: new Date()
+        })
+        .where(eq(subscriptionPlans.id, planId))
+        .returning();
+
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error("Erro ao atualizar preço do plano:", error);
+      res.status(500).json({ error: "Falha ao atualizar preço do plano" });
+    }
+  });
+
+  // Alternar status ativo/inativo do plano
+  app.patch("/api/admin/subscription/plans/:id/toggle-active", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const planId = parseInt(req.params.id);
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "ID inválido" });
+      }
+
+      // Verificar se o plano existe e obter status atual
+      const existingPlan = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+      if (!existingPlan || existingPlan.length === 0) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+
+      // Inverter o status atual
+      const newStatus = !existingPlan[0].isActive;
+
+      // Atualizar status
+      const result = await db.update(subscriptionPlans)
+        .set({
+          isActive: newStatus,
+          updatedAt: new Date()
+        })
+        .where(eq(subscriptionPlans.id, planId))
+        .returning();
+
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error("Erro ao alternar status do plano:", error);
+      res.status(500).json({ error: "Falha ao alternar status do plano" });
+    }
+  });
+
+  // Excluir plano
+  app.delete("/api/admin/subscription/plans/:id", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const planId = parseInt(req.params.id);
+      if (isNaN(planId)) {
+        return res.status(400).json({ error: "ID inválido" });
+      }
+
+      // Verificar se o plano existe
+      const existingPlan = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+      if (!existingPlan || existingPlan.length === 0) {
+        return res.status(404).json({ error: "Plano não encontrado" });
+      }
+
+      // Verificar se existem transações associadas a este plano
+      const transactions = await db.select({ count: sql`count(*)` })
+        .from(subscriptionTransactions)
+        .where(eq(subscriptionTransactions.planId, planId));
+      
+      const transactionCount = Number(transactions[0]?.count || 0);
+      if (transactionCount > 0) {
+        return res.status(400).json({ 
+          error: "Não é possível excluir este plano pois existem transações associadas a ele",
+          transactionCount: transactionCount
+        });
+      }
+
+      // Excluir plano
+      await db.delete(subscriptionPlans).where(eq(subscriptionPlans.id, planId));
+
+      res.json({ success: true, message: "Plano excluído com sucesso" });
+    } catch (error: any) {
+      console.error("Erro ao excluir plano de assinatura:", error);
+      res.status(500).json({ error: "Falha ao excluir plano de assinatura" });
+    }
+  });
+
   app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
       const { name, username, password, role } = req.body;
@@ -1226,7 +1525,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pixKey,
         pixCompanyName,
         pixRequirePayment,
-        pixPaymentPercentage
+        pixPaymentPercentage,
+        // Templates de mensagens WhatsApp
+        whatsappTemplateAppointment
       } = req.body;
       
       if (workingHoursStart === undefined || workingHoursEnd === undefined) {
@@ -1339,6 +1640,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.body.pixIdentificationNumber !== undefined) {
         providerData.pixIdentificationNumber = req.body.pixIdentificationNumber;
+      }
+      
+      // Adicionar template de mensagem WhatsApp se fornecido
+      if (req.body.whatsappTemplateAppointment !== undefined) {
+        // Garantir que mesmo que seja uma string vazia, será salvo corretamente
+        // Usando type assertion para contornar a limitação do schema de inserção
+        (providerData as any).whatsappTemplateAppointment = req.body.whatsappTemplateAppointment;
       }
       
       // Removendo dados sensíveis do log, mas mostrando quais campos estão sendo atualizados
