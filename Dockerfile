@@ -5,14 +5,15 @@ WORKDIR /app
 # Copiar apenas os arquivos de configuração primeiro
 COPY package.json package-lock.json ./
 
-# Instalar todas as dependências (incluindo as de desenvolvimento para build)
-RUN npm install
+# Instalar apenas as dependências de produção
+RUN npm install --only=production
 
 # Copiar o resto dos arquivos
 COPY . .
 
-# Construir o frontend React
-RUN npm run build
+# Criar diretório dist e copiar o index.html estático
+RUN mkdir -p dist
+COPY static-index.html dist/index.html
 
 # Definir variáveis de ambiente padrão
 ENV PORT=3000
