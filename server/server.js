@@ -74,7 +74,21 @@ app.get('/api/info', (req, res) => {
 
 // Rota para executar migrações (aceita tanto GET quanto POST)
 app.all('/api/admin/run-migrations', async (req, res) => {
+  console.log('Rota de migrações acessada');
+  
+  // Verificar estrutura de diretórios
+  console.log('Diretório atual:', __dirname);
+  console.log('Diretório pai:', path.join(__dirname, '..'));
+  console.log('Conteúdo do diretório pai:');
+  try {
+    const parentFiles = fs.readdirSync(path.join(__dirname, '..'));
+    console.log(parentFiles);
+  } catch (error) {
+    console.error('Erro ao listar diretório pai:', error);
+  }
+  
   if (!db) {
+    console.error('Banco de dados não configurado');
     return res.status(500).json({ error: 'Banco de dados não configurado' });
   }
   
@@ -82,20 +96,39 @@ app.all('/api/admin/run-migrations', async (req, res) => {
     console.log('Executando migrações...');
     
     // Verificar se o diretório shared existe
-    if (fs.existsSync(path.join(__dirname, '../shared'))) {
-      console.log('Diretório shared encontrado');
+    const sharedPath = path.join(__dirname, '../shared');
+    if (fs.existsSync(sharedPath)) {
+      console.log('Diretório shared encontrado:', sharedPath);
+      console.log('Conteúdo do diretório shared:');
+      try {
+        const sharedFiles = fs.readdirSync(sharedPath);
+        console.log(sharedFiles);
+      } catch (error) {
+        console.error('Erro ao listar diretório shared:', error);
+      }
       
       // Importar o schema e executar migrações manualmente
-      const { createTables } = await import('../shared/create-tables.js');
-      if (createTables && typeof createTables === 'function') {
-        await createTables(db);
-        console.log('Migrações executadas com sucesso!');
-        return res.status(200).json({ success: true, message: 'Migrações executadas com sucesso' });
-      } else {
-        return res.status(500).json({ error: 'Função createTables não encontrada' });
+      try {
+        console.log('Tentando importar create-tables.js...');
+        const createTablesModule = await import('../shared/create-tables.js');
+        console.log('Módulo importado:', createTablesModule);
+        
+        if (createTablesModule.createTables && typeof createTablesModule.createTables === 'function') {
+          console.log('Função createTables encontrada, executando...');
+          await createTablesModule.createTables(db);
+          console.log('Migrações executadas com sucesso!');
+          return res.status(200).json({ success: true, message: 'Migrações executadas com sucesso' });
+        } else {
+          console.error('Função createTables não encontrada no módulo');
+          return res.status(500).json({ error: 'Função createTables não encontrada' });
+        }
+      } catch (importError) {
+        console.error('Erro ao importar módulo create-tables.js:', importError);
+        return res.status(500).json({ error: 'Erro ao importar módulo create-tables.js', details: importError.message });
       }
     } else {
-      return res.status(500).json({ error: 'Diretório shared não encontrado' });
+      console.error('Diretório shared não encontrado:', sharedPath);
+      return res.status(500).json({ error: 'Diretório shared não encontrado', path: sharedPath });
     }
   } catch (error) {
     console.error('Erro ao executar migrações:', error);
