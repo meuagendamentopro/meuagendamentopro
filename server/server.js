@@ -18,23 +18,48 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Verificar se os diretórios dist e dist/public existem
+// Configurar CORS para permitir requisições do frontend
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Definir caminhos para os diretórios de arquivos estáticos
 const distPath = path.join(__dirname, '../dist');
 const publicPath = path.join(distPath, 'public');
+const clientPath = path.join(__dirname, '../client');
 
+// Criar diretório dist se não existir
 if (!fs.existsSync(distPath)) {
   fs.mkdirSync(distPath, { recursive: true });
   console.log('Diretório dist criado');
 }
 
-// Servir arquivos estáticos do diretório dist/public (onde o Vite coloca os arquivos do frontend)
+// Servir arquivos estáticos em ordem de prioridade
+console.log('Configurando rotas para arquivos estáticos...');
+
+// 1. Primeiro tentar servir do diretório dist/public (onde o Vite coloca os arquivos construídos)
 if (fs.existsSync(publicPath)) {
   console.log('Servindo arquivos estáticos do diretório dist/public');
   app.use(express.static(publicPath));
 }
 
-// Servir arquivos estáticos do diretório dist como fallback
+// 2. Depois tentar servir do diretório dist
+console.log('Servindo arquivos estáticos do diretório dist');
 app.use(express.static(distPath));
+
+// 3. Por último, tentar servir do diretório client (para desenvolvimento)
+if (fs.existsSync(clientPath)) {
+  console.log('Servindo arquivos estáticos do diretório client');
+  app.use(express.static(clientPath));
+}
 
 // Verificar se existe um arquivo index.html no diretório dist
 const indexPath = path.join(distPath, 'index.html');
@@ -216,31 +241,94 @@ app.get('*', (req, res) => {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
 
-    // Primeiro tentar servir o arquivo index.html do diretório dist/public (onde o Vite coloca os arquivos do frontend)
-    const publicIndexPath = path.join(__dirname, '../dist/public/index.html');
-    if (fs.existsSync(publicIndexPath)) {
-      console.log('Servindo index.html do diretório dist/public');
-      return res.sendFile(publicIndexPath);
+    console.log('Recebida requisição para:', req.path);
+    
+    // Verificar todos os possíveis locais do arquivo index.html
+    const possiblePaths = [
+      path.join(__dirname, '../dist/public/index.html'),  // Onde o Vite coloca os arquivos construídos
+      path.join(__dirname, '../dist/index.html'),         // Fallback para o diretório dist
+      path.join(__dirname, '../client/index.html')        // Para desenvolvimento local
+    ];
+    
+    // Tentar cada caminho em ordem
+    for (const indexPath of possiblePaths) {
+      if (fs.existsSync(indexPath)) {
+        console.log('Arquivo index.html encontrado em:', indexPath);
+        return res.sendFile(indexPath);
+      }
     }
     
-    // Se não existir, tentar servir o arquivo index.html do diretório dist como fallback
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    if (fs.existsSync(indexPath)) {
-      console.log('Servindo index.html do diretório dist');
-      return res.sendFile(indexPath);
-    } else {
-      // Se não existir, enviar uma mensagem de erro
-      console.error('Arquivo index.html não encontrado');
-      res.status(500).send('Erro: Frontend não encontrado. Por favor, verifique se o build foi realizado corretamente.');
-    }
+    // Se nenhum arquivo index.html for encontrado, criar um HTML básico
+    console.log('Nenhum arquivo index.html encontrado, enviando HTML básico');
+    return res.send(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sistema de Agendamento</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+          h1 { color: #4a6cf7; }
+          .card { background-color: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+          a { color: #4a6cf7; text-decoration: none; }
+          a:hover { text-decoration: underline; }
+        </style>
+      </head>
+      <body>
+        <h1>Sistema de Agendamento</h1>
+        <div class="card">
+          <h2>API Funcionando</h2>
+          <p>A API está funcionando corretamente. Acesse <a href="/api/health">/api/health</a> para verificar o status.</p>
+        </div>
+      </body>
+      </html>
+    `);
   } catch (error) {
     console.error('Erro ao servir página:', error);
     res.status(500).send('Erro interno do servidor');
   }
 });
 
+// Função para listar o conteúdo de um diretório recursivamente
+function listarDiretorioRecursivo(diretorio, nivel = 0) {
+  try {
+    if (!fs.existsSync(diretorio)) {
+      console.log(`${' '.repeat(nivel * 2)}[Diretório não existe: ${diretorio}]`);
+      return;
+    }
+
+    const arquivos = fs.readdirSync(diretorio);
+    arquivos.forEach(arquivo => {
+      const caminhoCompleto = path.join(diretorio, arquivo);
+      const stats = fs.statSync(caminhoCompleto);
+      if (stats.isDirectory()) {
+        console.log(`${' '.repeat(nivel * 2)}[Dir] ${arquivo}`);
+        // Limitar a recursão para evitar loops infinitos
+        if (nivel < 3) {
+          listarDiretorioRecursivo(caminhoCompleto, nivel + 1);
+        }
+      } else {
+        console.log(`${' '.repeat(nivel * 2)}[Arquivo] ${arquivo} (${stats.size} bytes)`);
+      }
+    });
+  } catch (error) {
+    console.error(`Erro ao listar diretório ${diretorio}:`, error);
+  }
+}
+
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`Acesse: http://localhost:${PORT}`);
+  
+  // Listar conteúdo dos diretórios importantes
+  console.log('\nConteúdo do diretório atual:');
+  listarDiretorioRecursivo(path.join(__dirname, '..'));
+  
+  console.log('\nConteúdo do diretório dist:');
+  listarDiretorioRecursivo(distPath);
+  
+  console.log('\nConteúdo do diretório dist/public (se existir):');
+  listarDiretorioRecursivo(publicPath);
 });
