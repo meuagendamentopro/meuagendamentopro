@@ -19,6 +19,17 @@ app.use(express.json());
 
 // Servir arquivos estáticos
 app.use(express.static(path.join(__dirname, '../dist')));
+app.use(express.static(path.join(__dirname, '../client')));
+
+// Verificar diretórios disponíveis
+console.log('Verificando diretórios disponíveis:');
+console.log('__dirname:', __dirname);
+console.log('Diretório dist:', path.join(__dirname, '../dist'));
+console.log('Diretório client:', path.join(__dirname, '../client'));
+
+// Verificar se os diretórios existem
+console.log('Diretório dist existe:', fs.existsSync(path.join(__dirname, '../dist')));
+console.log('Diretório client existe:', fs.existsSync(path.join(__dirname, '../client')));
 
 // Verificar se o diretório dist existe
 console.log('Verificando diretório dist:');
