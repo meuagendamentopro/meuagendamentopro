@@ -16,10 +16,35 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware para processar JSON
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, '../dist')));
-app.use(express.static(path.join(__dirname, '../client')));
+// Configurar tipos MIME para arquivos JavaScript
+express.static.mime.define({
+  'application/javascript': ['js', 'mjs'],
+  'text/javascript': ['js', 'mjs'],
+  'text/html': ['html']
+});
+
+// Servir arquivos estáticos com opções de tipo MIME
+app.use(express.static(path.join(__dirname, '../dist'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js') || path.endsWith('.mjs')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
+
+app.use(express.static(path.join(__dirname, '../client'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js') || path.endsWith('.mjs')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
 
 // Verificar diretórios disponíveis
 console.log('Verificando diretórios disponíveis:');

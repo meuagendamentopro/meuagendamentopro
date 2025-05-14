@@ -56,6 +56,67 @@ if (fs.existsSync(sourceDir)) {
   }
 } else {
   console.error(`Diretório de origem ${sourceDir} não encontrado.`);
+}
+
+// Verificar se existe o arquivo HTML estático
+const staticHtmlPath = path.join(__dirname, 'static-index.html');
+if (fs.existsSync(staticHtmlPath)) {
+  console.log('Copiando arquivo HTML estático para o diretório de destino...');
+  try {
+    fs.copyFileSync(staticHtmlPath, path.join(targetDir, 'index.html'));
+    console.log('Arquivo HTML estático copiado com sucesso!');
+  } catch (error) {
+    console.error('Erro ao copiar arquivo HTML estático:', error);
+    
+    // Criar um arquivo index.html básico no diretório de destino como fallback
+    console.log('Criando arquivo index.html básico como fallback...');
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Agendamento</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { color: #333; }
+    .card { background-color: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .btn { display: inline-block; background-color: #4a6cf7; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sistema de Agendamento</h1>
+    <div class="card">
+      <h2>Bem-vindo ao Sistema de Agendamento</h2>
+      <p>O servidor está funcionando corretamente.</p>
+      <p>Status da API: <span id="apiStatus">Verificando...</span></p>
+      <p><a href="/api/health" class="btn">Verificar API</a></p>
+    </div>
+  </div>
+  <script>
+    // Verificar status da API
+    fetch('/api/health')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('apiStatus').textContent = 'Conectado';
+        document.getElementById('apiStatus').style.color = 'green';
+      })
+      .catch(error => {
+        document.getElementById('apiStatus').textContent = 'Desconectado';
+        document.getElementById('apiStatus').style.color = 'red';
+      });
+  </script>
+</body>
+</html>
+    `;
+    
+    fs.writeFileSync(path.join(targetDir, 'index.html'), htmlContent);
+    console.log('Arquivo index.html básico criado com sucesso!');
+  }
+} else {
+  console.error('Arquivo HTML estático não encontrado.');
   
   // Criar um arquivo index.html básico no diretório de destino
   console.log('Criando arquivo index.html básico...');
