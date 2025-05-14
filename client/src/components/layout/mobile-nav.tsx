@@ -24,7 +24,6 @@ const MobileNav: React.FC = () => {
     { href: "/clients", name: "Clientes", active: location === "/clients" },
     { href: "/services", name: "Serviços", active: location === "/services" },
     { href: "/financial", name: "Financeiro", active: location === "/financial" },
-    { href: "/settings", name: "Configurações", active: location === "/settings" },
   ];
   
   // Adiciona a página de administração apenas para usuários admin
@@ -136,6 +135,13 @@ const MobileNav: React.FC = () => {
                 onClick={() => setIsOpen(false)}
               >
                 Configurações
+              </Link>
+              <Link
+                href="/subscription-history"
+                className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                onClick={() => setIsOpen(false)}
+              >
+                Histórico de Assinaturas
               </Link>
               <button
                 onClick={handleLogout}

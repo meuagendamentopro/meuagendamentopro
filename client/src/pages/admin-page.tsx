@@ -372,10 +372,32 @@ export default function AdminPage() {
     },
   });
 
-  // Estado para o plano em edição
+  // Estados para gerenciamento de planos
   const [planToEdit, setPlanToEdit] = useState<SubscriptionPlan | null>(null);
   const [isEditPlanDialogOpen, setIsEditPlanDialogOpen] = useState(false);
+  const [isNewPlanDialogOpen, setIsNewPlanDialogOpen] = useState(false);
+  const [isEditFullPlanDialogOpen, setIsEditFullPlanDialogOpen] = useState(false);
+  const [isDeletePlanDialogOpen, setIsDeletePlanDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState<string>("");
+  
+  // Estado para novo plano
+  const [newPlan, setNewPlan] = useState({
+    name: "",
+    description: "",
+    durationMonths: "1",
+    price: "",
+    isActive: true
+  });
+  
+  // Estado para edição completa de plano
+  const [editedPlan, setEditedPlan] = useState({
+    id: 0,
+    name: "",
+    description: "",
+    durationMonths: "",
+    price: "",
+    isActive: true
+  });
 
   // Mutação para atualizar o preço do plano
   const updatePlanPriceMutation = useMutation({
@@ -399,6 +421,141 @@ export default function AdminPage() {
     onError: (error: Error) => {
       toast({
         title: "Erro ao atualizar preço",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutação para criar novo plano
+  const createPlanMutation = useMutation({
+    mutationFn: async (data: typeof newPlan) => {
+      // Converter preço para centavos
+      const priceInCents = Math.round(parseFloat(data.price) * 100);
+      
+      const res = await apiRequest("POST", "/api/admin/subscription/plans", {
+        ...data,
+        price: priceInCents,
+        durationMonths: parseInt(data.durationMonths)
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao criar plano");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Plano criado",
+        description: "O plano de assinatura foi criado com sucesso",
+      });
+      setIsNewPlanDialogOpen(false);
+      setNewPlan({
+        name: "",
+        description: "",
+        durationMonths: "1",
+        price: "",
+        isActive: true
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription/plans"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao criar plano",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutação para atualizar plano completo
+  const updateFullPlanMutation = useMutation({
+    mutationFn: async (data: typeof editedPlan) => {
+      // Converter preço para centavos
+      const priceInCents = Math.round(parseFloat(data.price) * 100);
+      
+      const res = await apiRequest("PUT", `/api/admin/subscription/plans/${data.id}`, {
+        name: data.name,
+        description: data.description,
+        durationMonths: parseInt(data.durationMonths),
+        price: priceInCents,
+        isActive: data.isActive
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao atualizar plano");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Plano atualizado",
+        description: "O plano de assinatura foi atualizado com sucesso",
+      });
+      setIsEditFullPlanDialogOpen(false);
+      setPlanToEdit(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription/plans"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar plano",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutação para excluir plano
+  const deletePlanMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/subscription/plans/${id}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao excluir plano");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Plano excluído",
+        description: "O plano de assinatura foi excluído com sucesso",
+      });
+      setIsDeletePlanDialogOpen(false);
+      setPlanToEdit(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription/plans"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir plano",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutação para alternar status ativo/inativo do plano
+  const togglePlanActiveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("PATCH", `/api/admin/subscription/plans/${id}/toggle-active`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Falha ao alternar status do plano");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const status = data.isActive ? "ativado" : "desativado";
+      toast({
+        title: `Plano ${status}`,
+        description: `O plano foi ${status} com sucesso`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription/plans"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao alternar status do plano",
         description: error.message,
         variant: "destructive",
       });
@@ -454,6 +611,119 @@ export default function AdminPage() {
       id: planToEdit.id,
       price: priceInCents
     });
+  };
+  
+  // Handler para abrir diálogo de criação de novo plano
+  const handleOpenNewPlanDialog = () => {
+    setNewPlan({
+      name: "",
+      description: "",
+      durationMonths: "1",
+      price: "",
+      isActive: true
+    });
+    setIsNewPlanDialogOpen(true);
+  };
+  
+  // Handler para criar novo plano
+  const handleCreatePlan = () => {
+    // Validar dados
+    if (!newPlan.name) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Por favor, informe o nome do plano",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!newPlan.durationMonths) {
+      toast({
+        title: "Duração obrigatória",
+        description: "Por favor, informe a duração do plano em meses",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const price = parseFloat(newPlan.price);
+    if (isNaN(price) || price <= 0) {
+      toast({
+        title: "Preço inválido",
+        description: "Por favor, informe um valor válido maior que zero",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createPlanMutation.mutate(newPlan);
+  };
+  
+  // Handler para abrir diálogo de edição completa do plano
+  const handleEditFullPlan = (plan: SubscriptionPlan) => {
+    setEditedPlan({
+      id: plan.id,
+      name: plan.name,
+      description: plan.description || "",
+      durationMonths: plan.durationMonths.toString(),
+      price: (plan.price / 100).toString(),
+      isActive: plan.isActive
+    });
+    setIsEditFullPlanDialogOpen(true);
+  };
+  
+  // Handler para salvar plano editado
+  const handleSaveEditedPlan = () => {
+    // Validar dados
+    if (!editedPlan.name) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Por favor, informe o nome do plano",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!editedPlan.durationMonths) {
+      toast({
+        title: "Duração obrigatória",
+        description: "Por favor, informe a duração do plano em meses",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const price = parseFloat(editedPlan.price);
+    if (isNaN(price) || price <= 0) {
+      toast({
+        title: "Preço inválido",
+        description: "Por favor, informe um valor válido maior que zero",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    updateFullPlanMutation.mutate(editedPlan);
+  };
+  
+  // Handler para abrir diálogo de exclusão
+  const handleDeletePlanDialog = (plan: SubscriptionPlan) => {
+    setPlanToEdit(plan);
+    setIsDeletePlanDialogOpen(true);
+  };
+  
+  // Handler para confirmar exclusão
+  const handleConfirmDeletePlan = () => {
+    if (!planToEdit) return;
+    deletePlanMutation.mutate(planToEdit.id);
+  };
+  
+  // Handler para alternar status ativo/inativo
+  const handleTogglePlanActive = (plan: SubscriptionPlan) => {
+    const action = plan.isActive ? "desativar" : "ativar";
+    if (window.confirm(`Deseja ${action} o plano ${plan.name}?`)) {
+      togglePlanActiveMutation.mutate(plan.id);
+    }
   };
 
   return (
@@ -661,34 +931,6 @@ export default function AdminPage() {
       </AlertDialog>
       
       <div className="grid grid-cols-1 gap-6">
-        {/* Card de Limpeza do Banco de Dados */}
-        <Card className="bg-red-50 border-red-200">
-          <CardHeader>
-            <CardTitle className="flex items-center text-red-700">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-              Limpar Banco de Dados
-            </CardTitle>
-            <CardDescription className="text-red-700">
-              Esta ação irá remover todos os serviços, clientes e agendamentos do sistema. Apenas os usuários e provedores serão mantidos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              variant="destructive" 
-              onClick={handleClearDatabase}
-              disabled={clearDatabaseMutation.isPending}
-              className="w-full"
-            >
-              {clearDatabaseMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-              )}
-              Limpar Banco de Dados
-            </Button>
-          </CardContent>
-        </Card>
-        
         {/* Formulário de Criação de Usuário */}
         <Card>
           <CardHeader>
@@ -913,7 +1155,7 @@ export default function AdminPage() {
 
       {/* Modal para gerenciar planos de assinatura */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>Gerenciar Planos de Assinatura</DialogTitle>
             <DialogDescription>
@@ -921,6 +1163,16 @@ export default function AdminPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
+            <div className="flex justify-end mb-4">
+              <Button 
+                onClick={handleOpenNewPlanDialog}
+                className="flex items-center"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Novo Plano
+              </Button>
+            </div>
+            
             {isLoadingPlans ? (
               <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -954,15 +1206,48 @@ export default function AdminPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditPlanPrice(plan)}
-                          className="h-8 px-2 text-primary hover:text-primary"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Editar Preço
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditPlanPrice(plan)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar Preço
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => handleEditFullPlan(plan)}>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                              Editar Plano
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => handleTogglePlanActive(plan)}>
+                              {plan.isActive ? (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M18.36 6.64A9 9 0 0 1 20.77 15"></path><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"></path><path d="M12 2v4"></path><path d="M2 12h4"></path><path d="M12 18v4"></path><path d="M18 12h4"></path></svg>
+                                  Desativar
+                                </>
+                              ) : (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                                  Ativar
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem 
+                              onClick={() => handleDeletePlanDialog(plan)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1049,6 +1334,219 @@ export default function AdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Diálogo para criar novo plano */}
+      <Dialog open={isNewPlanDialogOpen} onOpenChange={setIsNewPlanDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Plano</DialogTitle>
+            <DialogDescription>
+              Adicione um novo plano de assinatura ao sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome do Plano</Label>
+              <Input
+                id="name"
+                placeholder="Ex: Mensal, Trimestral, Anual"
+                value={newPlan.name}
+                onChange={(e) => setNewPlan({...newPlan, name: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Descrição (opcional)</Label>
+              <Input
+                id="description"
+                placeholder="Descrição do plano"
+                value={newPlan.description}
+                onChange={(e) => setNewPlan({...newPlan, description: e.target.value})}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="durationMonths">Duração (meses)</Label>
+                <Input
+                  id="durationMonths"
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 1, 3, 12"
+                  value={newPlan.durationMonths}
+                  onChange={(e) => setNewPlan({...newPlan, durationMonths: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="price">Preço (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="pl-9"
+                    value={newPlan.price}
+                    onChange={(e) => setNewPlan({...newPlan, price: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={newPlan.isActive}
+                onChange={(e) => setNewPlan({...newPlan, isActive: e.target.checked})}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <Label htmlFor="isActive" className="text-sm font-normal">Plano ativo para compra</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNewPlanDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              onClick={handleCreatePlan}
+              disabled={createPlanMutation.isPending}
+            >
+              {createPlanMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : "Criar Plano"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Diálogo para edição completa do plano */}
+      <Dialog open={isEditFullPlanDialogOpen} onOpenChange={setIsEditFullPlanDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Editar Plano</DialogTitle>
+            <DialogDescription>
+              Atualize as informações do plano de assinatura.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nome do Plano</Label>
+              <Input
+                id="edit-name"
+                placeholder="Ex: Mensal, Trimestral, Anual"
+                value={editedPlan.name}
+                onChange={(e) => setEditedPlan({...editedPlan, name: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Descrição (opcional)</Label>
+              <Input
+                id="edit-description"
+                placeholder="Descrição do plano"
+                value={editedPlan.description}
+                onChange={(e) => setEditedPlan({...editedPlan, description: e.target.value})}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-durationMonths">Duração (meses)</Label>
+                <Input
+                  id="edit-durationMonths"
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 1, 3, 12"
+                  value={editedPlan.durationMonths}
+                  onChange={(e) => setEditedPlan({...editedPlan, durationMonths: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-price">Preço (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                  <Input
+                    id="edit-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="pl-9"
+                    value={editedPlan.price}
+                    onChange={(e) => setEditedPlan({...editedPlan, price: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-isActive"
+                checked={editedPlan.isActive}
+                onChange={(e) => setEditedPlan({...editedPlan, isActive: e.target.checked})}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <Label htmlFor="edit-isActive" className="text-sm font-normal">Plano ativo para compra</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditFullPlanDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              onClick={handleSaveEditedPlan}
+              disabled={updateFullPlanMutation.isPending}
+            >
+              {updateFullPlanMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Diálogo de confirmação de exclusão */}
+      <AlertDialog open={isDeletePlanDialogOpen} onOpenChange={setIsDeletePlanDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Plano</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o plano "{planToEdit?.name}"? Esta ação não pode ser desfeita.
+              <br /><br />
+              <strong>Nota:</strong> Planos que possuem transações associadas não podem ser excluídos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeletePlan}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deletePlanMutation.isPending}
+            >
+              {deletePlanMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

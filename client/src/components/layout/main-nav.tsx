@@ -14,7 +14,6 @@ const MainNav: React.FC = () => {
     { href: "/clients", name: "Clientes", active: location === "/clients" },
     { href: "/services", name: "Serviços", active: location === "/services" },
     { href: "/financial", name: "Financeiro", active: location === "/financial" },
-    { href: "/settings", name: "Configurações", active: location === "/settings" },
   ];
   
   // Adiciona a página de administração apenas para usuários admin
