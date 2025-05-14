@@ -5,7 +5,13 @@ WORKDIR /app
 # Instalar ferramentas adicionais para depuração e execução
 RUN apk add --no-cache curl bash
 
-# Copiar todos os arquivos do projeto
+# Copiar apenas os arquivos de configuração primeiro
+COPY package.json package-lock.json ./
+
+# Instalar apenas as dependências de produção
+RUN npm install --only=production
+
+# Copiar o resto dos arquivos
 COPY . .
 
 # Criar diretório dist se não existir
