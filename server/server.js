@@ -29,15 +29,29 @@ express.static.mime.define({
 console.log('Verificando diretórios disponíveis:');
 const distPath = path.join(__dirname, '../dist');
 const clientPath = path.join(__dirname, '../client');
+const publicPath = path.join(__dirname, '../public');
 const assetsPath = path.join(__dirname, '../dist/assets');
 const clientAssetsPath = path.join(__dirname, '../client/assets');
 
 console.log('Diretório dist existe:', fs.existsSync(distPath));
 console.log('Diretório client existe:', fs.existsSync(clientPath));
+console.log('Diretório public existe:', fs.existsSync(publicPath));
 console.log('Diretório dist/assets existe:', fs.existsSync(assetsPath));
 console.log('Diretório client/assets existe:', fs.existsSync(clientAssetsPath));
 
 // Servir arquivos estáticos com opções de tipo MIME
+// Priorizar arquivos do diretório public
+app.use(express.static(publicPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
+
+// Depois servir arquivos do dist
 app.use(express.static(distPath, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
@@ -48,6 +62,7 @@ app.use(express.static(distPath, {
   }
 }));
 
+// Por último, tentar servir do client
 app.use(express.static(clientPath, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
@@ -260,27 +275,35 @@ app.all('/api/admin/run-migrations', async (req, res) => {
   }
 });
 
-// Rota para a página inicial e todas as outras rotas do frontend
+// Rota para servir o frontend
 app.get('*', (req, res) => {
-  console.log('Rota acessada:', req.path);
-  
-  // Se for uma rota de API não encontrada
-  if (req.path.startsWith('/api/') && req.path !== '/api/health' && req.path !== '/api/info') {
-    console.log('Rota de API não encontrada:', req.path);
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  
-  // Para todas as outras rotas, servir o index.html ou uma página padrão
   try {
+    // Verificar se a requisição é para a API
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
+    // Primeiro tentar servir o arquivo index.html do diretório public
+    const publicIndexPath = path.join(__dirname, '../public/index.html');
+    if (fs.existsSync(publicIndexPath)) {
+      console.log('Servindo index.html do diretório public');
+      return res.sendFile(publicIndexPath);
+    }
+
+    // Depois tentar servir o arquivo index.html do diretório dist
     const indexPath = path.join(__dirname, '../dist/index.html');
     if (fs.existsSync(indexPath)) {
-      console.log('Servindo index.html');
-      res.sendFile(indexPath);
+      console.log('Servindo index.html do diretório dist');
+      return res.sendFile(indexPath);
     } else {
-      console.log('Arquivo index.html não encontrado, servindo página padrão');
-      res.status(200).send(`
-        <html>
+      // Se não existir, enviar uma página HTML básica
+      console.log('Servindo HTML básico');
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
           <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Sistema de Agendamento</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
