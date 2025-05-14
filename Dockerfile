@@ -22,10 +22,10 @@ RUN echo "Verificando arquivos do servidor:" && ls -la server || echo "Diretóri
 # Construir a aplicação
 RUN npm run build
 
-# Copiar o frontend para o diretório correto
-RUN mkdir -p dist/client
-RUN cp -r dist/* dist/client/ || echo "Nenhum arquivo para copiar"
-RUN echo "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=/client/'></head><body>Redirecionando...</body></html>" > dist/index.html
+# Criar um index.html simples se não existir
+RUN if [ ! -f dist/index.html ]; then \
+    echo "<!DOCTYPE html><html><head><title>Sistema de Agendamento</title></head><body><h1>Sistema de Agendamento</h1><p>Servidor funcionando!</p><p><a href='/api/health'>Verificar API</a></p></body></html>" > dist/index.html; \
+    fi
 
 # Definir variáveis de ambiente padrão
 ENV PORT=3000

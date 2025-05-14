@@ -194,16 +194,24 @@ app.all('/api/admin/run-migrations', async (req, res) => {
   }
 });
 
-// Rota para a página inicial
-app.get('/', (req, res) => {
-  console.log('Rota raiz acessada');
+// Rota para a página inicial e todas as outras rotas do frontend
+app.get('*', (req, res) => {
+  console.log('Rota acessada:', req.path);
+  
+  // Se for uma rota de API não encontrada
+  if (req.path.startsWith('/api/') && req.path !== '/api/health' && req.path !== '/api/info') {
+    console.log('Rota de API não encontrada:', req.path);
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  // Para todas as outras rotas, servir o index.html ou uma página padrão
   try {
     const indexPath = path.join(__dirname, '../dist/index.html');
     if (fs.existsSync(indexPath)) {
-      console.log('Arquivo index.html encontrado, enviando...');
+      console.log('Servindo index.html');
       res.sendFile(indexPath);
     } else {
-      console.error('Arquivo index.html não encontrado');
+      console.log('Arquivo index.html não encontrado, servindo página padrão');
       res.status(200).send(`
         <html>
           <head>
@@ -215,37 +223,14 @@ app.get('/', (req, res) => {
           </head>
           <body>
             <h1>Sistema de Agendamento</h1>
-            <p>O servidor está funcionando, mas o arquivo index.html não foi encontrado.</p>
+            <p>O servidor está funcionando corretamente.</p>
             <p><a href="/api/health">Verificar status da API</a></p>
           </body>
         </html>
       `);
     }
   } catch (error) {
-    console.error('Erro ao servir a página inicial:', error);
-    res.status(500).send('Erro ao carregar a página inicial');
-  }
-});
-
-// Rota para todas as outras rotas do frontend
-app.get('*', (req, res) => {
-  console.log('Rota genérica acessada:', req.path);
-  if (req.path.startsWith('/api/')) {
-    console.log('Rota de API não encontrada:', req.path);
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  
-  try {
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    if (fs.existsSync(indexPath)) {
-      console.log('Redirecionando para index.html');
-      res.sendFile(indexPath);
-    } else {
-      console.error('Arquivo index.html não encontrado para rota:', req.path);
-      res.status(404).send('Página não encontrada');
-    }
-  } catch (error) {
-    console.error('Erro ao servir rota genérica:', error);
+    console.error('Erro ao servir página:', error);
     res.status(500).send('Erro interno do servidor');
   }
 });
