@@ -20,6 +20,64 @@ app.use(express.json());
 // Servir arquivos estáticos
 app.use(express.static(path.join(__dirname, '../dist')));
 
+// Verificar se o diretório dist existe
+console.log('Verificando diretório dist:');
+try {
+  if (fs.existsSync(path.join(__dirname, '../dist'))) {
+    console.log('Diretório dist encontrado');
+    console.log('Conteúdo do diretório dist:');
+    const distFiles = fs.readdirSync(path.join(__dirname, '../dist'));
+    console.log(distFiles);
+  } else {
+    console.error('Diretório dist não encontrado');
+    // Criar diretório dist e um arquivo index.html básico se não existir
+    fs.mkdirSync(path.join(__dirname, '../dist'), { recursive: true });
+    fs.writeFileSync(
+      path.join(__dirname, '../dist/index.html'),
+      `<!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sistema de Agendamento</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }
+          .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+          h1 { color: #333; }
+          .card { background-color: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Sistema de Agendamento</h1>
+          <div class="card">
+            <h2>Bem-vindo ao Sistema de Agendamento</h2>
+            <p>O servidor está funcionando corretamente.</p>
+            <p>Status da API: <span id="apiStatus">Verificando...</span></p>
+          </div>
+        </div>
+        <script>
+          // Verificar status da API
+          fetch('/api/health')
+            .then(response => response.json())
+            .then(data => {
+              document.getElementById('apiStatus').textContent = 'Conectado';
+              document.getElementById('apiStatus').style.color = 'green';
+            })
+            .catch(error => {
+              document.getElementById('apiStatus').textContent = 'Desconectado';
+              document.getElementById('apiStatus').style.color = 'red';
+            });
+        </script>
+      </body>
+      </html>`
+    );
+    console.log('Arquivo index.html básico criado');
+  }
+} catch (error) {
+  console.error('Erro ao verificar diretório dist:', error);
+}
+
 // Informações sobre o ambiente
 console.log('Variáveis de ambiente:');
 console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
@@ -136,9 +194,60 @@ app.all('/api/admin/run-migrations', async (req, res) => {
   }
 });
 
-// Rota para a página inicial e todas as outras rotas do frontend
+// Rota para a página inicial
+app.get('/', (req, res) => {
+  console.log('Rota raiz acessada');
+  try {
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    if (fs.existsSync(indexPath)) {
+      console.log('Arquivo index.html encontrado, enviando...');
+      res.sendFile(indexPath);
+    } else {
+      console.error('Arquivo index.html não encontrado');
+      res.status(200).send(`
+        <html>
+          <head>
+            <title>Sistema de Agendamento</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+              h1 { color: #333; }
+            </style>
+          </head>
+          <body>
+            <h1>Sistema de Agendamento</h1>
+            <p>O servidor está funcionando, mas o arquivo index.html não foi encontrado.</p>
+            <p><a href="/api/health">Verificar status da API</a></p>
+          </body>
+        </html>
+      `);
+    }
+  } catch (error) {
+    console.error('Erro ao servir a página inicial:', error);
+    res.status(500).send('Erro ao carregar a página inicial');
+  }
+});
+
+// Rota para todas as outras rotas do frontend
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  console.log('Rota genérica acessada:', req.path);
+  if (req.path.startsWith('/api/')) {
+    console.log('Rota de API não encontrada:', req.path);
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  try {
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    if (fs.existsSync(indexPath)) {
+      console.log('Redirecionando para index.html');
+      res.sendFile(indexPath);
+    } else {
+      console.error('Arquivo index.html não encontrado para rota:', req.path);
+      res.status(404).send('Página não encontrada');
+    }
+  } catch (error) {
+    console.error('Erro ao servir rota genérica:', error);
+    res.status(500).send('Erro interno do servidor');
+  }
 });
 
 // Iniciar o servidor
