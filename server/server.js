@@ -18,14 +18,22 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Verificar se o diretório dist existe
+// Verificar se os diretórios dist e dist/public existem
 const distPath = path.join(__dirname, '../dist');
+const publicPath = path.join(distPath, 'public');
+
 if (!fs.existsSync(distPath)) {
   fs.mkdirSync(distPath, { recursive: true });
   console.log('Diretório dist criado');
 }
 
-// Servir arquivos estáticos do diretório dist
+// Servir arquivos estáticos do diretório dist/public (onde o Vite coloca os arquivos do frontend)
+if (fs.existsSync(publicPath)) {
+  console.log('Servindo arquivos estáticos do diretório dist/public');
+  app.use(express.static(publicPath));
+}
+
+// Servir arquivos estáticos do diretório dist como fallback
 app.use(express.static(distPath));
 
 // Verificar se existe um arquivo index.html no diretório dist
@@ -208,14 +216,21 @@ app.get('*', (req, res) => {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
 
-    // Servir o arquivo index.html do diretório dist (frontend React construído)
+    // Primeiro tentar servir o arquivo index.html do diretório dist/public (onde o Vite coloca os arquivos do frontend)
+    const publicIndexPath = path.join(__dirname, '../dist/public/index.html');
+    if (fs.existsSync(publicIndexPath)) {
+      console.log('Servindo index.html do diretório dist/public');
+      return res.sendFile(publicIndexPath);
+    }
+    
+    // Se não existir, tentar servir o arquivo index.html do diretório dist como fallback
     const indexPath = path.join(__dirname, '../dist/index.html');
     if (fs.existsSync(indexPath)) {
-      console.log('Servindo index.html do frontend React');
+      console.log('Servindo index.html do diretório dist');
       return res.sendFile(indexPath);
     } else {
       // Se não existir, enviar uma mensagem de erro
-      console.error('Arquivo index.html não encontrado no diretório dist');
+      console.error('Arquivo index.html não encontrado');
       res.status(500).send('Erro: Frontend não encontrado. Por favor, verifique se o build foi realizado corretamente.');
     }
   } catch (error) {
