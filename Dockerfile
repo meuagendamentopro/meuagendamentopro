@@ -8,8 +8,8 @@ RUN apk add --no-cache curl bash
 # Copiar apenas os arquivos de configuração primeiro
 COPY package.json package-lock.json ./
 
-# Instalar apenas as dependências de produção
-RUN npm install --only=production
+# Instalar apenas as dependências de produção sem executar scripts
+RUN npm install --only=production --ignore-scripts
 
 # Copiar o resto dos arquivos
 COPY . .
