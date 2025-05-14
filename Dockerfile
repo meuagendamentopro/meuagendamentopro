@@ -1,4 +1,4 @@
-FROM node:16
+FROM node:16-slim
 
 WORKDIR /app
 
@@ -6,14 +6,18 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Instalar apenas as dependências de produção
-RUN npm install --only=production
+RUN npm install --production --no-optional --no-audit
 
-# Copiar o resto dos arquivos
-COPY . .
+# Copiar apenas os arquivos necessários para o backend
+COPY server ./server
+COPY shared ./shared
+COPY drizzle.config.ts ./
 
-# Criar diretório dist e copiar o index.html estático
+# Criar diretório dist para arquivos estáticos
 RUN mkdir -p dist
-COPY static-index.html dist/index.html
+
+# Criar um arquivo HTML simples para a página inicial
+RUN echo '<!DOCTYPE html><html><head><title>API do Sistema de Agendamento</title><style>body{font-family:sans-serif;margin:40px;line-height:1.6}h1{color:#4a6cf7}</style></head><body><h1>API do Sistema de Agendamento</h1><p>A API está funcionando. Acesse <a href="/api/health">/api/health</a> para verificar o status.</p></body></html>' > dist/index.html
 
 # Definir variáveis de ambiente padrão
 ENV PORT=3000

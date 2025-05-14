@@ -18,135 +18,70 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configurar tipos MIME para arquivos JavaScript
-express.static.mime.define({
-  'application/javascript': ['js', 'mjs'],
-  'text/javascript': ['js', 'mjs'],
-  'text/html': ['html']
-});
-
-// Verificar diretórios disponíveis
-console.log('Verificando diretórios disponíveis:');
+// Verificar se o diretório dist existe
 const distPath = path.join(__dirname, '../dist');
-const clientPath = path.join(__dirname, '../client');
-const publicPath = path.join(__dirname, '../public');
-const assetsPath = path.join(__dirname, '../dist/assets');
-const clientAssetsPath = path.join(__dirname, '../client/assets');
-
-console.log('Diretório dist existe:', fs.existsSync(distPath));
-console.log('Diretório client existe:', fs.existsSync(clientPath));
-console.log('Diretório public existe:', fs.existsSync(publicPath));
-console.log('Diretório dist/assets existe:', fs.existsSync(assetsPath));
-console.log('Diretório client/assets existe:', fs.existsSync(clientAssetsPath));
-
-// Servir arquivos estáticos com opções de tipo MIME
-// Priorizar arquivos do diretório dist (onde o frontend React é construído)
-app.use(express.static(distPath, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (filePath.endsWith('.mjs')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    } else if (filePath.endsWith('.html')) {
-      res.setHeader('Content-Type', 'text/html');
-    } else if (filePath.endsWith('.svg')) {
-      res.setHeader('Content-Type', 'image/svg+xml');
-    } else if (filePath.endsWith('.png')) {
-      res.setHeader('Content-Type', 'image/png');
-    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
-      res.setHeader('Content-Type', 'image/jpeg');
-    } else if (filePath.endsWith('.json')) {
-      res.setHeader('Content-Type', 'application/json');
-    }
-  }
-}));
-
-// Tentar copiar arquivos do cliente para dist se existirem
-try {
-  if (fs.existsSync(clientPath) && fs.existsSync(distPath)) {
-    console.log('Copiando arquivos do cliente para dist...');
-    const clientFiles = fs.readdirSync(clientPath);
-    for (const file of clientFiles) {
-      const srcPath = path.join(clientPath, file);
-      const destPath = path.join(distPath, file);
-      if (fs.statSync(srcPath).isFile()) {
-        fs.copyFileSync(srcPath, destPath);
-        console.log(`Copiado ${srcPath} para ${destPath}`);
-      }
-    }
-  }
-} catch (error) {
-  console.error('Erro ao copiar arquivos:', error);
+if (!fs.existsSync(distPath)) {
+  fs.mkdirSync(distPath, { recursive: true });
+  console.log('Diretório dist criado');
 }
 
-// Verificar diretórios disponíveis
-console.log('Verificando diretórios disponíveis:');
-console.log('__dirname:', __dirname);
-console.log('Diretório dist:', path.join(__dirname, '../dist'));
-console.log('Diretório client:', path.join(__dirname, '../client'));
+// Servir arquivos estáticos do diretório dist
+app.use(express.static(distPath));
 
-// Verificar se os diretórios existem
-console.log('Diretório dist existe:', fs.existsSync(path.join(__dirname, '../dist')));
-console.log('Diretório client existe:', fs.existsSync(path.join(__dirname, '../client')));
-
-// Verificar se o diretório dist existe
-console.log('Verificando diretório dist:');
-try {
-  if (fs.existsSync(path.join(__dirname, '../dist'))) {
-    console.log('Diretório dist encontrado');
-    console.log('Conteúdo do diretório dist:');
-    const distFiles = fs.readdirSync(path.join(__dirname, '../dist'));
-    console.log(distFiles);
-  } else {
-    console.error('Diretório dist não encontrado');
-    // Criar diretório dist e um arquivo index.html básico se não existir
-    fs.mkdirSync(path.join(__dirname, '../dist'), { recursive: true });
-    fs.writeFileSync(
-      path.join(__dirname, '../dist/index.html'),
-      `<!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sistema de Agendamento</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }
-          .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-          h1 { color: #333; }
-          .card { background-color: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Sistema de Agendamento</h1>
-          <div class="card">
-            <h2>Bem-vindo ao Sistema de Agendamento</h2>
-            <p>O servidor está funcionando corretamente.</p>
-            <p>Status da API: <span id="apiStatus">Verificando...</span></p>
-          </div>
-        </div>
-        <script>
-          // Verificar status da API
-          fetch('/api/health')
-            .then(response => response.json())
-            .then(data => {
-              document.getElementById('apiStatus').textContent = 'Conectado';
-              document.getElementById('apiStatus').style.color = 'green';
-            })
-            .catch(error => {
-              document.getElementById('apiStatus').textContent = 'Desconectado';
-              document.getElementById('apiStatus').style.color = 'red';
-            });
-        </script>
-      </body>
-      </html>`
-    );
-    console.log('Arquivo index.html básico criado');
-  }
-} catch (error) {
-  console.error('Erro ao verificar diretório dist:', error);
+// Verificar se existe um arquivo index.html no diretório dist
+const indexPath = path.join(distPath, 'index.html');
+if (!fs.existsSync(indexPath)) {
+  console.log('Criando arquivo index.html no diretório dist');
+  fs.writeFileSync(
+    indexPath,
+    `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API do Sistema de Agendamento</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+    h1 { color: #4a6cf7; }
+    .card { background-color: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .status { padding: 15px; border-radius: 5px; margin: 20px 0; font-weight: 500; }
+    .online { background-color: #e6f7e6; color: #2e7d32; }
+    .offline { background-color: #ffebee; color: #c62828; }
+    a { color: #4a6cf7; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>API do Sistema de Agendamento</h1>
+  <div class="card">
+    <h2>Status do Sistema</h2>
+    <div id="api-status" class="status">Verificando status da API...</div>
+    <p>Endpoints disponíveis:</p>
+    <ul>
+      <li><a href="/api/health">/api/health</a> - Verificar status da API</li>
+      <li><a href="/api/info">/api/info</a> - Informações sobre a versão</li>
+    </ul>
+  </div>
+  <script>
+    // Verificar status da API
+    fetch('/api/health')
+      .then(response => response.json())
+      .then(data => {
+        const apiStatus = document.getElementById('api-status');
+        apiStatus.textContent = 'API Online - Banco de dados conectado';
+        apiStatus.classList.add('online');
+        console.log('Detalhes da API:', data);
+      })
+      .catch(error => {
+        const apiStatus = document.getElementById('api-status');
+        apiStatus.textContent = 'API Offline - Verifique os logs';
+        apiStatus.classList.add('offline');
+        console.error('Erro ao conectar com a API:', error);
+      });
+  </script>
+</body>
+</html>`
+  );
 }
 
 // Informações sobre o ambiente
