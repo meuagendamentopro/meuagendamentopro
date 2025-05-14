@@ -33,32 +33,50 @@ app.use((req, res, next) => {
 
 // Definir caminhos para os diretórios de arquivos estáticos
 const distPath = path.join(__dirname, '../dist');
-const publicPath = path.join(distPath, 'public');
-const clientPath = path.join(__dirname, '../client');
+const assetsPath = path.join(distPath, 'assets');
+const srcPath = path.join(__dirname, '../src');
+const publicPath = path.join(__dirname, '../public');
 
-// Criar diretório dist se não existir
+// Verificar se o diretório dist existe (onde o Vite coloca os arquivos construídos)
 if (!fs.existsSync(distPath)) {
+  console.log('AVISO: Diretório dist não encontrado. Tentando criar...');
   fs.mkdirSync(distPath, { recursive: true });
   console.log('Diretório dist criado');
 }
 
-// Servir arquivos estáticos em ordem de prioridade
 console.log('Configurando rotas para arquivos estáticos...');
 
-// 1. Primeiro tentar servir do diretório dist/public (onde o Vite coloca os arquivos construídos)
-if (fs.existsSync(publicPath)) {
-  console.log('Servindo arquivos estáticos do diretório dist/public');
-  app.use(express.static(publicPath));
+// Verificar e exibir o conteúdo do diretório dist para debug
+try {
+  console.log('Conteúdo do diretório dist:');
+  const distFiles = fs.readdirSync(distPath);
+  console.log(distFiles);
+  
+  if (fs.existsSync(assetsPath)) {
+    console.log('Conteúdo do diretório assets:');
+    const assetsFiles = fs.readdirSync(assetsPath);
+    console.log(assetsFiles);
+  }
+} catch (error) {
+  console.error('Erro ao listar diretório dist:', error);
 }
 
-// 2. Depois tentar servir do diretório dist
+// Servir arquivos estáticos em ordem de prioridade
+
+// 1. Primeiro servir do diretório dist (onde o Vite coloca os arquivos construídos)
 console.log('Servindo arquivos estáticos do diretório dist');
 app.use(express.static(distPath));
 
-// 3. Por último, tentar servir do diretório client (para desenvolvimento)
-if (fs.existsSync(clientPath)) {
-  console.log('Servindo arquivos estáticos do diretório client');
-  app.use(express.static(clientPath));
+// 2. Se dist não existir ou não tiver os arquivos necessários, servir do diretório public
+if (fs.existsSync(publicPath)) {
+  console.log('Servindo arquivos estáticos do diretório public');
+  app.use(express.static(publicPath));
+}
+
+// 3. Por último, tentar servir do diretório src (para desenvolvimento)
+if (fs.existsSync(srcPath)) {
+  console.log('Servindo arquivos estáticos do diretório src');
+  app.use(express.static(srcPath));
 }
 
 // Verificar se existe um arquivo index.html no diretório dist
@@ -243,19 +261,19 @@ app.get('*', (req, res) => {
 
     console.log('Recebida requisição para:', req.path);
     
-    // Verificar todos os possíveis locais do arquivo index.html
-    const possiblePaths = [
-      path.join(__dirname, '../dist/public/index.html'),  // Onde o Vite coloca os arquivos construídos
-      path.join(__dirname, '../dist/index.html'),         // Fallback para o diretório dist
-      path.join(__dirname, '../client/index.html')        // Para desenvolvimento local
-    ];
+    // Verificar o arquivo index.html gerado pelo Vite
+    const indexPath = path.join(__dirname, '../dist/index.html');
     
-    // Tentar cada caminho em ordem
-    for (const indexPath of possiblePaths) {
-      if (fs.existsSync(indexPath)) {
-        console.log('Arquivo index.html encontrado em:', indexPath);
-        return res.sendFile(indexPath);
-      }
+    if (fs.existsSync(indexPath)) {
+      console.log('Arquivo index.html encontrado em:', indexPath);
+      return res.sendFile(indexPath);
+    }
+    
+    // Se não existir, verificar no diretório public
+    const publicIndexPath = path.join(__dirname, '../public/index.html');
+    if (fs.existsSync(publicIndexPath)) {
+      console.log('Arquivo index.html encontrado em:', publicIndexPath);
+      return res.sendFile(publicIndexPath);
     }
     
     // Se nenhum arquivo index.html for encontrado, criar um HTML básico
@@ -280,6 +298,7 @@ app.get('*', (req, res) => {
         <div class="card">
           <h2>API Funcionando</h2>
           <p>A API está funcionando corretamente. Acesse <a href="/api/health">/api/health</a> para verificar o status.</p>
+          <p>O frontend não foi encontrado. Verifique o build.</p>
         </div>
       </body>
       </html>

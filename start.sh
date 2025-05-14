@@ -14,9 +14,16 @@ else
   echo "AVISO: DATABASE_URL não está configurado!"
 fi
 
-# Listar conteúdo do diretório para debug
-echo "Conteúdo do diretório:"
-ls -la
+# Verificar se o build foi gerado corretamente
+echo "Verificando arquivos do frontend:"
+ls -la dist
+
+# Verificar se o index.html existe
+if [ -f "dist/index.html" ]; then
+  echo "Frontend encontrado em dist/index.html"
+else
+  echo "AVISO: index.html não encontrado em dist/"
+fi
 
 # Iniciar o servidor
 echo "Iniciando o servidor..."
