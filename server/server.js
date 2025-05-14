@@ -72,8 +72,8 @@ app.get('/api/info', (req, res) => {
   });
 });
 
-// Rota para executar migrações
-app.post('/api/admin/run-migrations', async (req, res) => {
+// Rota para executar migrações (aceita tanto GET quanto POST)
+app.all('/api/admin/run-migrations', async (req, res) => {
   if (!db) {
     return res.status(500).json({ error: 'Banco de dados não configurado' });
   }
