@@ -1,9 +1,6 @@
-FROM node:16-alpine
+FROM node:16
 
 WORKDIR /app
-
-# Instalar ferramentas adicionais para depuração e execução
-RUN apk add --no-cache curl bash
 
 # Copiar apenas os arquivos de configuração primeiro
 COPY package.json package-lock.json ./
