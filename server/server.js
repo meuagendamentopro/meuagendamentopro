@@ -40,35 +40,25 @@ console.log('Diretório dist/assets existe:', fs.existsSync(assetsPath));
 console.log('Diretório client/assets existe:', fs.existsSync(clientAssetsPath));
 
 // Servir arquivos estáticos com opções de tipo MIME
-// Priorizar arquivos do diretório public
-app.use(express.static(publicPath, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (filePath.endsWith('.html')) {
-      res.setHeader('Content-Type', 'text/html');
-    }
-  }
-}));
-
-// Depois servir arquivos do dist
+// Priorizar arquivos do diretório dist (onde o frontend React é construído)
 app.use(express.static(distPath, {
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+    if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript');
+    } else if (filePath.endsWith('.mjs')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
     } else if (filePath.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html');
-    }
-  }
-}));
-
-// Por último, tentar servir do client
-app.use(express.static(clientPath, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (filePath.endsWith('.html')) {
-      res.setHeader('Content-Type', 'text/html');
+    } else if (filePath.endsWith('.svg')) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    } else if (filePath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (filePath.endsWith('.json')) {
+      res.setHeader('Content-Type', 'application/json');
     }
   }
 }));
@@ -283,40 +273,15 @@ app.get('*', (req, res) => {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
 
-    // Primeiro tentar servir o arquivo index.html do diretório public
-    const publicIndexPath = path.join(__dirname, '../public/index.html');
-    if (fs.existsSync(publicIndexPath)) {
-      console.log('Servindo index.html do diretório public');
-      return res.sendFile(publicIndexPath);
-    }
-
-    // Depois tentar servir o arquivo index.html do diretório dist
+    // Servir o arquivo index.html do diretório dist (frontend React construído)
     const indexPath = path.join(__dirname, '../dist/index.html');
     if (fs.existsSync(indexPath)) {
-      console.log('Servindo index.html do diretório dist');
+      console.log('Servindo index.html do frontend React');
       return res.sendFile(indexPath);
     } else {
-      // Se não existir, enviar uma página HTML básica
-      console.log('Servindo HTML básico');
-      res.send(`
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Sistema de Agendamento</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-              h1 { color: #333; }
-            </style>
-          </head>
-          <body>
-            <h1>Sistema de Agendamento</h1>
-            <p>O servidor está funcionando corretamente.</p>
-            <p><a href="/api/health">Verificar status da API</a></p>
-          </body>
-        </html>
-      `);
+      // Se não existir, enviar uma mensagem de erro
+      console.error('Arquivo index.html não encontrado no diretório dist');
+      res.status(500).send('Erro: Frontend não encontrado. Por favor, verifique se o build foi realizado corretamente.');
     }
   } catch (error) {
     console.error('Erro ao servir página:', error);

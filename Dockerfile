@@ -8,17 +8,14 @@ RUN apk add --no-cache curl bash
 # Copiar apenas os arquivos de configuração primeiro
 COPY package.json package-lock.json ./
 
-# Instalar apenas as dependências de produção sem executar scripts
-RUN npm install --only=production --ignore-scripts
+# Instalar todas as dependências (incluindo as de desenvolvimento para build)
+RUN npm install
 
 # Copiar o resto dos arquivos
 COPY . .
 
-# Criar diretório dist se não existir
-RUN mkdir -p dist
-
-# Copiar arquivo HTML estático para o diretório dist
-RUN cp -f static-index.html dist/index.html || echo "Arquivo static-index.html não encontrado"
+# Construir o frontend React
+RUN npm run build
 
 # Definir variáveis de ambiente padrão
 ENV PORT=3000
