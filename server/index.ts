@@ -353,13 +353,13 @@ app.get('/api/health', async (req, res) => {
 // Rota específica para servir o arquivo Excel
 app.get('/api/dados/dados.xlsx', (req, res) => {
   console.log('Requisição para o arquivo Excel recebida');
-  res.sendFile(path.resolve(__dirname, '../files/dados.xlsx'));
+  res.sendFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../files/dados.xlsx'));
 });
 
 // Rota alternativa para o arquivo Excel
 app.get('/dados.xlsx', (req, res) => {
   console.log('Requisição alternativa para o arquivo Excel recebida');
-  res.sendFile(path.resolve(__dirname, '../files/dados.xlsx'));
+  res.sendFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../files/dados.xlsx'));
 });
 
 app.use((req, res, next) => {
