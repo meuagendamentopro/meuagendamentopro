@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { fileURLToPath } from "url";
+import { dirname } from "path";
 
 // Middleware para verificar se o usuário está autenticado
 const checkAuth = (req: any, res: any, next: any) => {
@@ -24,9 +25,9 @@ const checkAdmin = (req: any, res: any, next: any) => {
   return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem acessar este recurso.' });
 };
 
-// Obter o diretório atual em módulos ES
+// Obter o diretório atual (substitui __dirname que não está disponível em ESM)
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 

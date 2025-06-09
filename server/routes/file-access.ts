@@ -2,6 +2,12 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { checkAuth } from '../middleware/auth';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Obter o diretório atual (substitui __dirname que não está disponível em ESM)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 
