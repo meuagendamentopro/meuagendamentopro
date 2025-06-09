@@ -322,44 +322,16 @@ app.get('/api/updates/download/:filename', async (req: Request, res: Response) =
   }
 });
 
-// Rota de health check simples (fallback)
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-// Rota de health check para Railway
-app.get('/api/health', async (req, res) => {
-  try {
-    // Testar conexão com banco de dados
-    const dbTest = await pool.query('SELECT 1 as test');
-    
-    res.status(200).json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
-      database: 'connected',
-      uptime: process.uptime()
-    });
-  } catch (error) {
-    console.error('Health check failed:', error);
-    res.status(503).json({ 
-      status: 'ERROR', 
-      timestamp: new Date().toISOString(),
-      error: 'Database connection failed'
-    });
-  }
-});
-
 // Rota específica para servir o arquivo Excel
 app.get('/api/dados/dados.xlsx', (req, res) => {
   console.log('Requisição para o arquivo Excel recebida');
-  res.sendFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../files/dados.xlsx'));
+  res.sendFile(path.resolve(__dirname, '../files/dados.xlsx'));
 });
 
 // Rota alternativa para o arquivo Excel
 app.get('/dados.xlsx', (req, res) => {
   console.log('Requisição alternativa para o arquivo Excel recebida');
-  res.sendFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../files/dados.xlsx'));
+  res.sendFile(path.resolve(__dirname, '../files/dados.xlsx'));
 });
 
 app.use((req, res, next) => {
@@ -395,18 +367,9 @@ app.use((req, res, next) => {
 (async () => {
   try {
     // Log para fins de depuração, mostra o ambiente
-    console.log('=== INICIANDO SERVIDOR ===');
     console.log(`Ambiente: ${process.env.NODE_ENV}`);
     console.log(`DATABASE_URL disponível: ${!!process.env.DATABASE_URL}`);
     console.log(`Porta configurada: ${process.env.PORT || 3003}`);
-    console.log(`Host configurado: ${process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'}`);
-    
-    // Debug das variáveis de ambiente críticas
-    console.log('Variáveis críticas:');
-    console.log(`- NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`- PORT: ${process.env.PORT}`);
-    console.log(`- DATABASE_URL: ${process.env.DATABASE_URL ? 'DEFINIDA' : 'NÃO DEFINIDA'}`);
-    console.log(`- SESSION_SECRET: ${process.env.SESSION_SECRET ? 'DEFINIDA' : 'NÃO DEFINIDA'}`);
     
     // Diagnóstico da conexão com o banco de dados
     try {
@@ -476,24 +439,25 @@ app.use((req, res, next) => {
 
     // Use a porta do ambiente, configuração local ou 3003 como fallback
     const port = process.env.PORT ? parseInt(process.env.PORT) : (localConfig.server.port || 3003);
-    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
-    server.listen({
-      port,
-      host,
-      // reusePort: true, // Esta opção não é suportada no Windows
-    }, () => {
-      log(`Servidor rodando na porta ${port} em modo ${app.get("env")} (host: ${host})`);
+    
+    // No Railway, não especificamos host (usa 0.0.0.0 por padrão)
+    // Localmente, usa localhost
+    const isProduction = process.env.NODE_ENV === 'production';
+    const serverOptions = isProduction 
+      ? { port } 
+      : { port, host: "localhost" };
+    
+    server.listen(serverOptions, () => {
+      log(`Servidor rodando na porta ${port} em modo ${app.get("env")}`);
+      if (isProduction) {
+        log(`Servidor disponível em: https://seu-app.railway.app`);
+      } else {
+        log(`Servidor disponível em: http://localhost:${port}`);
+      }
     });
   } catch (error) {
-    console.error("=== ERRO FATAL DURANTE A INICIALIZAÇÃO ===");
-    console.error("Erro:", error);
-    console.error("Stack trace:", error instanceof Error ? error.stack : 'N/A');
-    console.error("Ambiente:", process.env.NODE_ENV);
-    console.error("DATABASE_URL definida:", !!process.env.DATABASE_URL);
-    
-    // Aguarda um pouco antes de sair para garantir que os logs sejam enviados
-    setTimeout(() => {
-      process.exit(1);
-    }, 1000);
+    console.error("Erro fatal durante a inicialização do servidor:", error);
+    // Não deixa o processo morrer silenciosamente
+    process.exit(1);
   }
 })();

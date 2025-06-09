@@ -1,16 +1,10 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
-
-// Obter o diretório atual (substitui __dirname que não está disponível em ESM)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const viteLogger = createLogger();
 
@@ -29,7 +23,7 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true as const,
+    allowedHosts: true,
   };
 
   const vite = await createViteServer({
@@ -52,7 +46,7 @@ export async function setupVite(app: Express, server: Server) {
 
     try {
       const clientTemplate = path.resolve(
-        __dirname,
+        import.meta.dirname,
         "..",
         "client",
         "index.html",
@@ -74,12 +68,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  if (!__dirname) {
-    throw new Error("__dirname is not defined");
-  }
-  
-  const distPath = path.resolve(__dirname, "public");
-  console.log(`Serving static files from: ${distPath}`);
+  const distPath = path.resolve(import.meta.dirname, "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
@@ -91,12 +80,6 @@ export function serveStatic(app: Express) {
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    const indexPath = path.resolve(distPath, "index.html");
-    if (!fs.existsSync(indexPath)) {
-      console.error(`index.html not found at: ${indexPath}`);
-      res.status(404).send("index.html not found");
-      return;
-    }
-    res.sendFile(indexPath);
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
