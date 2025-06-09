@@ -303,6 +303,82 @@ const subscriptionPlansData = [
   }
 ];
 
+async function checkTableStructure(tableName) {
+  try {
+    const result = await client.query(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns 
+      WHERE table_name = $1 AND table_schema = 'public'
+      ORDER BY ordinal_position
+    `, [tableName]);
+    
+    return result.rows;
+  } catch (error) {
+    console.log(`⚠️ Erro ao verificar estrutura da tabela ${tableName}:`, error.message);
+    return [];
+  }
+}
+
+async function insertSystemSettings() {
+  console.log('⚙️ Verificando configurações do sistema...');
+  
+  try {
+    // Verificar se a tabela existe e sua estrutura
+    const structure = await checkTableStructure('system_settings');
+    console.log(`📋 Estrutura da tabela system_settings:`, structure.map(col => col.column_name));
+    
+    // Verificar se já existem configurações
+    const existingSettings = await client.query('SELECT COUNT(*) FROM system_settings');
+    const settingsCount = parseInt(existingSettings.rows[0].count);
+
+    if (settingsCount === 0) {
+      console.log('⚙️ Inserindo configurações do sistema...');
+      
+      // Verificar quais colunas existem
+      const hasNewStructure = structure.some(col => col.column_name === 'site_name');
+      
+      if (hasNewStructure) {
+        // Nova estrutura
+        await client.query(`
+          INSERT INTO system_settings (site_name, trial_period_days, maintenance_mode)
+          VALUES ($1, $2, $3)
+        `, ['Meu Agendamento PRO', 3, false]);
+      } else {
+        // Estrutura antiga - inserir dados compatíveis
+        console.log('📝 Detectada estrutura antiga da tabela system_settings');
+        
+        // Verificar se tem as colunas antigas
+        const hasOldStructure = structure.some(col => col.column_name === 'setting_key');
+        
+        if (hasOldStructure) {
+          // Inserir configurações no formato antigo
+          await client.query(`
+            INSERT INTO system_settings (provider_id, setting_key, setting_value)
+            VALUES (NULL, 'site_name', 'Meu Agendamento PRO')
+          `);
+          await client.query(`
+            INSERT INTO system_settings (provider_id, setting_key, setting_value)
+            VALUES (NULL, 'trial_period_days', '3')
+          `);
+          await client.query(`
+            INSERT INTO system_settings (provider_id, setting_key, setting_value)
+            VALUES (NULL, 'maintenance_mode', 'false')
+          `);
+        } else {
+          console.log('⚠️ Estrutura da tabela system_settings não reconhecida, pulando inserção');
+        }
+      }
+      
+      console.log('✅ Configurações do sistema inseridas');
+    } else {
+      console.log(`⚙️ Configurações do sistema já existem (${settingsCount} registros)`);
+    }
+  } catch (error) {
+    console.log(`⚠️ Erro ao inserir configurações do sistema: ${error.message}`);
+    // Não falhar a migração por causa das configurações
+  }
+}
+
 async function createTestUsers() {
   console.log('\n👥 Criando usuários de teste...');
   
@@ -423,30 +499,22 @@ async function runMigration() {
     if (planCount === 0) {
       console.log('📦 Inserindo planos de assinatura...');
       for (const plan of subscriptionPlansData) {
-        await client.query(`
-          INSERT INTO subscription_plans (name, description, price, duration_days, features)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [plan.name, plan.description, plan.price, plan.duration_days, plan.features]);
+        try {
+          await client.query(`
+            INSERT INTO subscription_plans (name, description, price, duration_days, features)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [plan.name, plan.description, plan.price, plan.duration_days, plan.features]);
+        } catch (error) {
+          console.log(`  ⚠️ Erro ao inserir plano ${plan.name}: ${error.message}`);
+        }
       }
-      console.log(`✅ ${subscriptionPlansData.length} planos de assinatura inseridos`);
+      console.log(`✅ Planos de assinatura inseridos`);
     } else {
       console.log(`📦 Planos de assinatura já existem (${planCount} planos)`);
     }
 
-    // Verificar configurações do sistema
-    const existingSettings = await client.query('SELECT COUNT(*) FROM system_settings');
-    const settingsCount = parseInt(existingSettings.rows[0].count);
-
-    if (settingsCount === 0) {
-      console.log('⚙️ Inserindo configurações do sistema...');
-      await client.query(`
-        INSERT INTO system_settings (site_name, trial_period_days, maintenance_mode)
-        VALUES ($1, $2, $3)
-      `, ['Meu Agendamento PRO', 3, false]);
-      console.log('✅ Configurações do sistema inseridas');
-    } else {
-      console.log('⚙️ Configurações do sistema já existem');
-    }
+    // Inserir configurações do sistema (com verificação de estrutura)
+    await insertSystemSettings();
 
     // Criar usuários de teste
     await createTestUsers();
