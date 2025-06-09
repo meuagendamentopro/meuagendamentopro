@@ -1,0 +1,48 @@
+# Arquivos de desenvolvimento
+.replit
+.config/
+.git/
+node_modules/
+
+# Arquivos Python desnecessários
+*.py
+*.spec
+__pycache__/
+
+# Arquivos de migração local
+migration-script.cjs
+check-dependencies.cjs
+
+# Arquivos de documentação
+*.md
+docs/
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.log
+
+# Arquivos de backup
+old/
+build/
+updates/
+attached_assets/
+
+# Arquivos de dados
+dados.xlsx
+*.png
+*.jpg
+*.jpeg
+Thumbs.db
+.DS_Store
+
+# Arquivos de teste
+test-*.js
+test-*.mjs
+db-test.*
+list-users.*
+
+# Arquivos de configuração local
+env-example.txt
+cookies.txt
+query 

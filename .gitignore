@@ -30,3 +30,7 @@ yarn-error.log*
 # Arquivos do sistema
 Thumbs.db
 .DS_Store
+
+# Arquivos de configuração de plataformas
+.replit
+.config/
