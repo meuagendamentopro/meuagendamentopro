@@ -6,10 +6,13 @@ import * as schema from '@shared/schema';
 import { localConfig } from './local-config';
 
 // Usa a URL do banco de dados do ambiente ou da configuração local
-const databaseUrl = process.env.DATABASE_URL || localConfig.database.url;
+const databaseUrl = process.env.DATABASE_URL || (process.env.NODE_ENV === 'development' ? localConfig.database.url : null);
 
 // Verifica se a URL do banco de dados está definida
 if (!databaseUrl) {
+  console.error('DATABASE_URL não está definida!');
+  console.error('Ambiente:', process.env.NODE_ENV);
+  console.error('Variáveis disponíveis:', Object.keys(process.env).filter(key => key.includes('DATABASE')));
   throw new Error(
     "DATABASE_URL deve ser definida. Você esqueceu de provisionar um banco de dados?"
   );

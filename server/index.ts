@@ -395,9 +395,18 @@ app.use((req, res, next) => {
 (async () => {
   try {
     // Log para fins de depuração, mostra o ambiente
+    console.log('=== INICIANDO SERVIDOR ===');
     console.log(`Ambiente: ${process.env.NODE_ENV}`);
     console.log(`DATABASE_URL disponível: ${!!process.env.DATABASE_URL}`);
     console.log(`Porta configurada: ${process.env.PORT || 3003}`);
+    console.log(`Host configurado: ${process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'}`);
+    
+    // Debug das variáveis de ambiente críticas
+    console.log('Variáveis críticas:');
+    console.log(`- NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`- PORT: ${process.env.PORT}`);
+    console.log(`- DATABASE_URL: ${process.env.DATABASE_URL ? 'DEFINIDA' : 'NÃO DEFINIDA'}`);
+    console.log(`- SESSION_SECRET: ${process.env.SESSION_SECRET ? 'DEFINIDA' : 'NÃO DEFINIDA'}`);
     
     // Diagnóstico da conexão com o banco de dados
     try {
@@ -476,8 +485,15 @@ app.use((req, res, next) => {
       log(`Servidor rodando na porta ${port} em modo ${app.get("env")} (host: ${host})`);
     });
   } catch (error) {
-    console.error("Erro fatal durante a inicialização do servidor:", error);
-    // Não deixa o processo morrer silenciosamente
-    process.exit(1);
+    console.error("=== ERRO FATAL DURANTE A INICIALIZAÇÃO ===");
+    console.error("Erro:", error);
+    console.error("Stack trace:", error instanceof Error ? error.stack : 'N/A');
+    console.error("Ambiente:", process.env.NODE_ENV);
+    console.error("DATABASE_URL definida:", !!process.env.DATABASE_URL);
+    
+    // Aguarda um pouco antes de sair para garantir que os logs sejam enviados
+    setTimeout(() => {
+      process.exit(1);
+    }, 1000);
   }
 })();
