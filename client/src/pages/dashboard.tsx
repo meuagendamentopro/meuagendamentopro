@@ -101,35 +101,32 @@ const Dashboard: React.FC = () => {
 
   // Fetch all appointments
   const { data: appointments, isLoading: appointmentsLoading, refetch: refetchAppointments } = useQuery({
-    queryKey: ['/api/providers', providerId, 'appointments'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/appointments`);
+    queryKey: ['/api/my-appointments'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-appointments');
       if (!res.ok) throw new Error('Failed to fetch appointments');
       return res.json();
-    },
-    enabled: !!providerId // Só executar se temos providerId
+    }
   });
 
   // Fetch all clients
   const { data: clients } = useQuery({
     queryKey: ['/api/clients'],
-    queryFn: async ({ queryKey }) => {
+    queryFn: async () => {
       const res = await fetch('/api/clients');
       if (!res.ok) throw new Error('Failed to fetch clients');
       return res.json();
-    },
-    enabled: !!providerId // Só executar se temos providerId
+    }
   });
 
   // Fetch all services
   const { data: services } = useQuery({
-    queryKey: ['/api/providers', providerId, 'services'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
+    queryKey: ['/api/my-services'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-services');
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
-    },
-    enabled: !!providerId // Só executar se temos providerId
+    }
   });
 
   // Calculate dashboard stats

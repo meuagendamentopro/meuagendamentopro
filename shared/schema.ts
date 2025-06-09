@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, uniqueIndex, time } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, uniqueIndex, time, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from 'drizzle-orm';
@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   password: text("password").notNull(),
   role: text("role").default("provider").notNull(), // 'admin' ou 'provider'
+  accountType: text("account_type").default("individual").notNull(), // 'individual' ou 'company'
   avatarUrl: text("avatar_url"),
   isActive: boolean("is_active").default(true).notNull(), // Para bloquear acesso ao sistema
   isEmailVerified: boolean("is_email_verified").default(false).notNull(), // Indica se o email foi verificado
@@ -34,6 +35,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   role: true,
+  accountType: true,
   avatarUrl: true,
   isActive: true,
   isEmailVerified: true,
@@ -66,6 +68,8 @@ export const providers = pgTable("providers", {
   pixWebhookSecret: text("pix_webhook_secret"), // Segredo para validação de webhooks
   pixMercadoPagoToken: text("pix_mercadopago_token"), // Token de acesso do Mercado Pago específico do provedor
   pixIdentificationNumber: text("pix_identification_number"), // Número de CPF/CNPJ para identificação no Mercado Pago
+  // Templates de mensagens WhatsApp
+  whatsappTemplateAppointment: text("whatsapp_template_appointment"), // Template para mensagem de confirmação de agendamento
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -187,6 +191,63 @@ export const insertProviderClientSchema = createInsertSchema(providerClients).pi
 
 // O tipo ProviderClient está definido abaixo nas exportações de tipos
 
+// Funcionários (para contas do tipo empresa)
+export const employees = pgTable("employees", {
+  id: serial("id").primaryKey(),
+  companyUserId: integer("company_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  specialty: text("specialty").notNull(), // Especialidade do funcionário
+  lunchBreakStart: text("lunch_break_start").notNull(), // ex: "12:00"
+  lunchBreakEnd: text("lunch_break_end").notNull(), // ex: "13:00"
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertEmployeeSchema = createInsertSchema(employees).pick({
+  companyUserId: true,
+  name: true,
+  specialty: true,
+  lunchBreakStart: true,
+  lunchBreakEnd: true,
+  isActive: true,
+});
+
+// Tabela de associação entre funcionários e serviços
+export const employeeServices = pgTable("employee_services", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employees.id, { onDelete: 'cascade' }),
+  serviceId: integer("service_id").notNull().references(() => services.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertEmployeeServiceSchema = createInsertSchema(employeeServices).pick({
+  employeeId: true,
+  serviceId: true,
+});
+
+// Relations para employees
+export const employeesRelations = relations(employees, ({ one, many }) => ({
+  company: one(users, {
+    fields: [employees.companyUserId],
+    references: [users.id]
+  }),
+  appointments: many(appointments),
+  employeeServices: many(employeeServices)
+}));
+
+// Relations para employeeServices
+export const employeeServicesRelations = relations(employeeServices, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeeServices.employeeId],
+    references: [employees.id]
+  }),
+  service: one(services, {
+    fields: [employeeServices.serviceId],
+    references: [services.id]
+  })
+}));
+
 // Appointment status enum
 export const AppointmentStatus = {
   PENDING: "pending",
@@ -210,6 +271,7 @@ export const appointments = pgTable("appointments", {
   providerId: integer("provider_id").notNull(),
   clientId: integer("client_id").notNull(),
   serviceId: integer("service_id").notNull(),
+  employeeId: integer("employee_id").references(() => employees.id), // Para contas empresa: funcionário responsável
   date: timestamp("date").notNull(),
   endTime: timestamp("end_time").notNull(),
   status: text("status").notNull().default(AppointmentStatus.PENDING),
@@ -240,9 +302,34 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
         return new Date(year, month - 1, day); // mês em JS é 0-indexado
       }
       
-      // Caso contrário, usa a data com a hora especificada (com cuidado para o fuso horário)
-      const date = new Date(str);
-      return date;
+      // Para strings com horário, interpretar como horário local (não UTC)
+      // Se a string termina com 'Z' ou tem offset (+/-), é UTC/timezone específico
+      if (str.includes('Z') || str.match(/[+-]\d{2}:\d{2}$/)) {
+        return new Date(str);
+      }
+      
+      // Se não tem timezone, assumir que é horário local
+      // Converter para formato que o JavaScript interpreta como local
+      const localDate = new Date(str.replace('T', ' '));
+      
+      // Se ainda for inválido, tentar parsing manual
+      if (isNaN(localDate.getTime())) {
+        // Formato: YYYY-MM-DDTHH:mm:ss ou YYYY-MM-DD HH:mm:ss
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):?(\d{2})?/);
+        if (match) {
+          const [, year, month, day, hour, minute, second] = match;
+          return new Date(
+            parseInt(year), 
+            parseInt(month) - 1, 
+            parseInt(day), 
+            parseInt(hour), 
+            parseInt(minute), 
+            parseInt(second || '0')
+          );
+        }
+      }
+      
+      return localDate;
     })
   ]),
   endTime: z.union([
@@ -255,9 +342,34 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
         return new Date(year, month - 1, day); // mês em JS é 0-indexado
       }
       
-      // Caso contrário, usa a data com a hora especificada (com cuidado para o fuso horário)
-      const date = new Date(str);
-      return date;
+      // Para strings com horário, interpretar como horário local (não UTC)
+      // Se a string termina com 'Z' ou tem offset (+/-), é UTC/timezone específico
+      if (str.includes('Z') || str.match(/[+-]\d{2}:\d{2}$/)) {
+        return new Date(str);
+      }
+      
+      // Se não tem timezone, assumir que é horário local
+      // Converter para formato que o JavaScript interpreta como local
+      const localDate = new Date(str.replace('T', ' '));
+      
+      // Se ainda for inválido, tentar parsing manual
+      if (isNaN(localDate.getTime())) {
+        // Formato: YYYY-MM-DDTHH:mm:ss ou YYYY-MM-DD HH:mm:ss
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):?(\d{2})?/);
+        if (match) {
+          const [, year, month, day, hour, minute, second] = match;
+          return new Date(
+            parseInt(year), 
+            parseInt(month) - 1, 
+            parseInt(day), 
+            parseInt(hour), 
+            parseInt(minute), 
+            parseInt(second || '0')
+          );
+        }
+      }
+      
+      return localDate;
     })
   ])
 })
@@ -265,6 +377,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
     providerId: true,
     clientId: true,
     serviceId: true,
+    employeeId: true,
     date: true,
     endTime: true,
     status: true,
@@ -294,6 +407,7 @@ export const bookingFormSchema = z.object({
   phone: z.string().min(10, "Telefone é obrigatório"),
   notes: z.string().optional(),
   serviceId: z.number().int().positive("Selecione um serviço"),
+  employeeId: z.number().int().positive().optional(), // Para contas empresa: funcionário selecionado
   date: z.string().refine(
     (date) => {
       try {
@@ -318,6 +432,7 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   durationMonths: integer("duration_months").notNull(), // Duração em meses
   price: integer("price").notNull(),        // Preço em centavos
   isActive: boolean("is_active").default(true).notNull(), // Se o plano está ativo para compra
+  accountType: text("account_type").notNull().default("individual"), // Tipo de conta: "individual" ou "company"
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -373,6 +488,43 @@ export const subscriptionTransactionsRelations = relations(subscriptionTransacti
   })
 }));
 
+// Tabela de anotações clínicas para psicólogos
+export const clinicalNotes = pgTable("clinical_notes", {
+  id: serial("id").primaryKey(),
+  appointmentId: integer("appointment_id").notNull().references(() => appointments.id, { onDelete: 'cascade' }),
+  providerId: integer("provider_id").notNull().references(() => providers.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  content: text("content").notNull(), // Conteúdo formatado em HTML
+  isPrivate: boolean("is_private").default(true).notNull(), // Se a anotação é privada ou pode ser compartilhada
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Schema de inserção para anotações clínicas
+export const insertClinicalNoteSchema = createInsertSchema(clinicalNotes).pick({
+  appointmentId: true,
+  providerId: true,
+  clientId: true,
+  content: true,
+  isPrivate: true,
+});
+
+// Relações para as anotações clínicas
+export const clinicalNotesRelations = relations(clinicalNotes, ({ one }) => ({
+  appointment: one(appointments, {
+    fields: [clinicalNotes.appointmentId],
+    references: [appointments.id]
+  }),
+  provider: one(providers, {
+    fields: [clinicalNotes.providerId],
+    references: [providers.id]
+  }),
+  client: one(clients, {
+    fields: [clinicalNotes.clientId],
+    references: [clients.id]
+  })
+}));
+
 // Tabela de notificações para alertar os profissionais sobre novos agendamentos
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
@@ -405,6 +557,27 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     references: [appointments.id]
   })
 }));
+
+// Tabela de configurações do sistema
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  siteName: text("site_name").default("Meu Agendamento PRO"),
+  logoUrl: text("logo_url"),
+  faviconUrl: text("favicon_url"),
+  primaryColor: text("primary_color").default("#0891b2"),
+  trialPeriodDays: integer("trial_period_days").default(3).notNull(), // Período de teste em dias para novos usuários
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Schema de inserção para configurações do sistema
+export const insertSystemSettingsSchema = createInsertSchema(systemSettings).pick({
+  siteName: true,
+  logoUrl: true,
+  faviconUrl: true,
+  primaryColor: true,
+  trialPeriodDays: true,
+});
 
 // Relations para appointments
 export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
@@ -457,14 +630,30 @@ export const clientsRelations = relations(clients, ({ many }) => ({
 
 // Schema de login (para autenticação)
 export const loginSchema = z.object({
-  username: z.string().min(3, "Nome de usuário é obrigatório"),
+  username: z.string()
+    .trim()
+    .toLowerCase()
+    .min(4, "Nome de usuário deve ter no mínimo 4 caracteres")
+    .max(16, "Nome de usuário deve ter no máximo 16 caracteres")
+    .regex(/^[a-z0-9]+$/, "Nome de usuário deve conter apenas letras minúsculas e números, sem espaços"),
   password: z.string().min(6, "Senha é obrigatória")
 });
+
+// Função auxiliar para validar nomes de usuário
+export function isValidUsername(username: string): boolean {
+  if (!username) return false;
+  const trimmed = username.trim().toLowerCase();
+  if (trimmed.length < 4 || trimmed.length > 16) return false;
+  return /^[a-z0-9]+$/.test(trimmed);
+}
 
 // Schema de registro para novos usuários
 export const registerSchema = z.object({
   name: z.string().min(3, "Nome completo é obrigatório"),
-  username: z.string().min(3, "Nome de usuário é obrigatório"),
+  username: z.string()
+    .min(4, "Nome de usuário deve ter no mínimo 4 caracteres")
+    .max(16, "Nome de usuário deve ter no máximo 16 caracteres")
+    .regex(/^[a-z0-9]+$/, "Nome de usuário deve conter apenas letras minúsculas e números, sem espaços"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string().min(6, "Confirmação de senha é obrigatória")
@@ -507,3 +696,15 @@ export type InsertSubscriptionTransaction = z.infer<typeof insertSubscriptionTra
 export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+
+export type SystemSettings = typeof systemSettings.$inferSelect;
+export type InsertSystemSettings = typeof systemSettings.$inferInsert;
+
+export type ClinicalNote = typeof clinicalNotes.$inferSelect;
+export type InsertClinicalNote = typeof clinicalNotes.$inferInsert;
+
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+
+export type EmployeeService = typeof employeeServices.$inferSelect;
+export type InsertEmployeeService = z.infer<typeof insertEmployeeServiceSchema>;

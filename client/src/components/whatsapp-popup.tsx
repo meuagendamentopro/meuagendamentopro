@@ -15,15 +15,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { PhoneInput } from './ui/phone-input';
 
 interface WhatsAppPopupProps {
   triggerManually?: boolean;
   children?: React.ReactNode;
+  initialPhone?: string;
+  onPhoneUpdate?: (phone: string) => void;
 }
 
-const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps) => {
+const WhatsAppPopup = ({ triggerManually = false, children, initialPhone = '', onPhoneUpdate }: WhatsAppPopupProps) => {
   const [open, setOpen] = useState(false);
-  const [whatsapp, setWhatsapp] = useState('');
+  const [whatsapp, setWhatsapp] = useState(initialPhone);
+  const [countryCode, setCountryCode] = useState('BR');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -102,6 +106,12 @@ const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps
         title: 'WhatsApp atualizado',
         description: 'Seu número de WhatsApp foi salvo com sucesso.',
       });
+      
+      // Notificar o componente pai sobre o número salvo
+      if (onPhoneUpdate) {
+        onPhoneUpdate(whatsapp);
+      }
+      
       setSaving(false);
       setOpen(false);
     },
@@ -116,60 +126,79 @@ const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps
     }
   });
 
-  // Formatar o número de telefone
-  const formatPhone = (phone: string) => {
-    // Remove tudo que não for número
-    const numbers = phone.replace(/\D/g, '');
+  const handlePhoneChange = (value: string) => {
+    setWhatsapp(value);
     
-    // Aplica formatação de acordo com o tamanho
-    if (numbers.length <= 2) {
-      return numbers;
+    // Notificar o componente pai sobre a alteração do número
+    if (onPhoneUpdate) {
+      onPhoneUpdate(value);
     }
-    if (numbers.length <= 6) {
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-    }
-    if (numbers.length === 10) {
-      // Para números com 10 dígitos (sem o 9) - formato antigo ou telefone fixo
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6, 10)}`;
-    }
-    if (numbers.length >= 11) {
-      // Para números com 11 dígitos (com o 9) - formato celular Brasil
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
-    }
-    // Para números incompletos com mais de 6 dígitos
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
   };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setWhatsapp(formatPhone(e.target.value));
+  
+  const handleCountryChange = (country: string) => {
+    setCountryCode(country);
   };
 
   const handleSubmit = () => {
-    // Remove caracteres não numéricos para salvar apenas números
-    const phoneNumbers = whatsapp.replace(/\D/g, '');
+    // O número já vem formatado com o código do país do componente PhoneInput
+    // Então não precisamos fazer nenhuma formatação adicional
     
     // Inicia o indicador de salvamento
     setSaving(true);
     
-    // Executa a mutação
-    updateWhatsAppMutation.mutate(phoneNumbers);
+    // Executa a mutação com o número completo, incluindo código do país
+    updateWhatsAppMutation.mutate(whatsapp);
   };
 
   // Verificar se deve mostrar o popup
   useEffect(() => {
-    if (provider) {
-      // Se tem telefone, pré-preenche o campo
-      if (provider.phone) {
-        setWhatsapp(formatPhone(provider.phone));
-      }
+    // Se temos um initialPhone, usamos ele
+    if (initialPhone) {
+      setWhatsapp(initialPhone);
       
-      // Se não estiver em modo manual e o provider não tem telefone, mostra o popup automaticamente
-      if (!triggerManually && (!provider.phone || provider.phone.trim() === '')) {
-        console.log('Provider sem WhatsApp configurado, exibindo popup automaticamente');
-        setOpen(true);
+      // Se o número já tem código de país, extrair o país
+      if (initialPhone.startsWith('+')) {
+        // Extrair o código do país do número
+        const countryCodeFromPhone = initialPhone.substring(0, 3);
+        if (countryCodeFromPhone === '+55') {
+          setCountryCode('BR');
+        } else if (countryCodeFromPhone === '+1') {
+          setCountryCode('US');
+        } else if (countryCodeFromPhone === '+34') {
+          setCountryCode('ES');
+        } else if (countryCodeFromPhone === '+35') {
+          setCountryCode('PT');
+        }
+        // Outros países podem ser adicionados conforme necessário
       }
     }
-  }, [provider, triggerManually]);
+    // Se não temos initialPhone, usamos o telefone do provider
+    else if (provider && provider.phone) {
+      setWhatsapp(provider.phone);
+      
+      // Se o número já tem código de país, extrair o país
+      if (provider.phone.startsWith('+')) {
+        // Extrair o código do país do número
+        const countryCodeFromPhone = provider.phone.substring(0, 3);
+        if (countryCodeFromPhone === '+55') {
+          setCountryCode('BR');
+        } else if (countryCodeFromPhone === '+1') {
+          setCountryCode('US');
+        } else if (countryCodeFromPhone === '+34') {
+          setCountryCode('ES');
+        } else if (countryCodeFromPhone === '+35') {
+          setCountryCode('PT');
+        }
+        // Outros países podem ser adicionados conforme necessário
+      }
+    }
+    
+    // Se não estiver em modo manual e o provider não tem telefone, mostra o popup automaticamente
+    if (provider && !triggerManually && (!provider.phone || provider.phone.trim() === '')) {
+      console.log('Provider sem WhatsApp configurado, exibindo popup automaticamente');
+      setOpen(true);
+    }
+  }, [provider, triggerManually, initialPhone]);
 
   return (
     <Dialog open={triggerManually ? undefined : open} onOpenChange={setOpen}>
@@ -202,12 +231,14 @@ const WhatsAppPopup = ({ triggerManually = false, children }: WhatsAppPopupProps
             <Label htmlFor="whatsapp" className="font-medium">
               Número de WhatsApp
             </Label>
-            <Input
+            <PhoneInput
               id="whatsapp"
               placeholder="(99) 99999-9999"
               className="w-full"
               value={whatsapp}
-              onChange={handleInputChange}
+              onChange={handlePhoneChange}
+              defaultCountry={countryCode}
+              onCountryChange={handleCountryChange}
             />
           </div>
         </div>

@@ -66,7 +66,7 @@ Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 DATABASE_URL=postgres://usuario:senha@host:porta/nomedobanco
 
 # Configuração do Servidor
-PORT=5000
+PORT=3003
 SESSION_SECRET=gere_uma_chave_secreta_forte
 
 # Email (opcional)

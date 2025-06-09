@@ -7,7 +7,9 @@ import {
   notifications, type Notification, type InsertNotification,
   users, type User, type InsertUser,
   providerClients, type ProviderClient, type InsertProviderClient,
-  timeExclusions, type TimeExclusion, type InsertTimeExclusion
+  timeExclusions, type TimeExclusion, type InsertTimeExclusion,
+  employees, type Employee, type InsertEmployee,
+  employeeServices, type EmployeeService, type InsertEmployeeService
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -59,8 +61,10 @@ export interface IStorage {
   getAppointmentsByDate(providerId: number, date: Date): Promise<Appointment[]>;
   getAppointmentsByDateRange(providerId: number, startDate: Date, endDate: Date): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  updateAppointment(id: number, appointment: Partial<Appointment>): Promise<Appointment | undefined>;
   updateAppointmentStatus(id: number, status: string, cancellationReason?: string): Promise<Appointment | undefined>;
-  checkAvailability(providerId: number, date: Date, duration: number): Promise<boolean>;
+  deleteAppointment(id: number): Promise<boolean>;
+  checkAvailability(providerId: number, date: Date, duration: number, employeeId?: number): Promise<boolean>;
   
   // Notification methods
   getNotifications(userId: number): Promise<Notification[]>;
@@ -76,6 +80,11 @@ export interface IStorage {
   createTimeExclusion(exclusion: InsertTimeExclusion): Promise<TimeExclusion>;
   updateTimeExclusion(id: number, exclusion: Partial<InsertTimeExclusion>): Promise<TimeExclusion | undefined>;
   deleteTimeExclusion(id: number): Promise<boolean>;
+  
+  // Employee methods
+  getEmployee(id: number): Promise<Employee | undefined>;
+  getEmployeeServices(employeeId: number): Promise<Service[]>;
+  setEmployeeServices(employeeId: number, serviceIds: number[]): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -127,9 +136,17 @@ export class MemStorage implements IStorage {
       id: adminId,
       name: "Admin",
       username: "admin",
-      password: "$2b$10$Xuyld2OS6W/hDQ0gwKBSd.qqnDfPYMBYP4hoyEZdtbWc1T.i8yPvS", // password123 - hash recém-gerado
+      email: "admin@example.com",
+      password: "$2b$10$3Hy0hJGIJ3vVhICH9lP7B.bJnDJLECpGYvHxIwLYRlTbGIaO0RRWC", // admin123 - hash recém-gerado
       role: "admin",
+      accountType: "individual",
       avatarUrl: null,
+      isActive: true,
+      isEmailVerified: true,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+      subscriptionExpiry: null,
+      neverExpires: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -149,6 +166,17 @@ export class MemStorage implements IStorage {
       bookingLink: "admin",
       workingHoursStart: 8,
       workingHoursEnd: 18,
+      workingDays: "1,2,3,4,5",
+      pixEnabled: false,
+      pixKeyType: null,
+      pixKey: null,
+      pixRequirePayment: false,
+      pixPaymentPercentage: 100,
+      pixCompanyName: null,
+      pixMerchantId: null,
+      pixWebhookSecret: null,
+      pixMercadoPagoToken: null,
+      pixIdentificationNumber: null,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -162,9 +190,17 @@ export class MemStorage implements IStorage {
       id: linkId,
       name: "Link",
       username: "link",
+      email: "link@example.com",
       password: "$2b$10$myIqlFTttbyrqybyEYK8FOU3ILvzbt80Fr7zZeWfNg1qnq9TsV2Ji", // password123
       role: "provider",
+      accountType: "individual",
       avatarUrl: null,
+      isActive: true,
+      isEmailVerified: true,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+      subscriptionExpiry: null,
+      neverExpires: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -184,6 +220,17 @@ export class MemStorage implements IStorage {
       bookingLink: "link",
       workingHoursStart: 9,
       workingHoursEnd: 17,
+      workingDays: "1,2,3,4,5",
+      pixEnabled: false,
+      pixKeyType: null,
+      pixKey: null,
+      pixRequirePayment: false,
+      pixPaymentPercentage: 100,
+      pixCompanyName: null,
+      pixMerchantId: null,
+      pixWebhookSecret: null,
+      pixMercadoPagoToken: null,
+      pixIdentificationNumber: null,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -214,8 +261,12 @@ export class MemStorage implements IStorage {
       email: userData.email || `${userData.username}@temp.com`,
       password: userData.password,
       role: userData.role || "provider",
+      accountType: userData.accountType || "individual",
       avatarUrl: userData.avatarUrl || null,
       isActive: userData.isActive !== undefined ? userData.isActive : true,
+      isEmailVerified: userData.isEmailVerified !== undefined ? userData.isEmailVerified : true,
+      verificationToken: userData.verificationToken || null,
+      verificationTokenExpiry: userData.verificationTokenExpiry || null,
       subscriptionExpiry: userData.subscriptionExpiry || null, 
       neverExpires: userData.neverExpires !== undefined ? userData.neverExpires : false,
       createdAt: new Date(),
@@ -300,7 +351,12 @@ export class MemStorage implements IStorage {
   async createProvider(provider: InsertProvider): Promise<Provider> {
     const id = ++this.providerId;
     // Removendo os atributos do provider original
-    const { phone, avatarUrl, workingHoursStart, workingHoursEnd, ...rest } = provider;
+    const { 
+      phone, avatarUrl, workingHoursStart, workingHoursEnd, workingDays,
+      pixEnabled, pixKeyType, pixKey, pixRequirePayment, pixPaymentPercentage,
+      pixCompanyName, pixMerchantId, pixWebhookSecret, pixMercadoPagoToken,
+      pixIdentificationNumber, ...rest 
+    } = provider;
     
     const newProvider: Provider = { 
       ...rest, 
@@ -310,6 +366,17 @@ export class MemStorage implements IStorage {
       bookingLink: rest.bookingLink ?? null,
       workingHoursStart: workingHoursStart !== undefined ? workingHoursStart : 8,
       workingHoursEnd: workingHoursEnd !== undefined ? workingHoursEnd : 18,
+      workingDays: workingDays || "1,2,3,4,5",
+      pixEnabled: pixEnabled !== undefined ? pixEnabled : false,
+      pixKeyType: pixKeyType || null,
+      pixKey: pixKey || null,
+      pixRequirePayment: pixRequirePayment !== undefined ? pixRequirePayment : false,
+      pixPaymentPercentage: pixPaymentPercentage !== undefined ? pixPaymentPercentage : 100,
+      pixCompanyName: pixCompanyName || null,
+      pixMerchantId: pixMerchantId || null,
+      pixWebhookSecret: pixWebhookSecret || null,
+      pixMercadoPagoToken: pixMercadoPagoToken || null,
+      pixIdentificationNumber: pixIdentificationNumber || null,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -594,6 +661,18 @@ export class MemStorage implements IStorage {
     return newAppointment;
   }
   
+  async updateAppointment(id: number, appointmentData: Partial<Appointment>): Promise<Appointment | undefined> {
+    const appointment = this.appointments.get(id);
+    if (!appointment) return undefined;
+    
+    const updatedAppointment: Appointment = { 
+      ...appointment, 
+      ...appointmentData
+    };
+    this.appointments.set(id, updatedAppointment);
+    return updatedAppointment;
+  }
+  
   async updateAppointmentStatus(id: number, status: string, cancellationReason?: string): Promise<Appointment | undefined> {
     const appointment = this.appointments.get(id);
     if (!appointment) return undefined;
@@ -610,8 +689,17 @@ export class MemStorage implements IStorage {
     this.appointments.set(id, updatedAppointment);
     return updatedAppointment;
   }
+
+  async deleteAppointment(id: number): Promise<boolean> {
+    const appointment = this.appointments.get(id);
+    if (!appointment) return false;
+    
+    this.appointments.delete(id);
+    console.log(`Agendamento ${id} removido da memória do storage`);
+    return true;
+  }
   
-  async checkAvailability(providerId: number, date: Date, duration: number): Promise<boolean> {
+  async checkAvailability(providerId: number, date: Date, duration: number, employeeId?: number): Promise<boolean> {
     const appointments = await this.getAppointments(providerId);
     const requestEndTime = new Date(date.getTime() + duration * 60000);
     
@@ -709,9 +797,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Migração para banco de dados persistente
+// Usando armazenamento em banco de dados PostgreSQL
 import { DatabaseStorage } from "./database-storage";
-export const storage = new DatabaseStorage();
 
-// Armazenamento em memória (comentado)
-// export const storage = new MemStorage();
+// Usando diretamente o armazenamento em banco de dados PostgreSQL
+export const storage = new DatabaseStorage();

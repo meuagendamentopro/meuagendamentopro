@@ -126,7 +126,7 @@ export function VerificationPending({ email, onBack }: VerificationPendingProps)
             
             console.log("Login automático realizado, redirecionando...");
             // Redireciona após breve atraso para permitir que o toast seja visto
-            setTimeout(() => navigate("/"), 1500);
+            setTimeout(() => navigate("/dashboard"), 1500);
           } else {
             console.error("Falha ao obter dados do usuário após login automático");
             setTimeout(() => navigate("/auth"), 1500);

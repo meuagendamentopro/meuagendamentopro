@@ -21,15 +21,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import { useAuth } from "@/hooks/use-auth";
 
 // Extend the base appointment type with the properties added by our API
 interface EnrichedAppointment extends BaseAppointment {
   clientName: string;
   serviceName: string;
   servicePrice: number;
+  employeeName?: string;
+  employeeSpecialty?: string;
 }
 
 export default function FinancialReport() {
+  const { user } = useAuth();
+  
   // Estados para diferentes tipos de visualizações
   const [viewType, setViewType] = useState<"day" | "month" | "period">("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -39,6 +44,10 @@ export default function FinancialReport() {
     to: addMonths(new Date(), 1)
   });
   const [selectedService, setSelectedService] = useState<string>("all");
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
+
+  // Verificar se é conta empresa
+  const isCompanyAccount = user?.accountType === "company";
 
   // Obter o provider atual 
   const { data: myProvider, isLoading: isLoadingProvider } = useQuery<Provider>({
@@ -47,18 +56,37 @@ export default function FinancialReport() {
   
   const providerId = myProvider?.id;
 
+  // Get employees for company accounts
+  const { data: employees } = useQuery({
+    queryKey: ['/api/employees'],
+    queryFn: async () => {
+      const res = await fetch('/api/employees');
+      if (!res.ok) throw new Error('Failed to fetch employees');
+      return res.json();
+    },
+    enabled: isCompanyAccount
+  });
+
   // Buscar os agendamentos
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery<EnrichedAppointment[]>({
-    queryKey: ["/api/providers", providerId, "appointments"],
-    enabled: !!providerId,
+    queryKey: ["/api/my-appointments"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-appointments");
+      if (!res.ok) throw new Error("Failed to fetch appointments");
+      return res.json();
+    },
   });
   
   console.log("Dados de agendamentos recebidos:", appointments);
 
   // Buscar os serviços
   const { data: services, isLoading: isLoadingServices } = useQuery<Service[]>({
-    queryKey: ["/api/providers", providerId, "services"],
-    enabled: !!providerId,
+    queryKey: ["/api/my-services"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-services");
+      if (!res.ok) throw new Error("Failed to fetch services");
+      return res.json();
+    },
   });
 
   if (isLoadingAppointments || isLoadingServices) {
@@ -84,6 +112,11 @@ export default function FinancialReport() {
     
     // Filtro de serviço
     const validService = (selectedService === "all" || appointment.serviceId === parseInt(selectedService));
+    
+    // Filtro de funcionário (apenas para contas empresa)
+    const validEmployee = !isCompanyAccount || selectedEmployee === "all" || 
+      (appointment.employeeId && appointment.employeeId === parseInt(selectedEmployee)) ||
+      (!appointment.employeeId && selectedEmployee === "unassigned");
     
     // Verificar o tipo de filtro de data selecionado
     let validDate = false;
@@ -120,7 +153,7 @@ export default function FinancialReport() {
       servicoValido: validService,
     });
     
-    return validDate && validStatus && validService;
+    return validDate && validStatus && validService && validEmployee;
   });
 
   // Calcular o total de receitas
@@ -303,6 +336,30 @@ export default function FinancialReport() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Select para filtrar por funcionário (apenas para contas empresa) */}
+            {isCompanyAccount && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Funcionário</label>
+                <Select
+                  value={selectedEmployee}
+                  onValueChange={setSelectedEmployee}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os funcionários" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os funcionários</SelectItem>
+                    <SelectItem value="unassigned">Sem funcionário atribuído</SelectItem>
+                    {employees?.map((employee: any) => (
+                      <SelectItem key={employee.id} value={employee.id.toString()}>
+                        {employee.name} - {employee.specialty}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -396,6 +453,7 @@ export default function FinancialReport() {
                     <TableHead className="whitespace-nowrap p-2">Data</TableHead>
                     <TableHead className="whitespace-nowrap p-2">Cliente</TableHead>
                     <TableHead className="whitespace-nowrap p-2 hidden sm:table-cell">Serviço</TableHead>
+                    {isCompanyAccount && <TableHead className="whitespace-nowrap p-2 hidden lg:table-cell">Funcionário</TableHead>}
                     <TableHead className="whitespace-nowrap p-2 hidden md:table-cell">Status</TableHead>
                     <TableHead className="text-right whitespace-nowrap p-2">Valor</TableHead>
                   </TableRow>
@@ -404,12 +462,14 @@ export default function FinancialReport() {
                   {filteredAppointments?.map((appointment) => (
                     <TableRow key={appointment.id}>
                       <TableCell className="whitespace-nowrap p-2 text-xs sm:text-sm">
-                        {format(
-                          parseISO(typeof appointment.date === 'string' 
+                        {(() => {
+                          // Compensar fuso horário para exibição correta
+                          const appointmentDate = parseISO(typeof appointment.date === 'string' 
                             ? appointment.date 
-                            : appointment.date.toISOString()), 
-                          "dd/MM/yyyy HH:mm"
-                        )}
+                            : appointment.date.toISOString());
+                          const adjustedDate = new Date(appointmentDate.getTime() + (3 * 60 * 60 * 1000));
+                          return format(adjustedDate, "dd/MM/yyyy HH:mm", { locale: ptBR });
+                        })()}
                       </TableCell>
                       <TableCell className="whitespace-nowrap p-2 text-xs sm:text-sm">
                         {appointment.clientName}
@@ -418,6 +478,11 @@ export default function FinancialReport() {
                         </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap p-2 hidden sm:table-cell text-xs sm:text-sm">{appointment.serviceName}</TableCell>
+                      {isCompanyAccount && (
+                        <TableCell className="whitespace-nowrap p-2 hidden lg:table-cell text-xs sm:text-sm">
+                          {appointment.employeeName || "Não atribuído"}
+                        </TableCell>
+                      )}
                       <TableCell className="whitespace-nowrap p-2 hidden md:table-cell text-xs sm:text-sm">
                         {appointment.status.toLowerCase() === "completed"
                           ? "Concluído"

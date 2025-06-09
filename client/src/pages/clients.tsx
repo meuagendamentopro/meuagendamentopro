@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import ClientNotesReportModal from "@/components/clients/client-notes-report-modal";
+import ClientAppointmentHistoryModal from "@/components/clients/client-appointment-history-modal";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
@@ -44,6 +46,7 @@ import {
   AlertTriangle,
   Ban,
   MessageCircle,
+  Calendar,
 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import { Client } from "@shared/schema";
@@ -74,10 +77,22 @@ const ClientsPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientToBlock, setClientToBlock] = useState<Client | null>(null);
   const { toast } = useToast();
+
+  // Fetch provider data
+  const { data: providerData } = useQuery({
+    queryKey: ["/api/my-provider"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-provider");
+      if (!res.ok) throw new Error("Failed to fetch provider data");
+      return res.json();
+    },
+  });
 
   // Fetch clients
   const { data: clients, isLoading, refetch: refetchClients } = useQuery({
@@ -170,6 +185,18 @@ const ClientsPage: React.FC = () => {
     setClientToBlock(client);
     setIsBlockDialogOpen(true);
   };
+  
+  // Handle opening client notes report
+  const handleOpenNotesReport = (client: Client) => {
+    setSelectedClient(client);
+    setIsReportModalOpen(true);
+  };
+  
+  // Handle opening client appointment history
+  const handleOpenAppointmentHistory = (client: Client) => {
+    setSelectedClient(client);
+    setIsHistoryModalOpen(true);
+  };
 
   // Confirm and process block/unblock
   const confirmToggleBlock = async () => {
@@ -240,16 +267,82 @@ const ClientsPage: React.FC = () => {
       .substring(0, 2);
   };
   
+  // Formatar número de telefone para exibição, considerando o país
+  const formatClientPhone = (phone: string) => {
+    // Se o número já tem código internacional (começa com +), exibir como está
+    if (phone.startsWith('+')) {
+      // Se for um número brasileiro com código internacional (+55), remover o código do país
+      if (phone.startsWith('+55')) {
+        const phoneWithoutCountryCode = phone.substring(3); // Remove o +55
+        return formatPhoneNumber(phoneWithoutCountryCode);
+      }
+      return phone; // Outros números internacionais exibir como estão
+    } else {
+      const cleanPhone = phone.replace(/\D/g, '');
+      
+      // Verificar se é um número de Portugal (especificamente começa com 351 ou tem o formato (35))
+      if ((phone.includes('(35)') && !phone.includes('(35)9')) || 
+          (cleanPhone.startsWith('351') && cleanPhone.length >= 11)) {
+        // Formatar como número de Portugal
+        if (cleanPhone.startsWith('351')) {
+          // Se já tem o código do país, formatar adequadamente
+          const countryCode = cleanPhone.substring(0, 3); // 351
+          const rest = cleanPhone.substring(3);
+          
+          // Formato português: +351 XXX XXX XXX
+          return `+${countryCode} ${rest.substring(0, 3)} ${rest.substring(3, 6)} ${rest.substring(6)}`;
+        } else {
+          // Se está no formato (35) XXXXX-XXXX
+          return `+351 ${cleanPhone.substring(2, 5)} ${cleanPhone.substring(5, 8)} ${cleanPhone.substring(8)}`;
+        }
+      } else {
+        // Verificar se o número já começa com 55 (código do Brasil)
+        if (cleanPhone.startsWith('55') && cleanPhone.length >= 10) {
+          // Remover o código do país e formatar apenas com DDD + número
+          const phoneWithoutCountryCode = cleanPhone.substring(2);
+          return formatPhoneNumber(phoneWithoutCountryCode);
+        } else {
+          // Se não tem o código do país, formatar normalmente
+          return formatPhoneNumber(phone);
+        }
+      }
+    }
+  };
+
   // Create WhatsApp URL from phone number
   const getWhatsAppUrl = (phone: string) => {
-    // Remove any non-numeric characters
-    const cleanPhone = phone.replace(/\D/g, '');
-    // Format for WhatsApp API with country code (assuming Brazil +55)
-    return `https://wa.me/55${cleanPhone}`;
+    // Verificar se o número já tem código internacional
+    if (phone.startsWith('+')) {
+      // Se já tem código internacional, remover o + e usar como está
+      return `https://wa.me/${phone.substring(1)}`;
+    } else {
+      // Detectar país pelo formato do número
+      const cleanPhone = phone.replace(/\D/g, '');
+      
+      // Verificar se o número tem o formato (35) XXXXX-XXXX ou similar
+      // Isso indica que é um número de Portugal com código 351
+      if ((phone.includes('(35)') && !phone.includes('(35)9')) || 
+          (cleanPhone.startsWith('351') && cleanPhone.length >= 11)) {
+        // É um número de Portugal, usar o código 351
+        if (cleanPhone.startsWith('351')) {
+          return `https://wa.me/${cleanPhone}`; // Já tem o código do país
+        } else {
+          // Adicionar o código 351 se não estiver presente
+          return `https://wa.me/351${cleanPhone.substring(2)}`;
+        }
+      } else {
+        // Se não for identificado como outro país, verificar se já começa com 55 (Brasil)
+        if (cleanPhone.startsWith('55')) {
+          return `https://wa.me/${cleanPhone}`; // Já tem o código do Brasil
+        } else {
+          return `https://wa.me/55${cleanPhone}`; // Adicionar o código do Brasil
+        }
+      }
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full">
       <PageHeader 
         title="Clientes" 
         description="Gerencie sua base de clientes"
@@ -259,8 +352,8 @@ const ClientsPage: React.FC = () => {
         </Button>
       </PageHeader>
 
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="w-full">
+        <CardContent className="pt-6 w-full">
           {/* Search */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -289,15 +382,15 @@ const ClientsPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="w-full overflow-x-hidden">
-              <Table className="w-full min-w-0 overflow-hidden">
+            <div className="w-full overflow-x-auto">
+              <Table className="w-full min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-1/3">Nome</TableHead>
-                    <TableHead className="w-1/4">Telefone</TableHead>
-                    <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="hidden md:table-cell">Observações</TableHead>
-                    <TableHead className="w-16 text-right">Ações</TableHead>
+                    <TableHead className="w-1/6">Nome</TableHead>
+                    <TableHead className="w-1/6">Telefone</TableHead>
+                    <TableHead className="hidden md:table-cell w-1/6">Email</TableHead>
+                    <TableHead className="hidden md:table-cell w-1/6">Observações</TableHead>
+                    <TableHead className="w-auto text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -327,7 +420,7 @@ const ClientsPage: React.FC = () => {
                           className="flex items-center text-primary hover:text-primary/80 transition-colors"
                         >
                           <MessageCircle className="h-4 w-4 mr-1.5" />
-                          {formatPhoneNumber(client.phone)}
+                          {formatClientPhone(client.phone)}
                         </a>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{client.email || "-"}</TableCell>
@@ -337,43 +430,118 @@ const ClientsPage: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEditClient(client)}>
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleToggleBlock(client)}>
-                              {client.isBlocked ? (
-                                <>
-                                  <ShieldOff className="h-4 w-4 mr-2" />
-                                  Desbloquear cliente
-                                </>
-                              ) : (
-                                <>
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  Bloquear cliente
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteClient(client)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash className="h-4 w-4 mr-2" />
-                              Excluir permanentemente
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/* Botões para telas maiores */}
+                        <div className="hidden md:flex md:items-center md:justify-end md:space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEditClient(client)}
+                            className="h-8 px-2 py-1 text-xs"
+                          >
+                            <Edit2 className="h-3.5 w-3.5 mr-1" />
+                            Editar
+                          </Button>
+                          
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleOpenAppointmentHistory(client)}
+                            className="h-8 px-2 py-1 text-xs"
+                          >
+                            <Calendar className="h-3.5 w-3.5 mr-1" />
+                            Histórico de Atendimento
+                          </Button>
+                          
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleOpenNotesReport(client)}
+                            className="h-8 px-2 py-1 text-xs"
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1" />
+                            Relatório
+                          </Button>
+                          
+                          <Button 
+                            variant={client.isBlocked ? "default" : "outline"}
+                            size="sm" 
+                            onClick={() => handleToggleBlock(client)}
+                            className="h-8 px-2 py-1 text-xs"
+                          >
+                            {client.isBlocked ? (
+                              <>
+                                <ShieldOff className="h-3.5 w-3.5 mr-1" />
+                                Desbloquear
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="h-3.5 w-3.5 mr-1" />
+                                Bloquear
+                              </>
+                            )}
+                          </Button>
+                          
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => handleDeleteClient(client)}
+                            className="h-8 px-2 py-1 text-xs"
+                          >
+                            <Trash className="h-3.5 w-3.5 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
+                        
+                        {/* Menu dropdown para dispositivos móveis */}
+                        <div className="md:hidden">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditClient(client)}>
+                                <Edit2 className="h-4 w-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuItem onClick={() => handleOpenAppointmentHistory(client)}>
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Histórico de Atendimento
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuItem onClick={() => handleOpenNotesReport(client)}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Ver Relatório
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuItem onClick={() => handleToggleBlock(client)}>
+                                {client.isBlocked ? (
+                                  <>
+                                    <ShieldOff className="h-4 w-4 mr-2" />
+                                    Desbloquear cliente
+                                  </>
+                                ) : (
+                                  <>
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    Bloquear cliente
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuSeparator />
+                              
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteClient(client)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash className="h-4 w-4 mr-2" />
+                                Excluir permanentemente
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -423,9 +591,17 @@ const ClientsPage: React.FC = () => {
                   <FormItem>
                     <FormLabel>Telefone</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <PhoneInput placeholder="(00) 00000-0000" className="pl-9" {...field} />
+                      <div>
+                        <PhoneInput 
+                          placeholder="(00) 00000-0000" 
+                          value={field.value}
+                          onChange={field.onChange}
+                          defaultCountry="BR"
+                          onCountryChange={(country) => {
+                            // Quando o país muda, precisamos atualizar o formato do número
+                            // mas não precisamos armazenar o código do país separadamente neste caso
+                          }}
+                        />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -493,25 +669,12 @@ const ClientsPage: React.FC = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {clientToBlock && clientToBlock.isBlocked ? "Desbloquear cliente" : "Bloquear cliente"}
+              {clientToBlock?.isBlocked ? "Desbloquear cliente" : "Bloquear cliente"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {clientToBlock && (
-                clientToBlock.isBlocked ? (
-                  <>
-                    Tem certeza que deseja desbloquear <strong>{clientToBlock.name}</strong>?
-                    <br /><br />
-                    O cliente poderá realizar novos agendamentos após o desbloqueio.
-                  </>
-                ) : (
-                  <>
-                    Tem certeza que deseja bloquear <strong>{clientToBlock.name}</strong>?
-                    <br /><br />
-                    O cliente não poderá realizar novos agendamentos enquanto estiver bloqueado.
-                    Agendamentos existentes não serão afetados.
-                  </>
-                )
-              )}
+              {clientToBlock?.isBlocked
+                ? `Tem certeza que deseja desbloquear ${clientToBlock?.name}? Isso permitirá que o cliente faça agendamentos novamente.`
+                : `Tem certeza que deseja bloquear ${clientToBlock?.name}? Isso impedirá que o cliente faça novos agendamentos.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -564,6 +727,25 @@ const ClientsPage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Client Notes Report Modal */}
+      {selectedClient && providerData && (
+        <ClientNotesReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          client={selectedClient}
+          providerId={providerData.id}
+        />
+      )}
+      
+      {/* Client Appointment History Modal */}
+      {selectedClient && (
+        <ClientAppointmentHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          client={selectedClient}
+        />
+      )}
     </div>
   );
 };

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, Search, RefreshCw, Pencil, Check, X } from "lucide-react";
+import { Plus, Calendar, Search, RefreshCw, Pencil, Check, X, Trash2 } from "lucide-react";
 import { formatDate, formatTime, getToday, addDays } from "@/lib/dates";
 import { getColorForStatus, getStatusTranslation, formatPhoneNumber } from "@/lib/utils";
 import { Appointment, AppointmentStatus, Client, Service } from "@shared/schema";
@@ -41,16 +41,28 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AddAppointmentForm from "@/components/dashboard/add-appointment-form";
+import RescheduleAppointmentForm from "@/components/dashboard/reschedule-appointment-form";
+import { useAuth } from "@/hooks/use-auth";
+import { useImpersonation } from "@/hooks/use-impersonation";
 
 const AppointmentsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { impersonationStatus } = useImpersonation();
+  
+  // Verificar se é conta empresa
+  const isCompanyAccount = user?.accountType === "company";
+  
+  // Verificar se está em modo de simulação
+  const isImpersonating = impersonationStatus?.isImpersonating || false;
 
   // Obter dados do provider atual
   const { data: provider } = useQuery({
@@ -102,6 +114,17 @@ const AppointmentsPage: React.FC = () => {
     enabled: !!providerId // Só executa a query quando o providerId estiver disponível
   });
 
+  // Fetch employees para contas empresa
+  const { data: employees, isLoading: employeesLoading } = useQuery({
+    queryKey: ["/api/employees"],
+    queryFn: async () => {
+      const res = await fetch("/api/employees");
+      if (!res.ok) throw new Error("Failed to fetch employees");
+      return res.json();
+    },
+    enabled: isCompanyAccount // Só busca funcionários para contas empresa
+  });
+
   // Filter appointments
   const filteredAppointments = React.useMemo(() => {
     if (!appointments) return [];
@@ -121,6 +144,9 @@ const AppointmentsPage: React.FC = () => {
 
       // Status filter
       const matchesStatus = statusFilter === "all" || appointment.status === statusFilter;
+
+      // Employee filter (só para contas empresa)
+      const matchesEmployee = !isCompanyAccount || employeeFilter === "all" || appointment.employeeId?.toString() === employeeFilter;
 
       // Date filter
       let matchesDate = true;
@@ -153,19 +179,19 @@ const AppointmentsPage: React.FC = () => {
         matchesDate = appointmentDate >= today && appointmentDate <= weekLater;
       }
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesStatus && matchesEmployee && matchesDate;
     }).sort((a: Appointment, b: Appointment) => {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [appointments, clients, services, searchTerm, statusFilter, dateFilter]);
+  }, [appointments, clients, services, searchTerm, statusFilter, dateFilter, employeeFilter, isCompanyAccount]);
 
   const handleAddAppointment = () => {
     setIsAddDialogOpen(true);
   };
 
-  const handleEditAppointment = (appointment: Appointment) => {
+  const handleRescheduleAppointment = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
-    setIsEditDialogOpen(true);
+    setIsRescheduleDialogOpen(true);
   };
 
   const handleUpdateStatus = async (appointmentId: number, newStatus: string, reason?: string) => {
@@ -188,9 +214,31 @@ const AppointmentsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteAppointment = async (appointmentId: number) => {
+    try {
+      const res = await apiRequest("DELETE", `/api/appointments/${appointmentId}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Erro ao excluir agendamento");
+      }
+      
+      refetchAppointments();
+      toast({
+        title: "Agendamento excluído",
+        description: "O agendamento foi excluído com sucesso.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir agendamento",
+        description: error.message || "Ocorreu um erro ao excluir o agendamento.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDialogClose = () => {
     setIsAddDialogOpen(false);
-    setIsEditDialogOpen(false);
+    setIsRescheduleDialogOpen(false);
     setSelectedAppointment(null);
     refetchAppointments();
   };
@@ -213,7 +261,13 @@ const AppointmentsPage: React.FC = () => {
     return service ? service.name : "";
   };
 
-  const isLoading = appointmentsLoading || clientsLoading || servicesLoading;
+  const getEmployeeName = (employeeId: number | null) => {
+    if (!employeeId || !employees) return "-";
+    const employee = employees.find((e: any) => e.id === employeeId);
+    return employee ? employee.name : "Funcionário não encontrado";
+  };
+
+  const isLoading = appointmentsLoading || clientsLoading || servicesLoading || employeesLoading;
 
   return (
     <div className="space-y-6 max-w-full">
@@ -264,6 +318,22 @@ const AppointmentsPage: React.FC = () => {
                   <SelectItem value="week">Próximos 7 dias</SelectItem>
                 </SelectContent>
               </Select>
+
+              {isCompanyAccount && (
+                <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+                  <SelectTrigger className="w-[140px] sm:w-[180px]">
+                    <SelectValue placeholder="Funcionário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os funcionários</SelectItem>
+                    {employees?.map((employee: any) => (
+                      <SelectItem key={employee.id} value={employee.id.toString()}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
@@ -290,6 +360,7 @@ const AppointmentsPage: React.FC = () => {
                   <TableRow>
                     <TableHead className="w-[25%] sm:w-[20%]">Cliente</TableHead>
                     <TableHead className="hidden sm:table-cell w-[20%]">Serviço</TableHead>
+                    {isCompanyAccount && <TableHead className="hidden sm:table-cell w-[15%]">Funcionário</TableHead>}
                     <TableHead className="w-[25%] sm:w-[15%]">Data/Hora</TableHead>
                     <TableHead className="hidden sm:table-cell w-[15%]">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Observações</TableHead>
@@ -311,6 +382,11 @@ const AppointmentsPage: React.FC = () => {
                           <div className="text-xs sm:text-sm text-gray-500 truncate max-w-[65px] sm:max-w-full">{getClientPhone(appointment.clientId)}</div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell p-1 sm:p-3 truncate">{getServiceName(appointment.serviceId)}</TableCell>
+                        {isCompanyAccount && (
+                          <TableCell className="hidden sm:table-cell p-1 sm:p-3 truncate">
+                            {getEmployeeName(appointment.employeeId)}
+                          </TableCell>
+                        )}
                         <TableCell className="p-1 sm:p-3">
                           <div className="truncate max-w-[65px] sm:max-w-full">{formatDate(appointmentDate)}</div>
                           <div className="text-xs sm:text-sm text-gray-500 truncate max-w-[65px] sm:max-w-full">{formatTime(appointmentDate)}</div>
@@ -354,15 +430,20 @@ const AppointmentsPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right p-1 sm:p-4">
                         <div className="flex flex-wrap justify-end gap-0.5 sm:gap-1">
+                            {/* Botão de Reagendar para agendamentos Pendente, Confirmado ou Cancelado */}
+                            {(appointment.status === AppointmentStatus.PENDING || 
+                              appointment.status === AppointmentStatus.CONFIRMED || 
+                              appointment.status === AppointmentStatus.CANCELLED) && (
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditAppointment(appointment)}
-                              className="h-6 w-6 sm:h-8 sm:w-auto sm:px-2 sm:py-1"
+                                variant="outline"
+                                size="sm"
+                                className="text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+                                onClick={() => handleRescheduleAppointment(appointment)}
                             >
-                              <span className="hidden sm:inline">Editar</span>
-                              <Pencil className="h-3 w-3 sm:hidden" />
+                                <span className="hidden sm:inline">Reagendar</span>
+                                <Calendar className="h-3 w-3 sm:hidden" />
                             </Button>
+                            )}
 
                             {isPending && (
                               <Button
@@ -437,21 +518,48 @@ const AppointmentsPage: React.FC = () => {
                                 Marcar como concluído
                               </Button>
                             )}
-                            
-                            {/* Botão de Reagendar para agendamentos cancelados */}
-                            {appointment.status === AppointmentStatus.CANCELLED && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-indigo-600 border-indigo-600 hover:bg-indigo-50 ml-2"
-                                onClick={() => {
-                                  // Preencher os dados do agendamento atual para reagendamento
-                                  setSelectedAppointment(appointment);
-                                  setIsAddDialogOpen(true);
-                                }}
-                              >
-                                Reagendar
-                              </Button>
+
+                            {/* Botão de Exclusão - Apenas no modo de simulação */}
+                            {isImpersonating && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-red-600 hover:bg-red-50 h-6 w-6 sm:h-8 sm:w-auto sm:px-2 sm:py-1 ml-1"
+                                  >
+                                    <span className="hidden sm:inline">Excluir</span>
+                                    <Trash2 className="h-3 w-3 sm:hidden" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir agendamento</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      <div className="space-y-2">
+                                        <p>Tem certeza que deseja excluir permanentemente este agendamento?</p>
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                                          <p className="text-sm text-yellow-800">
+                                            <strong>⚠️ Modo de Simulação:</strong> Esta funcionalidade está disponível apenas durante a simulação de usuário para fins de teste e limpeza de dados.
+                                          </p>
+                                        </div>
+                                        <p className="text-sm text-red-600 font-medium">Esta ação não pode ser desfeita!</p>
+                                      </div>
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancelar
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-red-600 hover:bg-red-700"
+                                      onClick={() => handleDeleteAppointment(appointment.id)}
+                                    >
+                                      Sim, excluir permanentemente
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             )}
                           </div>
                         </TableCell>
@@ -484,21 +592,17 @@ const AppointmentsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Appointment Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      {/* Reschedule Appointment Dialog */}
+      <Dialog open={isRescheduleDialogOpen} onOpenChange={setIsRescheduleDialogOpen}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Editar Agendamento</DialogTitle>
+            <DialogTitle>Reagendar Agendamento</DialogTitle>
           </DialogHeader>
-          {selectedAppointment && provider && (
-            <AddAppointmentForm 
-              providerId={provider.id}
-              initialDate={new Date(selectedAppointment.date)}
-              appointmentId={selectedAppointment.id}
-              initialClientId={selectedAppointment.clientId}
-              initialServiceId={selectedAppointment.serviceId}
-              initialNotes={selectedAppointment.notes || ""}
+          {selectedAppointment && (
+            <RescheduleAppointmentForm 
+              appointment={selectedAppointment}
               onComplete={handleDialogClose}
+              onCancel={() => setIsRescheduleDialogOpen(false)}
             />
           )}
         </DialogContent>

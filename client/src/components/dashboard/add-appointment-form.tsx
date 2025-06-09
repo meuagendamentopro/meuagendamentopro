@@ -22,13 +22,109 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { apiRequest } from "@/lib/queryClient";
-import { Client, Service, AppointmentStatus } from "@shared/schema";
+import { Client, Service, AppointmentStatus, Employee } from "@shared/schema";
 import { generateTimeSlots } from "@/lib/utils";
 import { combineDateAndTime } from "@/lib/dates";
+import { useAuth } from "@/hooks/use-auth";
+
+// Componente para seleção de serviços com filtro por funcionário
+interface ServiceSelectionProps {
+  form: any;
+  isCompanyAccount: boolean;
+  selectedEmployeeId?: number;
+}
+
+const ServiceSelection: React.FC<ServiceSelectionProps> = ({ 
+  form, 
+  isCompanyAccount, 
+  selectedEmployeeId 
+}) => {
+  // Get all services for this provider
+  const { data: allServices, isLoading: allServicesLoading } = useQuery({
+    queryKey: ['/api/my-services'],
+    queryFn: async () => {
+      const res = await fetch('/api/my-services');
+      if (!res.ok) throw new Error('Failed to fetch services');
+      return res.json();
+    }
+  });
+
+  // Get services for selected employee (only if employee is selected)
+  const { data: employeeServices, isLoading: employeeServicesLoading } = useQuery({
+    queryKey: ['/api/employees', selectedEmployeeId, 'services'],
+    queryFn: async () => {
+      const res = await fetch(`/api/employees/${selectedEmployeeId}/services`);
+      if (!res.ok) throw new Error('Failed to fetch employee services');
+      return res.json();
+    },
+    enabled: isCompanyAccount && !!selectedEmployeeId
+  });
+
+  // Determine which services to show
+  const servicesToShow = isCompanyAccount && selectedEmployeeId 
+    ? employeeServices 
+    : allServices;
+
+  const isLoading = isCompanyAccount && selectedEmployeeId 
+    ? employeeServicesLoading 
+    : allServicesLoading;
+
+  return (
+    <FormField
+      control={form.control}
+      name="serviceId"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Serviço</FormLabel>
+          <Select
+            onValueChange={field.onChange}
+            defaultValue={field.value.toString()}
+            value={field.value.toString()}
+            disabled={isCompanyAccount && !selectedEmployeeId}
+          >
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue 
+                  placeholder={
+                    isCompanyAccount && !selectedEmployeeId 
+                      ? "Selecione um funcionário primeiro" 
+                      : "Selecione um serviço"
+                  } 
+                />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent className="max-h-[40vh] overflow-y-auto">
+              {isLoading ? (
+                <SelectItem value="loading" disabled>
+                  Carregando...
+                </SelectItem>
+              ) : (
+                <>
+                  <SelectItem value="0" disabled>
+                    {isCompanyAccount && !selectedEmployeeId 
+                      ? "Selecione um funcionário primeiro" 
+                      : "Selecione um serviço"}
+                  </SelectItem>
+                  {servicesToShow?.map((service: Service) => (
+                    <SelectItem key={service.id} value={service.id.toString()}>
+                      {service.name} - {formatDuration(service.duration)} - {formatCurrency(service.price)}
+                    </SelectItem>
+                  ))}
+                </>
+              )}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+};
 
 const formSchema = z.object({
   clientId: z.coerce.number().min(1, "Selecione um cliente"),
   serviceId: z.coerce.number().min(1, "Selecione um serviço"),
+  employeeId: z.coerce.number().optional(),
   date: z.date(),
   time: z.string().min(1, "Selecione um horário"),
   notes: z.string().optional(),
@@ -56,20 +152,16 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
   onComplete,
 }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Get services for this provider (usando a rota protegida)
-  const { data: services, isLoading: servicesLoading } = useQuery({
-    queryKey: ['/api/my-services'],
-    queryFn: async () => {
-      const res = await fetch('/api/my-services');
-      if (!res.ok) throw new Error('Failed to fetch services');
-      return res.json();
-    }
-  });
+  // Verificar se é conta empresa
+  const isCompanyAccount = user?.accountType === "company";
+
+
 
   // Get all clients
   const { data: clients, isLoading: clientsLoading } = useQuery({
@@ -79,6 +171,17 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       if (!res.ok) throw new Error('Failed to fetch clients');
       return res.json();
     }
+  });
+
+  // Get employees for company accounts
+  const { data: employees, isLoading: employeesLoading } = useQuery({
+    queryKey: ['/api/employees'],
+    queryFn: async () => {
+      const res = await fetch('/api/employees');
+      if (!res.ok) throw new Error('Failed to fetch employees');
+      return res.json();
+    },
+    enabled: isCompanyAccount
   });
 
   // Initialize form with default values
@@ -96,8 +199,24 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
   // Update form values when initial values change
   useEffect(() => {
     if (initialDate) {
-      form.setValue("date", initialDate);
-      form.setValue("time", format(initialDate, "HH:mm"));
+      // Se estamos editando um agendamento (appointmentId existe), 
+      // precisamos compensar o fuso horário para mostrar o horário correto
+      let dateToUse = initialDate;
+      let timeToUse = "";
+      
+      if (appointmentId) {
+        // Para edição: subtrair 3 horas para compensar Brasília (GMT-3) para UTC
+        // Isso mostra o horário correto no formulário de edição
+        const adjustedDate = new Date(initialDate.getTime() - (3 * 60 * 60 * 1000));
+        dateToUse = adjustedDate;
+        timeToUse = format(adjustedDate, "HH:mm");
+      } else {
+        // Para novo agendamento: usar a data como está
+        timeToUse = format(initialDate, "HH:mm");
+      }
+      
+      form.setValue("date", dateToUse);
+      form.setValue("time", timeToUse);
     }
     if (initialClientId) {
       form.setValue("clientId", initialClientId);
@@ -108,7 +227,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
     if (initialNotes) {
       form.setValue("notes", initialNotes);
     }
-  }, [initialDate, initialClientId, initialServiceId, initialNotes, form]);
+  }, [initialDate, initialClientId, initialServiceId, initialNotes, appointmentId, form]);
 
   // Filter clients based on search term
   const filteredClients = clients?.filter((client: any) => {
@@ -141,6 +260,12 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
 
       // Update the clients list
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      
+      // Também invalidar queries de agendamentos para garantir consistência
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/my-appointments'],
+        exact: false
+      });
 
       // Set the form value
       form.setValue("clientId", newClient.id);
@@ -169,11 +294,25 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       const appointmentDate = combineDateAndTime(data.date, data.time);
       
       // Get service to calculate end time
-      const service = services?.find((s: any) => s.id === data.serviceId);
+      let service;
+      try {
+        const serviceRes = await fetch('/api/my-services');
+        if (!serviceRes.ok) throw new Error('Failed to fetch services');
+        const allServices = await serviceRes.json();
+        service = allServices.find((s: any) => s.id === data.serviceId);
+        
       if (!service) {
         toast({
           title: "Erro",
           description: "Serviço não encontrado",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Falha ao buscar informações do serviço",
           variant: "destructive",
         });
         return;
@@ -185,9 +324,13 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       // Check availability first usando a nova API protegida
       const myProvider = provider || await (await fetch('/api/my-provider')).json();
       
-      const availabilityCheck = await fetch(
-        `/api/providers/${myProvider.id}/availability?date=${appointmentDate.toISOString()}&serviceId=${data.serviceId}&bySystemUser=true`
-      );
+      // Para contas empresa, incluir o employeeId na verificação
+      let availabilityUrl = `/api/providers/${myProvider.id}/availability?date=${appointmentDate.toISOString()}&serviceId=${data.serviceId}&bySystemUser=true`;
+      if (data.employeeId) {
+        availabilityUrl += `&employeeId=${data.employeeId}`;
+      }
+      
+      const availabilityCheck = await fetch(availabilityUrl);
       
       const { available } = await availabilityCheck.json();
       
@@ -213,7 +356,7 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
         });
       } else {
         // Create appointment usando o ID do provider obtido da rota protegida
-        const response = await apiRequest("POST", "/api/appointments", {
+        const appointmentData: any = {
           providerId: myProvider.id, // Usar o ID do provider atual
           clientId: data.clientId,
           serviceId: data.serviceId,
@@ -221,7 +364,14 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
           endTime: endTime, // Enviando o objeto Date diretamente
           status: AppointmentStatus.CONFIRMED,
           notes: data.notes || "",
-        });
+        };
+
+        // Adicionar employeeId se for conta empresa e funcionário foi selecionado
+        if (isCompanyAccount && data.employeeId) {
+          appointmentData.employeeId = data.employeeId;
+        }
+
+        const response = await apiRequest("POST", "/api/appointments", appointmentData);
         
         toast({
           title: "Agendamento criado",
@@ -232,8 +382,17 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
       // Clear form
       form.reset();
       
-      // Invalidate queries to refresh data usando as rotas protegidas
-      queryClient.invalidateQueries({ queryKey: ['/api/my-appointments'] });
+      // Invalidate queries to refresh data - invalidar TODAS as variações da query
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/my-appointments'],
+        exact: false // Isso vai invalidar todas as queries que começam com '/api/my-appointments'
+      });
+      
+      // Invalidar também queries específicas do mês para atualizar o calendário
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/my-appointments/month'],
+        exact: false
+      });
       
       // Call the onComplete callback
       if (onComplete) {
@@ -355,45 +514,58 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
           )}
         </div>
 
-        {/* Service Selection */}
-        <FormField
-          control={form.control}
-          name="serviceId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Serviço</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value.toString()}
-                value={field.value.toString()}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um serviço" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent className="max-h-[40vh] overflow-y-auto">
-                  {servicesLoading ? (
-                    <SelectItem value="loading" disabled>
-                      Carregando...
-                    </SelectItem>
-                  ) : (
-                    <>
-                      <SelectItem value="0" disabled>
-                        Selecione um serviço
+        {/* Employee Selection (only for company accounts) */}
+        {isCompanyAccount && (
+          <FormField
+            control={form.control}
+            name="employeeId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Funcionário</FormLabel>
+                <Select
+                  onValueChange={(value) => {
+                    const employeeId = value && value !== "none" ? parseInt(value) : undefined;
+                    field.onChange(employeeId);
+                    // Resetar o serviço quando trocar de funcionário
+                    form.setValue("serviceId", 0);
+                  }}
+                  value={field.value?.toString() || "none"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um funcionário (opcional)" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="max-h-[40vh] overflow-y-auto">
+                    {employeesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Carregando...
                       </SelectItem>
-                      {services?.map((service: Service) => (
-                        <SelectItem key={service.id} value={service.id.toString()}>
-                          {service.name} - {formatDuration(service.duration)} - {formatCurrency(service.price)}
+                    ) : (
+                      <>
+                        <SelectItem value="none">
+                          Sem funcionário específico
                         </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
+                        {employees?.map((employee: Employee) => (
+                          <SelectItem key={employee.id} value={employee.id.toString()}>
+                            {employee.name} - {employee.specialty}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Service Selection */}
+        <ServiceSelection 
+          form={form}
+          isCompanyAccount={isCompanyAccount}
+          selectedEmployeeId={form.watch("employeeId")}
         />
 
         {/* Date and Time Selection */}
@@ -428,7 +600,6 @@ const AddAppointmentForm: React.FC<AddAppointmentFormProps> = ({
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
-                      disabled={(date) => date < new Date()}
                       initialFocus
                     />
                   </PopoverContent>

@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, RefreshCw, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, CheckCircle, Settings, QrCode } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Separator } from "@/components/ui/separator";
 
 interface PixPaymentProps {
   appointmentId: number;
   servicePrice: number;
   serviceName: string;
+  paymentAmount?: number;
+  paymentPercentage?: number;
 }
 
 export interface PixResponse {
@@ -31,8 +34,17 @@ const formatCurrency = (valueInCents: number) => {
   }).format(valueInReais);
 };
 
-export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId, servicePrice, serviceName }) => {
+export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId, servicePrice, serviceName, paymentAmount, paymentPercentage }) => {
   const [refreshInterval, setRefreshInterval] = useState<number | null>(5000); // Atualiza a cada 5 segundos
+  
+  // Verificar se o provedor tem configuração de PIX ativa
+  const { data: providerSettings, isLoading: loadingSettings } = useQuery({
+    queryKey: ['/api/my-provider/settings'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/my-provider/settings');
+      return await res.json();
+    }
+  });
 
   // Consulta para verificar o status do pagamento
   const { data: paymentStatus, isLoading: statusLoading } = useQuery({
@@ -107,6 +119,19 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
   
   // Verificar se o pagamento não é necessário
   const isNotRequired = paymentStatus?.paymentStatus === 'not_required';
+  
+  // Verificar se o PIX está configurado e ativo
+  const isPixConfigured = providerSettings?.pixEnabled && providerSettings?.pixMercadoPagoToken;
+  
+  // Calcular o valor restante a ser pago
+  const calculateRemainingAmount = () => {
+    if (paymentAmount && servicePrice > paymentAmount) {
+      return servicePrice - paymentAmount;
+    }
+    return servicePrice;
+  };
+  
+  const remainingAmount = calculateRemainingAmount();
 
   return (
     <Card className="w-full">
@@ -119,7 +144,9 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
               ? "Escaneie o QR Code para pagar"
               : isNotRequired
                 ? "Pagamento presencial"
-                : "Configure o pagamento para este agendamento"}
+                : isPixConfigured
+                  ? "Gere um código PIX para receber o pagamento"
+                  : "Configure o PIX nas configurações do seu perfil"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -144,15 +171,15 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
                 className="w-48 h-48 object-contain"
               />
               <span className="text-sm text-gray-500 mt-2">
-                {paymentStatus.paymentPercentage && paymentStatus.paymentPercentage < 100 && paymentStatus.paymentAmount ? (
+                {paymentAmount && paymentAmount > 0 && servicePrice > paymentAmount ? (
                   <>
-                    Valor: {formatCurrency(paymentStatus.paymentAmount)} 
+                    Valor: {formatCurrency(paymentStatus.paymentAmount || remainingAmount)} 
                     <span className="text-xs ml-1">
-                      ({paymentStatus.paymentPercentage}% do total: {formatCurrency(servicePrice)})
+                      (Valor restante do total: {formatCurrency(servicePrice)})
                     </span>
                   </>
                 ) : (
-                  <>Valor: {formatCurrency(servicePrice)}</>
+                  <>Valor: {formatCurrency(paymentStatus.paymentAmount || servicePrice)}</>
                 )}
               </span>
             </div>
@@ -196,17 +223,55 @@ export const AppointmentPixPayment: React.FC<PixPaymentProps> = ({ appointmentId
               Este agendamento não requer pagamento antecipado via PIX. O valor de {formatCurrency(servicePrice)} será cobrado presencialmente.
             </AlertDescription>
           </Alert>
+        ) : !isPixConfigured ? (
+          <div className="text-center py-4">
+            <Alert className="bg-amber-50 border-amber-200 mb-4">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <AlertTitle className="text-amber-800">Configuração necessária</AlertTitle>
+              <AlertDescription className="text-amber-700">
+                Você precisa configurar sua chave PIX e token do Mercado Pago para receber pagamentos.
+              </AlertDescription>
+            </Alert>
+            <Button 
+              variant="outline"
+              onClick={() => window.location.href = '/settings'}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Configurar PIX
+            </Button>
+          </div>
         ) : (
           <div className="text-center py-4">
-            <p className="text-gray-600 mb-4">
-              Gere um código PIX para receber o pagamento antecipado.
-            </p>
+            <div className="mb-4">
+              {paymentAmount && paymentAmount > 0 ? (
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between text-sm">
+                    <span>Valor total:</span>
+                    <span className="font-medium">{formatCurrency(servicePrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Valor já pago:</span>
+                    <span className="font-medium">{formatCurrency(paymentAmount)}</span>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Valor restante:</span>
+                    <span>{formatCurrency(remainingAmount)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600 mb-4">
+                  Gere um código PIX para receber o pagamento de {formatCurrency(servicePrice)}.
+                </p>
+              )}
+            </div>
             <Button 
               onClick={handleGeneratePix}
               disabled={generatePixMutation.isPending}
             >
               {generatePixMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Gerar PIX
+              <QrCode className="mr-2 h-4 w-4" />
+              Gerar PIX {remainingAmount !== servicePrice ? "para valor restante" : ""}
             </Button>
           </div>
         )}

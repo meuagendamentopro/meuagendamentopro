@@ -42,9 +42,9 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   const [showDetails, setShowDetails] = useState(false);
   
   const { data: appointments, isLoading: appointmentsLoading, refetch } = useQuery({
-    queryKey: ['/api/providers', providerId, 'appointments'],
+    queryKey: ['/api/my-appointments'],
     queryFn: async () => {
-      const res = await fetch(`/api/providers/${providerId}/appointments`);
+      const res = await fetch('/api/my-appointments');
       if (!res.ok) throw new Error('Failed to fetch appointments');
       return res.json();
     }
@@ -60,12 +60,33 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
   });
 
   const { data: services, isLoading: servicesLoading } = useQuery({
-    queryKey: ['/api/providers', providerId, 'services'],
+    queryKey: ['/api/my-services'],
     queryFn: async () => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
+      const res = await fetch('/api/my-services');
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     }
+  });
+
+  // Fetch user details to check account type 
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/user'],
+    queryFn: async () => {
+      const res = await fetch('/api/user');
+      if (!res.ok) throw new Error('Failed to fetch user data');
+      return res.json();
+    }
+  });
+
+  // Get employees for company accounts
+  const { data: employees, isLoading: employeesLoading } = useQuery({
+    queryKey: ['/api/employees'],
+    queryFn: async () => {
+      const res = await fetch('/api/employees');
+      if (!res.ok) throw new Error('Failed to fetch employees');
+      return res.json();
+    },
+    enabled: currentUser?.accountType === 'company' // Only fetch if account is company type
   });
 
   const handleCancelAppointment = async (id: number, reason: string) => {
@@ -97,30 +118,96 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     }
   };
 
-  const isLoading = appointmentsLoading || clientsLoading || servicesLoading;
+  const isLoading = appointmentsLoading || clientsLoading || servicesLoading || (currentUser?.accountType === 'company' && employeesLoading);
 
   const getClientName = (clientId: number) => {
-    if (!clients) return "";
-    const client = clients.find((c: any) => c.id === clientId);
+    const client = clients?.find((c: { id: number; name: string }) => c.id === clientId);
     return client ? client.name : "";
   };
 
   const getClientPhone = (clientId: number) => {
-    if (!clients) return "";
-    const client = clients.find((c: any) => c.id === clientId);
-    return client ? formatPhoneNumber(client.phone) : "";
+    const client = clients?.find((c: { id: number; phone: string }) => c.id === clientId);
+    if (!client) return "";
+    
+    // Se o número já tem código internacional (começa com +), exibir como está
+    if (client.phone.startsWith('+')) {
+      // Se for um número brasileiro com código internacional (+55), remover o código do país
+      if (client.phone.startsWith('+55')) {
+        const phoneWithoutCountryCode = client.phone.substring(3); // Remove o +55
+        return formatPhoneNumber(phoneWithoutCountryCode);
+      }
+      return client.phone; // Outros números internacionais exibir como estão
+    } else {
+      const cleanPhone = client.phone.replace(/\D/g, '');
+      
+      // Verificar se é um número de Portugal (especificamente começa com 351 ou tem o formato (35))
+      if ((client.phone.includes('(35)') && !client.phone.includes('(35)9')) || 
+          (cleanPhone.startsWith('351') && cleanPhone.length >= 11)) {
+        // Formatar como número de Portugal
+        if (cleanPhone.startsWith('351')) {
+          // Se já tem o código do país, formatar adequadamente
+          const countryCode = cleanPhone.substring(0, 3); // 351
+          const rest = cleanPhone.substring(3);
+          
+          // Formato português: +351 XXX XXX XXX
+          return `+${countryCode} ${rest.substring(0, 3)} ${rest.substring(3, 6)} ${rest.substring(6)}`;
+        } else {
+          // Se está no formato (35) XXXXX-XXXX
+          return `+351 ${cleanPhone.substring(2, 5)} ${cleanPhone.substring(5, 8)} ${cleanPhone.substring(8)}`;
+        }
+      } else {
+        // Verificar se o número já começa com 55 (código do Brasil)
+        if (cleanPhone.startsWith('55') && cleanPhone.length >= 10) {
+          // Remover o código do país e formatar apenas com DDD + número
+          const phoneWithoutCountryCode = cleanPhone.substring(2);
+          return formatPhoneNumber(phoneWithoutCountryCode);
+        } else {
+          // Se não tem o código do país, formatar normalmente
+          return formatPhoneNumber(client.phone);
+        }
+      }
+    }
   };
   
   // Cria URL do WhatsApp
   const getWhatsAppUrl = (clientId: number, appointmentId: number) => {
     if (!clients || !appointments) return "";
     
-    const client = clients.find((c: any) => c.id === clientId);
-    const appointment = appointments.find((a: any) => a.id === appointmentId);
+    const client = clients.find((c: { id: number; name: string; phone: string }) => c.id === clientId);
+    const appointment = appointments.find((a: { id: number; date: string; serviceId: number }) => a.id === appointmentId);
     
     if (!client || !appointment) return "";
     
-    const cleanPhone = client.phone.replace(/\D/g, '');
+    // Tratar números internacionais
+    let phoneForWhatsApp = "";
+    if (client.phone.startsWith('+')) {
+      // Se já tem código internacional, remover o + e usar como está
+      phoneForWhatsApp = client.phone.substring(1); // Remove o + do início
+    } else {
+      // Detectar país pelo formato do número
+      const cleanPhone = client.phone.replace(/\D/g, '');
+      
+      // Verificar se o número tem o formato (35) XXXXX-XXXX ou similar
+      // Isso indica que é um número de Portugal com código 351
+      if ((client.phone.includes('(35)') && !client.phone.includes('(35)9')) || 
+          (cleanPhone.startsWith('351') && cleanPhone.length >= 11)) {
+        // É um número de Portugal, usar o código 351
+        if (cleanPhone.startsWith('351')) {
+          phoneForWhatsApp = cleanPhone; // Já tem o código do país
+        } else {
+          // Adicionar o código 351 se não estiver presente
+          phoneForWhatsApp = `351${cleanPhone.substring(2)}`;
+        }
+      } else {
+        // Se não for identificado como outro país, verificar se já começa com 55 (Brasil)
+        if (cleanPhone.startsWith('55')) {
+          phoneForWhatsApp = cleanPhone; // Já tem o código do Brasil
+        } else {
+          phoneForWhatsApp = `55${cleanPhone}`; // Adicionar o código do Brasil
+        }
+      }
+    }
+    
     const appointmentDate = new Date(appointment.date);
     const formattedDate = formatDate(appointmentDate);
     const formattedTime = formatTime(appointmentDate);
@@ -128,7 +215,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     
     const message = `Olá, ${client.name}. Seu agendamento para o dia ${formattedDate}, às ${formattedTime} para o serviço ${serviceName} foi confirmado com sucesso!`;
     
-    return `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${phoneForWhatsApp}?text=${encodeURIComponent(message)}`;
   };
 
   const getServiceName = (serviceId: number) => {
@@ -142,6 +229,16 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
     const service = services.find((s: any) => s.id === serviceId);
     return service ? `${service.duration}min` : "";
   };
+
+  // Get employee name by ID
+  const getEmployeeName = (employeeId: number | null) => {
+    if (!employeeId || !employees) return "";
+    const employee = employees.find((e: any) => e.id === employeeId);
+    return employee ? employee.name : "";
+  };
+
+  // Check if account is company type
+  const isCompanyAccount = currentUser?.accountType === 'company';
 
   // Filter appointments
   const filteredAppointments = React.useMemo(() => {
@@ -213,6 +310,7 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                   <TableHead>Cliente</TableHead>
                   <TableHead>Serviço</TableHead>
                   <TableHead>Data/Hora</TableHead>
+                  {isCompanyAccount && <TableHead>Funcionário</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -264,6 +362,13 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
                           )}
                         </div>
                       </TableCell>
+                      {isCompanyAccount && (
+                        <TableCell>
+                          <div className="text-sm text-gray-900">
+                            {getEmployeeName(appointment.employeeId) || "-"}
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell>
                         {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
                           <TooltipProvider>

@@ -1,6 +1,6 @@
-# AgendaPro - Sistema de Agendamento Profissional
+# Sistema de Agendamento
 
-Sistema completo para gerenciamento de agendamentos, serviços, clientes e assinaturas para profissionais de qualquer área.
+Sistema profissional para gerenciamento de agendamentos, serviços e clientes para profissionais de qualquer área.
 
 ![Sistema de Agendamento](./generated-icon.png)
 
@@ -13,18 +13,31 @@ Sistema completo para gerenciamento de agendamentos, serviços, clientes e assin
 - ✅ Notificações via WhatsApp (clicáveis)
 - ✅ Painel administrativo completo
 - ✅ Relatórios financeiros
-- ✅ Planos de assinatura configuráveis
 - ✅ Suporte a múltiplos profissionais
 - ✅ Interface responsiva (Desktop e Mobile)
-- ✅ Pagamentos via PIX integrados
 
-## 💻 Tecnologias Utilizadas
+## 🚀 Início Rápido
 
-- **Frontend**: React, TypeScript, Vite, TailwindCSS, Shadcn/UI
-- **Backend**: Node.js, Express, TypeScript
-- **Banco de Dados**: PostgreSQL com Drizzle ORM
-- **Autenticação**: JWT, bcrypt
-- **Notificações**: WebSockets, E-mail
+```bash
+# Instalar dependências
+npm install
+
+# Iniciar servidor de desenvolvimento
+npm run dev
+
+# Acessar sistema
+# http://localhost:5000
+```
+
+### Credenciais para teste
+
+- **Admin**: 
+  - Usuário: `admin`
+  - Senha: `password123`
+
+- **Profissional**: 
+  - Usuário: `link`
+  - Senha: `password123`
 
 ## 📋 Pré-requisitos
 
@@ -32,80 +45,9 @@ Sistema completo para gerenciamento de agendamentos, serviços, clientes e assin
 - PostgreSQL 14 ou superior
 - Navegador moderno (Chrome, Firefox, Edge)
 
-## 📍 Instalação
+## 🗄️ Banco de Dados
 
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/meuagendamentopro/agendamentos.git
-cd agendamentos
-```
-
-### 2. Instale as dependências
-
-```bash
-npm install
-```
-
-### 3. Configure as variáveis de ambiente
-
-Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
-
-```env
-DATABASE_URL=postgres://postgres:linday1818@localhost:5432/agendamento
-NODE_ENV=development
-PORT=3000
-SESSION_SECRET=sua_chave_secreta_aqui
-GMAIL_USER=seu_email@gmail.com
-GMAIL_APP_PASSWORD=sua_senha_de_app_do_gmail
-```
-
-### 4. Configure o banco de dados
-
-```bash
-# Execute as migrações do banco de dados
-npm run migrate
-```
-
-### 5. Inicie o servidor de desenvolvimento
-
-```bash
-npm run dev
-```
-
-### 6. Acesse o sistema
-
-Abra seu navegador e acesse: http://localhost:3000
-
-## 🔑 Credenciais para teste
-
-- **Admin**: 
-  - Usuário: `admin`
-  - Senha: `admin123`
-
-- **Profissional**: 
-  - Usuário: `link`
-  - Senha: `linday1818`
-
-## 🗃️ Estrutura do Banco de Dados
-
-O sistema utiliza PostgreSQL com Drizzle ORM para gerenciar as seguintes entidades:
-
-- Usuários e Autenticação
-- Profissionais e Serviços
-- Clientes
-- Agendamentos
-- Planos de Assinatura
-- Transações financeiras
-- Notificações
-
-## 🚀 Deploy
-
-O sistema está configurado para fácil deploy em plataformas como Railway, Render ou qualquer serviço que suporte Node.js e PostgreSQL.
-
-## 📝 Licença
-
-Este projeto é proprietário e seu uso está sujeito aos termos de licença estabelecidos pelo autor.
+Por padrão, o sistema usa um banco de dados PostgreSQL.
 
 ### Configuração Rápida (Ambiente Local)
 

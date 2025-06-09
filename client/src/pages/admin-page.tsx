@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, PlusCircle, MoreVertical, Edit, Trash2, Shield, ShieldOff } from "lucide-react";
+import { Loader2, PlusCircle, MoreVertical, Edit, Trash2, Shield, ShieldOff, Power, AlertTriangle, CheckCircle, UserCheck } from "lucide-react";
+import { useImpersonation } from "@/hooks/use-impersonation";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useMaintenance } from "@/contexts/maintenance-context";
 import {
   Table,
   TableBody,
@@ -29,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import SystemSettings from "@/components/admin/system-settings";
 import { 
   Dialog, 
   DialogContent, 
@@ -93,6 +96,8 @@ type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 export default function AdminPage() {
   const { toast } = useToast();
+  const maintenance = useMaintenance();
+  const { startImpersonation } = useImpersonation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Estados para diálogos e ações
@@ -386,6 +391,7 @@ export default function AdminPage() {
     description: "",
     durationMonths: "1",
     price: "",
+    accountType: "individual",
     isActive: true
   });
   
@@ -396,6 +402,7 @@ export default function AdminPage() {
     description: "",
     durationMonths: "",
     price: "",
+    accountType: "individual",
     isActive: true
   });
 
@@ -456,6 +463,7 @@ export default function AdminPage() {
         description: "",
         durationMonths: "1",
         price: "",
+        accountType: "individual",
         isActive: true
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/subscription/plans"] });
@@ -577,6 +585,7 @@ export default function AdminPage() {
     description: string | null;
     durationMonths: number;
     price: number;
+    accountType: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -620,6 +629,7 @@ export default function AdminPage() {
       description: "",
       durationMonths: "1",
       price: "",
+      accountType: "individual",
       isActive: true
     });
     setIsNewPlanDialogOpen(true);
@@ -667,6 +677,7 @@ export default function AdminPage() {
       description: plan.description || "",
       durationMonths: plan.durationMonths.toString(),
       price: (plan.price / 100).toString(),
+      accountType: plan.accountType || "individual",
       isActive: plan.isActive
     });
     setIsEditFullPlanDialogOpen(true);
@@ -768,23 +779,32 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-500 mb-4">
-              Limpar dados do banco de dados. Utilize com cuidado, essa ação não pode ser desfeita.
+              Visualize, adicione, edite e remova dados do banco de dados. Gerencie todas as tabelas do sistema.
             </p>
-            <Button 
-              variant="outline" 
-              className="text-amber-600 border-amber-600 hover:bg-amber-50"
-              onClick={handleClearDatabase}
-              disabled={clearDatabaseMutation.isPending}
-            >
-              {clearDatabaseMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processando...
-                </>
-              ) : (
-                "Limpar Banco de Dados"
-              )}
-            </Button>
+            <div className="flex flex-col space-y-2">
+              <Button 
+                variant="outline" 
+                className="text-primary border-primary"
+                onClick={() => window.location.href = "/admin/database"}
+              >
+                Gerenciar Banco de Dados
+              </Button>
+              <Button 
+                variant="outline" 
+                className="text-amber-600 border-amber-600 hover:bg-amber-50"
+                onClick={handleClearDatabase}
+                disabled={clearDatabaseMutation.isPending}
+              >
+                {clearDatabaseMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  "Limpar Banco de Dados"
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -931,6 +951,9 @@ export default function AdminPage() {
       </AlertDialog>
       
       <div className="grid grid-cols-1 gap-6">
+        {/* Configurações do Sistema */}
+        <SystemSettings />
+        
         {/* Formulário de Criação de Usuário */}
         <Card>
           <CardHeader>
@@ -1106,6 +1129,17 @@ export default function AdminPage() {
                                 <Edit className="h-4 w-4 mr-2" />
                                 Editar
                               </DropdownMenuItem>
+                              
+                              <DropdownMenuItem 
+                                onClick={() => startImpersonation(user.id)}
+                                disabled={user.id === 1} // Impedir simulação do admin principal
+                                className="text-blue-600"
+                              >
+                                <UserCheck className="h-4 w-4 mr-2" />
+                                Simular usuário
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuSeparator />
                               
                               <DropdownMenuItem 
                                 onClick={() => handleToggleUserActive(user)}
@@ -1396,6 +1430,19 @@ export default function AdminPage() {
               </div>
             </div>
             
+            <div className="space-y-2">
+              <Label htmlFor="accountType">Tipo de Conta</Label>
+              <select
+                id="accountType"
+                value={newPlan.accountType}
+                onChange={(e) => setNewPlan({...newPlan, accountType: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="individual">Individual</option>
+                <option value="company">Empresa</option>
+              </select>
+            </div>
+            
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -1486,6 +1533,19 @@ export default function AdminPage() {
                   />
                 </div>
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-accountType">Tipo de Conta</Label>
+              <select
+                id="edit-accountType"
+                value={editedPlan.accountType}
+                onChange={(e) => setEditedPlan({...editedPlan, accountType: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="individual">Individual</option>
+                <option value="company">Empresa</option>
+              </select>
             </div>
             
             <div className="flex items-center space-x-2">

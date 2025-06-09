@@ -19,12 +19,21 @@ const MobileNav: React.FC = () => {
 
   // Base do menu de navegação
   let navItems = [
-    { href: "/", name: "Dashboard", active: location === "/" },
+    { href: "/dashboard", name: "Dashboard", active: location === "/dashboard" },
     { href: "/appointments", name: "Agendamentos", active: location === "/appointments" },
     { href: "/clients", name: "Clientes", active: location === "/clients" },
     { href: "/services", name: "Serviços", active: location === "/services" },
     { href: "/financial", name: "Financeiro", active: location === "/financial" },
   ];
+  
+  // Adiciona o menu Equipe apenas para usuários do tipo empresa
+  if (user?.accountType === "company") {
+    navItems.push({ 
+      href: "/team", 
+      name: "Equipe", 
+      active: location === "/team"
+    });
+  }
   
   // Adiciona a página de administração apenas para usuários admin
   if (user?.role === "admin") {

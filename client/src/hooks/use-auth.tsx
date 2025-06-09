@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useState } from "react";
+import { createContext, ReactNode, useContext, useState, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { queryClient, getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface User {
   id: number;
@@ -13,6 +14,7 @@ interface User {
   username: string;
   email: string;
   role: string;
+  accountType?: string;
   avatarUrl: string | null;
   isActive: boolean;
   subscriptionExpiry?: string | null;
@@ -55,6 +57,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [pendingVerification, setPendingVerification] = useState<{email: string} | null>(null);
   
   const {
@@ -92,7 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw customError;
         }
         
-        // Se chegamos até aqui, é um erro de autenticação padrão
+        // Verificar se é um erro de assinatura expirada - REMOVIDO
+        // Agora o backend permite o login mesmo com assinatura expirada
+        // Qualquer erro de autenticação é tratado da mesma forma
         const error = new Error(errorData.error || "Erro de autenticação");
         const customError: any = error;
         customError.response = {
@@ -224,13 +229,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     onSuccess: () => {
+      // Limpar dados e redirecionar IMEDIATAMENTE
       queryClient.setQueryData(["/api/user"], null);
+      navigate("/auth");
+      
+      // Toast após o redirecionamento
       toast({
         title: "Logout bem-sucedido",
         description: "Você saiu da sua conta.",
+        duration: 2000,
       });
-      // Redireciona para a página de login após logout
-      window.location.href = "/auth";
     },
     onError: (error: Error) => {
       toast({
@@ -240,6 +248,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
   });
+
+
 
   return (
     <AuthContext.Provider
@@ -265,4 +275,4 @@ export function useAuth() {
     throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
-}
+} 

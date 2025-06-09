@@ -8,23 +8,125 @@ import {
   appointments, Appointment, InsertAppointment,
   AppointmentStatus,
   notifications, Notification, InsertNotification,
-  timeExclusions, TimeExclusion, InsertTimeExclusion
+  timeExclusions, TimeExclusion, InsertTimeExclusion,
+  employees, Employee, InsertEmployee,
+  employeeServices, EmployeeService, InsertEmployeeService
 } from "@shared/schema";
 import { db } from "./db";
 import { and, eq, gte, lte, sql, inArray, ne } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
-import { pool } from "./db";
+import pg from 'pg';
+const { Pool } = pg;
+import { localConfig } from './local-config';
 
 export class DatabaseStorage implements IStorage {
   public sessionStore: session.Store;
+  private pool: pg.Pool;
 
   constructor() {
-    const PostgresSessionStore = connectPg(session);
-    this.sessionStore = new PostgresSessionStore({
-      pool, 
-      createTableIfMissing: true,
-    });
+    console.log('Inicializando DatabaseStorage...');
+    try {
+      const dbUrl = process.env.DATABASE_URL || localConfig.database.url;
+      console.log('Tentando conectar ao PostgreSQL com URL:', dbUrl);
+      this.pool = new Pool({
+        connectionString: dbUrl,
+      });
+      
+      // Testar a conexão imediatamente
+      this.pool.query('SELECT NOW()', (err: any, res: any) => {
+        if (err) {
+          console.error('ERRO NA CONEXÃO COM POSTGRESQL:', err);
+        } else {
+          console.log('Conexão com o PostgreSQL estabelecida! Timestamp do servidor:', res.rows[0].now);
+        }
+      });
+
+      // Inicializar o armazenamento de sessões com configurações super otimizadas
+      const PostgresSessionStore = connectPg(session);
+      this.sessionStore = new PostgresSessionStore({
+        pool: this.pool, 
+        createTableIfMissing: true,
+        tableName: 'session',
+        schemaName: 'public',
+        // Configurações extremamente otimizadas para evitar problemas de sessão
+        pruneSessionInterval: 24 * 60 * 60, // Limpar sessões apenas uma vez por dia
+        ttl: 365 * 24 * 60 * 60, // TTL de 1 ano para sessões (em segundos)
+        disableTouch: false, // Garantir que cada acesso atualize o TTL da sessão
+        errorLog: (err) => console.error('Erro na sessão PostgreSQL:', err)
+      });
+      console.log('PostgresSessionStore inicializado com sucesso!');
+      
+      // Criar a tabela de sessões manualmente se necessário
+      this.createSessionTableIfNeeded().then(() => {
+        console.log('Tabela de sessões verificada/criada com sucesso!');
+      }).catch(err => {
+        console.error('Erro ao criar tabela de sessões:', err);
+      });
+      
+      console.log('Construtor do DatabaseStorage concluído com sucesso!');
+    } catch (error) {
+      console.error('ERRO FATAL no construtor do DatabaseStorage:', error);
+      throw error;
+    }
+  }
+  
+  // Método auxiliar para criar a tabela de sessões manualmente
+  private async createSessionTableIfNeeded() {
+    try {
+      console.log('Verificando se a tabela de sessões existe...');
+      
+      // Verificar se a tabela já existe
+      const tableExists = await this.pool.query(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'session')"
+      );
+      
+      console.log('Resultado da verificação da tabela de sessões:', tableExists.rows);
+      
+      if (!tableExists.rows[0].exists) {
+        console.log('Tabela de sessões não existe. Criando tabela...');
+        // Criar a tabela de sessões
+        await this.pool.query(`
+          CREATE TABLE IF NOT EXISTS "session" (
+            "sid" varchar NOT NULL COLLATE "default",
+            "sess" json NOT NULL,
+            "expire" timestamp(6) NOT NULL,
+            CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+          )
+        `);
+        console.log('Tabela de sessões criada com sucesso!');
+      } else {
+        console.log('Tabela de sessões já existe.');
+        
+        // Verificar se a tabela tem a estrutura correta
+        try {
+          console.log('Verificando estrutura da tabela de sessões...');
+          await this.pool.query('SELECT sid, sess, expire FROM "session" LIMIT 0');
+          console.log('Estrutura da tabela de sessões está correta.');
+        } catch (structureError) {
+          console.error('Erro ao verificar estrutura da tabela de sessões:', structureError);
+          console.log('Tentando recriar a tabela de sessões...');
+          
+          // Tentar recriar a tabela
+          await this.pool.query('DROP TABLE IF EXISTS "session"');
+          await this.pool.query(`
+            CREATE TABLE "session" (
+              "sid" varchar NOT NULL COLLATE "default",
+              "sess" json NOT NULL,
+              "expire" timestamp(6) NOT NULL,
+              CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+            )
+          `);
+          console.log('Tabela de sessões recriada com sucesso!');
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar/criar tabela de sessões:', error);
+      // Não lançar o erro, apenas registrar
+      return false;
+    }
   }
 
   // User methods
@@ -34,8 +136,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+    try {
+      console.log(`DatabaseStorage: Buscando usuário pelo username: ${username}`);
+      const result = await db.select().from(users).where(eq(users.username, username));
+      console.log(`DatabaseStorage: Resultado da busca: ${JSON.stringify(result)}`);
+      
+      const [user] = result;
+      console.log(`DatabaseStorage: Usuário encontrado: ${user ? 'Sim' : 'Não'}`);
+      
+      return user;
+    } catch (error) {
+      console.error(`DatabaseStorage: Erro ao buscar usuário pelo username ${username}:`, error);
+      throw error;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -494,7 +607,41 @@ export class DatabaseStorage implements IStorage {
     return updatedAppointment;
   }
 
-  async checkAvailability(providerId: number, date: Date, duration: number): Promise<boolean> {
+  async updateAppointment(id: number, appointmentData: Partial<Appointment>): Promise<Appointment | undefined> {
+    console.log(`📝 Atualizando agendamento ${id} com dados:`, appointmentData);
+    
+    try {
+      const [updatedAppointment] = await db
+        .update(appointments)
+        .set(appointmentData)
+        .where(eq(appointments.id, id))
+        .returning();
+      
+      console.log(`✅ Agendamento ${id} atualizado com sucesso:`, updatedAppointment);
+      return updatedAppointment;
+    } catch (error) {
+      console.error(`❌ Erro ao atualizar agendamento ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async deleteAppointment(id: number): Promise<boolean> {
+    console.log(`🗑️ Deletando agendamento ${id}`);
+    
+    try {
+      const result = await db
+        .delete(appointments)
+        .where(eq(appointments.id, id));
+      
+      console.log(`✅ Agendamento ${id} deletado com sucesso`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Erro ao deletar agendamento ${id}:`, error);
+      return false;
+    }
+  }
+
+  async checkAvailability(providerId: number, date: Date, duration: number, employeeId?: number): Promise<boolean> {
     // Calcula o tempo de término do agendamento solicitado
     const requestEndTime = new Date(date.getTime() + duration * 60000);
     
@@ -610,7 +757,14 @@ export class DatabaseStorage implements IStorage {
       // Não interrompe o fluxo se falhar, continua a verificação
     }
     
-    // Passo 3: Seleciona todos os agendamentos para o provedor na mesma data
+    // Passo 3: Verificar se é uma conta empresa
+    const providerData = await this.getProvider(providerId);
+    const user = providerData ? await this.getUser(providerData.userId) : null;
+    const isCompanyAccount = user?.accountType === 'company';
+    
+    console.log(`Verificando disponibilidade para conta ${isCompanyAccount ? 'empresa' : 'individual'}, employeeId: ${employeeId}`);
+    
+    // Passo 4: Seleciona todos os agendamentos para o provedor na mesma data
     const appointmentsOnDay = await this.getAppointmentsByDate(providerId, date);
     
     // Para cada agendamento, verifica se há conflito de horário
@@ -634,6 +788,7 @@ export class DatabaseStorage implements IStorage {
       console.log(`Verificando conflito de horários para agendamento ${appointment.id}:`);
       console.log(`- Horário solicitado: ${date.toLocaleTimeString()} - ${requestEndTime.toLocaleTimeString()}`);
       console.log(`- Agendamento existente: ${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()}`);
+      console.log(`- Funcionário existente: ${appointment.employeeId}, Funcionário solicitado: ${employeeId}`);
       
       // Converter para objetos Date com mesmo fuso horário para comparação correta
       const startA = new Date(date);
@@ -650,8 +805,25 @@ export class DatabaseStorage implements IStorage {
       const hasOverlap = !(endA <= startB || endB <= startA);
       
       if (isPendingOrConfirmed && hasOverlap) {
-        console.log(`Conflito detectado com agendamento ${appointment.id} (${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()})`);
-        return false; // Não está disponível
+        // Se for conta empresa, permitir múltiplos agendamentos no mesmo horário
+        // APENAS se forem funcionários diferentes
+        if (isCompanyAccount && employeeId && appointment.employeeId) {
+          if (employeeId !== appointment.employeeId) {
+            console.log(`Conta empresa: Permitindo agendamento no mesmo horário para funcionário diferente (${employeeId} vs ${appointment.employeeId})`);
+            continue; // Não há conflito, funcionários diferentes
+          } else {
+            console.log(`Conta empresa: Conflito detectado - mesmo funcionário (${employeeId}) já tem agendamento no horário`);
+            return false; // Mesmo funcionário já tem agendamento
+          }
+        } else if (isCompanyAccount && (!employeeId || !appointment.employeeId)) {
+          // Se um dos agendamentos não tem funcionário atribuído, há conflito
+          console.log(`Conta empresa: Conflito detectado - agendamento sem funcionário específico`);
+          return false;
+        } else {
+          // Conta individual ou sem funcionário específico
+          console.log(`Conflito detectado com agendamento ${appointment.id} (${appointmentDate.toLocaleTimeString()} - ${appointmentEndTime.toLocaleTimeString()})`);
+          return false; // Não está disponível
+        }
       }
     }
     
@@ -790,6 +962,68 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Erro ao excluir exclusão de horário:", error);
       throw new Error("Erro ao excluir exclusão de horário");
+    }
+  }
+
+  // Método para obter um funcionário específico
+  async getEmployee(id: number): Promise<Employee | undefined> {
+    try {
+      const result = await db
+        .select()
+        .from(employees)
+        .where(eq(employees.id, id))
+        .limit(1);
+      
+      return result[0] || undefined;
+    } catch (error) {
+      console.error("Erro ao buscar funcionário:", error);
+      throw new Error("Erro ao buscar funcionário");
+    }
+  }
+
+  // Métodos para gerenciar associações entre funcionários e serviços
+  async getEmployeeServices(employeeId: number): Promise<Service[]> {
+    try {
+      const results = await db
+        .select({
+          id: services.id,
+          providerId: services.providerId,
+          name: services.name,
+          description: services.description,
+          duration: services.duration,
+          price: services.price,
+          active: services.active
+        })
+        .from(employeeServices)
+        .innerJoin(services, eq(employeeServices.serviceId, services.id))
+        .where(eq(employeeServices.employeeId, employeeId));
+      
+      return results;
+    } catch (error) {
+      console.error("Erro ao buscar serviços do funcionário:", error);
+      throw new Error("Erro ao buscar serviços do funcionário");
+    }
+  }
+
+  async setEmployeeServices(employeeId: number, serviceIds: number[]): Promise<void> {
+    try {
+      // Remove todas as associações existentes
+      await db
+        .delete(employeeServices)
+        .where(eq(employeeServices.employeeId, employeeId));
+      
+      // Adiciona as novas associações
+      if (serviceIds.length > 0) {
+        const associations = serviceIds.map(serviceId => ({
+          employeeId,
+          serviceId
+        }));
+        
+        await db.insert(employeeServices).values(associations);
+      }
+    } catch (error) {
+      console.error("Erro ao definir serviços do funcionário:", error);
+      throw new Error("Erro ao definir serviços do funcionário");
     }
   }
 }

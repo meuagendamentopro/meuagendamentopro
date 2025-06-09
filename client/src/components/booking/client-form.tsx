@@ -9,14 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
   name: z.string().min(3, "Por favor, insira seu nome completo com pelo menos 3 caracteres"),
-  phone: z.string().min(10, "Por favor, insira um número de telefone válido com pelo menos 10 dígitos"),
+  phone: z.string().min(8, "Por favor, insira um número de telefone válido"),
+  countryCode: z.string().default("BR"),
   notes: z.string().optional().default(""),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface ClientFormProps {
-  onSubmitValues: (values: { name: string; phone: string; notes: string }) => void;
+  onSubmitValues: (values: { name: string; phone: string; notes: string; countryCode: string }) => void;
   defaultValues?: Partial<FormValues>;
 }
 
@@ -26,6 +27,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
     defaultValues: {
       name: defaultValues.name || "",
       phone: defaultValues.phone || "",
+      countryCode: defaultValues.countryCode || "BR",
       notes: defaultValues.notes || "",
     },
   });
@@ -34,6 +36,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
     onSubmitValues({
       name: data.name,
       phone: data.phone,
+      countryCode: data.countryCode,
       notes: data.notes || ""
     });
   };
@@ -47,6 +50,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
       onSubmitValues({
         name: values.name || "",
         phone: values.phone || "",
+        countryCode: values.countryCode || "BR",
         notes: values.notes || "",
       });
     });
@@ -82,6 +86,10 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
                   placeholder="(00) 00000-0000" 
                   value={field.value}
                   onChange={field.onChange}
+                  defaultCountry={form.getValues().countryCode}
+                  onCountryChange={(country) => {
+                    form.setValue('countryCode', country);
+                  }}
                 />
               </FormControl>
               <FormMessage />

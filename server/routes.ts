@@ -1,5 +1,13 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+
+// Estender o tipo da sessão para incluir dados de simulação
+declare module 'express-session' {
+  interface SessionData {
+    originalAdminId?: number;
+    impersonatedUserId?: number;
+  }
+}
 import { storage } from "./storage";
 import { db } from "./db";
 import multer from "multer";
@@ -24,27 +32,456 @@ import {
   InsertTimeExclusion,
   subscriptionPlans,
   subscriptionTransactions,
-  users
+  users,
+  employees,
+  insertEmployeeSchema
 } from "@shared/schema";
 import { and, eq, gt, gte, lte, ne, sql, desc } from "drizzle-orm";
 import { z } from "zod";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
+import systemSettingsRoutes from "./routes/system-settings";
+import maintenanceRoutes from "./routes/maintenance.routes";
 import passport from "passport";
+import { activeSessionMiddleware, userWebSockets } from "./active-session";
 import { verifyToken, generateVerificationToken, sendVerificationEmail, sendWelcomeEmail, isEmailServiceConfigured } from "./email-service";
 import { paymentService } from "./payment-service";
+import adminDatabaseRouter from "./routes/admin-database";
+import { registerAppointmentDeleteRoute } from "./routes/appointments-delete";
+import clinicalNotesRoutes from "./routes/clinical-notes-routes";
+import clientAppointmentsRoutes from "./routes/client-appointments";
+import { sessionCheckRoute } from "./routes/session-check";
+import excelDataRoutes from "./routes/excel-data";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Rota de health check para o Railway
-  app.get("/api/health", (req: Request, res: Response) => {
-    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-  });
-
   // Configurar autenticação
   setupAuth(app);
   
-  // Rota para obter dados do usuário atual
-  app.get("/api/user", (req: Request, res: Response) => {
+  // Aplicar o middleware de sessão única em todas as rotas protegidas
+  // Importante: deve ser aplicado após a inicialização do Passport
+  app.use('/api', (req, res, next) => activeSessionMiddleware(req, res, next));
+  
+  // Registrar rotas de administração do banco de dados
+  app.use('/api/admin/database', adminDatabaseRouter);
+  
+  // Registrar rota de verificação de sessão
+  sessionCheckRoute(app);
+  
+  // Registrar rotas para servir o arquivo Excel (sem autenticação)
+  app.use('/api/dados', excelDataRoutes);
+  
+  // Rota para buscar o histórico de atendimentos de um cliente específico
+  app.get('/api/clients/:clientId/appointments', async (req: Request & { user?: any }, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Não autorizado" });
+      }
+      
+      const { clientId } = req.params;
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Usuário não autenticado" });
+      }
+      
+      // Buscar o provedor associado ao usuário logado
+      const provider = await storage.getProviderByUserId(userId);
+      
+      if (!provider) {
+        return res.status(404).json({ error: "Provedor não encontrado" });
+      }
+      
+      const providerId = provider.id;
+
+      // Buscar todos os agendamentos do cliente para este provedor
+      const clientAppointments = await db
+        .select({
+          id: appointments.id,
+          date: appointments.date,
+          status: appointments.status,
+          notes: appointments.notes,
+          serviceId: appointments.serviceId,
+          paymentAmount: appointments.paymentAmount,
+          paymentStatus: appointments.paymentStatus,
+          paymentPercentage: appointments.paymentPercentage,
+        })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.clientId, parseInt(clientId)),
+            eq(appointments.providerId, providerId)
+          )
+        )
+        .orderBy(desc(appointments.date));
+
+      // Buscar os detalhes dos serviços relacionados
+      const serviceIds = Array.from(new Set(clientAppointments.map(app => app.serviceId)));
+      
+      const serviceDetails = await db
+        .select({
+          id: services.id,
+          name: services.name,
+          price: services.price,
+        })
+        .from(services)
+        .where(eq(services.providerId, providerId));
+
+      // Mapear os serviços por ID para facilitar o acesso
+      const servicesMap = serviceDetails.reduce<Record<number, typeof serviceDetails[0]>>((acc, service) => {
+        acc[service.id] = service;
+        return acc;
+      }, {});
+
+      // Adicionar os detalhes do serviço a cada agendamento
+      const appointmentsWithDetails = clientAppointments.map(appointment => {
+        const service = servicesMap[appointment.serviceId];
+        return {
+          ...appointment,
+          serviceName: service?.name,
+          servicePrice: service?.price,
+        };
+      });
+
+      res.json(appointmentsWithDetails);
+    } catch (error) {
+      console.error("Erro ao buscar histórico de atendimentos:", error);
+      res.status(500).json({ error: "Erro ao buscar histórico de atendimentos" });
+    }
+  });
+  
+  // Rota para buscar informações do provedor logado
+  app.get('/api/my-provider', (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    next();
+  }, async (req: Request, res: Response) => {
+    try {
+      // Usar getCurrentUserId para considerar simulação de acesso
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Usuário não autenticado' });
+      }
+      
+      // Buscar o provedor associado ao usuário logado (ou simulado)
+      const provider = await storage.getProviderByUserId(userId);
+      
+      if (!provider) {
+        return res.status(404).json({ error: 'Provedor não encontrado' });
+      }
+      
+      res.json(provider);
+    } catch (error: any) {
+      console.error('Erro ao buscar provedor:', error);
+      res.status(500).json({ error: 'Falha ao buscar informações do provedor' });
+    }
+  });
+  
+  // Rota para buscar configurações do provedor logado
+  app.get('/api/my-provider/settings', (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    next();
+  }, async (req: Request, res: Response) => {
+    try {
+      // Usar getCurrentUserId para considerar simulação de acesso
+      const userId = getCurrentUserId(req);
+      if (!userId) {
+        return res.status(401).json({ error: 'Usuário não autenticado' });
+      }
+      
+      // Buscar o provedor associado ao usuário logado (ou simulado)
+      const provider = await storage.getProviderByUserId(userId);
+      
+      if (!provider) {
+        return res.status(404).json({ error: 'Provedor não encontrado' });
+      }
+      
+      // Retornar apenas as configurações relevantes para pagamento
+      res.json({
+        id: provider.id,
+        pixEnabled: provider.pixEnabled || false,
+        pixMercadoPagoToken: provider.pixMercadoPagoToken ? true : false, // Apenas indicar se existe, não enviar o token
+        pixIdentificationNumber: provider.pixIdentificationNumber || null,
+        pixPaymentPercentage: provider.pixPaymentPercentage || 100
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar configurações do provedor:', error);
+      res.status(500).json({ error: 'Falha ao buscar configurações do provedor' });
+    }
+  });
+  
+  // Rota para gerar um código PIX para pagamento
+  app.post('/api/payments/generate-pix', (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    next();
+  }, async (req: Request, res: Response) => {
+    try {
+      const { appointmentId, amount } = req.body;
+      
+      if (!appointmentId || !amount) {
+        return res.status(400).json({ error: 'ID do agendamento e valor são obrigatórios' });
+      }
+      
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Usuário não autenticado' });
+      }
+      
+      // Buscar o provedor associado ao usuário logado
+      const provider = await storage.getProviderByUserId(userId);
+      
+      if (!provider) {
+        return res.status(404).json({ error: 'Provedor não encontrado' });
+      }
+      
+      // Verificar se o provedor tem PIX configurado
+      if (!provider.pixEnabled || !provider.pixMercadoPagoToken) {
+        return res.status(400).json({ 
+          error: 'PIX não configurado', 
+          message: 'Configure o PIX nas configurações do seu perfil para receber pagamentos.' 
+        });
+      }
+      
+      // Buscar o agendamento
+      const appointment = await storage.getAppointment(appointmentId);
+      
+      if (!appointment) {
+        return res.status(404).json({ error: 'Agendamento não encontrado' });
+      }
+      
+      // Verificar se o agendamento pertence ao provedor
+      if (appointment.providerId !== provider.id) {
+        return res.status(403).json({ error: 'Acesso negado a este agendamento' });
+      }
+      
+      // Buscar o cliente
+      const client = await storage.getClient(appointment.clientId);
+      
+      if (!client) {
+        return res.status(404).json({ error: 'Cliente não encontrado' });
+      }
+      
+      // Buscar o serviço
+      const service = await storage.getService(appointment.serviceId);
+      
+      if (!service) {
+        return res.status(404).json({ error: 'Serviço não encontrado' });
+      }
+      
+      // Calcular o valor restante a ser pago
+      let paymentAmount = amount;
+      if (appointment.paymentAmount && appointment.paymentAmount > 0) {
+        // Se já existe um pagamento parcial, usar o valor restante
+        const servicePrice = service.price || 0;
+        const remainingAmount = servicePrice - appointment.paymentAmount;
+        
+        // Usar o valor restante (já em reais, não precisa converter)
+        paymentAmount = remainingAmount / 100; // Converter de centavos para reais
+        
+        console.log(`Valor do serviço: ${servicePrice / 100} reais, Valor já pago: ${appointment.paymentAmount / 100} reais, Valor restante: ${paymentAmount} reais`);
+      }
+      
+      // Gerar o código PIX
+      const pixResponse = await paymentService.generatePix({
+        appointmentId,
+        providerId: provider.id,
+        amount: paymentAmount,
+        clientName: client.name,
+        clientEmail: client.email || 'cliente@example.com',
+        serviceDescription: service.name
+      });
+      
+      // Retornar os dados do PIX
+      res.json({
+        transactionId: pixResponse.transactionId,
+        qrCode: pixResponse.qrCode,
+        qrCodeBase64: pixResponse.qrCodeBase64,
+        expiresAt: pixResponse.expiresAt,
+        paymentAmount: Math.round(paymentAmount * 100), // Converter de reais para centavos
+        paymentPercentage: provider.pixPaymentPercentage || 100
+      });
+    } catch (error: any) {
+      console.error('Erro ao gerar PIX:', error);
+      res.status(500).json({ error: 'Falha ao gerar código PIX', message: error.message });
+    }
+  });
+  
+  // Rota para verificar o status de um pagamento
+  app.get('/api/payments/:appointmentId/status', (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    next();
+  }, async (req: Request, res: Response) => {
+    try {
+      const appointmentId = parseInt(req.params.appointmentId);
+      
+      if (isNaN(appointmentId)) {
+        return res.status(400).json({ error: 'ID de agendamento inválido' });
+      }
+      
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Usuário não autenticado' });
+      }
+      
+      // Buscar o provedor associado ao usuário logado
+      const provider = await storage.getProviderByUserId(userId);
+      
+      if (!provider) {
+        return res.status(404).json({ error: 'Provedor não encontrado' });
+      }
+      
+      // Buscar o agendamento
+      const appointment = await storage.getAppointment(appointmentId);
+      
+      if (!appointment) {
+        return res.status(404).json({ error: 'Agendamento não encontrado' });
+      }
+      
+      // Verificar se o agendamento pertence ao provedor
+      if (appointment.providerId !== provider.id) {
+        return res.status(403).json({ error: 'Acesso negado a este agendamento' });
+      }
+      
+      // Se o agendamento já estiver pago, retornar o status
+      if (appointment.paymentStatus === 'paid') {
+        return res.json({ paymentStatus: 'paid' });
+      }
+      
+      // Se não requer pagamento, retornar o status
+      if (!appointment.requiresPayment) {
+        return res.json({ paymentStatus: 'not_required' });
+      }
+      
+      // Se não tiver transação PIX, retornar status pendente sem QR code
+      if (!appointment.pixTransactionId) {
+        return res.json({ paymentStatus: 'pending' });
+      }
+      
+      // Verificar o status do pagamento no serviço de pagamento
+      const paymentStatus = await paymentService.checkPaymentStatus(
+        appointment.pixTransactionId || '',
+        provider.pixMercadoPagoToken || ''
+      );
+      
+      // Se o pagamento foi confirmado, atualizar o status do agendamento
+      if (paymentStatus.paid && appointment.paymentStatus !== 'paid') {
+        await paymentService.updateAppointmentPaymentStatus(appointmentId);
+      }
+      
+      // Retornar o status do pagamento com os dados do PIX
+      res.json({
+        paymentStatus: paymentStatus.paid ? 'paid' : 'pending',
+        qrCode: appointment.pixQrCode,
+        qrCodeBase64: appointment.pixQrCode, // Usar o mesmo campo para base64
+        expiresAt: appointment.pixQrCodeExpiration, // Usar o campo correto para expiração
+        paymentAmount: appointment.paymentAmount,
+        paymentPercentage: appointment.paymentPercentage
+      });
+    } catch (error: any) {
+      console.error('Erro ao verificar status do pagamento:', error);
+      res.status(500).json({ error: 'Falha ao verificar status do pagamento', message: error.message });
+    }
+  });
+  
+  // Registrar rotas de configurações do sistema
+  app.use('/api/system-settings', systemSettingsRoutes);
+  
+  // Registrar rotas de manutenção
+  app.use('/api/maintenance', maintenanceRoutes);
+  
+  // Registrar rota de exclusão de agendamentos
+  registerAppointmentDeleteRoute(app, storage);
+  
+  // Registrar rotas de anotações clínicas
+  app.use('/api/clinical-notes', clinicalNotesRoutes);
+  
+  // Rota para verificar todos os pagamentos pendentes do usuário
+  app.get("/api/subscription/check-pending-payments", async (req: Request, res: Response) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Não autenticado" });
+      }
+      
+      // Buscar todas as transações pendentes do usuário
+      const pendingTransactions = await db.select()
+        .from(subscriptionTransactions)
+        .where(and(
+          eq(subscriptionTransactions.userId, req.user.id),
+          eq(subscriptionTransactions.status, 'pending')
+        ));
+      
+      console.log(`Verificando ${pendingTransactions.length} pagamentos pendentes para o usuário ${req.user.id}`);
+      
+      // Verificar o status de cada transação pendente
+      const results = await Promise.all(
+        pendingTransactions.map(async (transaction) => {
+          try {
+            if (transaction.transactionId) {
+              const status = await subscriptionService.checkPaymentStatus(transaction.transactionId);
+              return {
+                transactionId: transaction.transactionId,
+                status: status.status,
+                updated: status.status !== 'pending'
+              };
+            }
+            return null;
+          } catch (error) {
+            console.error(`Erro ao verificar transação ${transaction.id}:`, error);
+            return null;
+          }
+        })
+      );
+      
+      // Filtrar resultados nulos
+      const validResults = results.filter(Boolean);
+      
+      // Se algum pagamento foi confirmado, atualizar as informações do usuário
+      const confirmedPayments = validResults.filter(r => r && (r.status === 'paid' || r.status === 'confirmed' || r.status === 'approved'));
+      
+      if (confirmedPayments.length > 0) {
+        console.log(`${confirmedPayments.length} pagamentos confirmados para o usuário ${req.user.id}`);
+        // O cliente deverá atualizar seus dados após receber esta resposta
+      }
+      
+      return res.json({
+        checked: pendingTransactions.length,
+        updated: validResults.filter(r => r && r.updated).length,
+        confirmed: confirmedPayments.length
+      });
+    } catch (error: any) {
+      console.error("Erro ao verificar pagamentos pendentes:", error);
+      return res.status(500).json({ error: error.message || "Falha ao verificar pagamentos pendentes" });
+    }
+  });
+  
+  // Rota para obter informações do usuário autenticado
+  app.get("/api/user", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    // Verificar se há simulação ativa
+    if (req.session.impersonatedUserId && req.session.originalAdminId) {
+      try {
+        const impersonatedUser = await storage.getUser(req.session.impersonatedUserId);
+        if (impersonatedUser) {
+          // Adicionar flag indicando que é uma simulação
+          const userWithImpersonationFlag = {
+            ...impersonatedUser,
+            _isImpersonated: true,
+            _originalAdminId: req.session.originalAdminId
+          };
+          return res.json(userWithImpersonationFlag);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar usuário simulado:", error);
+        // Se houver erro, continuar com o usuário original
+      }
+    }
+    
     res.json(req.user);
   });
   
@@ -113,6 +550,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       res.status(500).json({ error: "Erro ao atualizar perfil" });
+    }
+  });
+
+  // Rota para atualizar tipo de conta do usuário
+  app.patch("/api/user/account-type", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const { accountType } = req.body;
+      // Usar getCurrentUserId para considerar simulação de acesso
+      const userId = getCurrentUserId(req);
+      
+      // Validar o tipo de conta
+      if (!accountType || !['individual', 'company'].includes(accountType)) {
+        return res.status(400).json({ error: "Tipo de conta inválido. Use 'individual' ou 'company'" });
+      }
+      
+      // Atualizar o tipo de conta do usuário (simulado ou real)
+      const updatedUser = await storage.updateUser(userId, { accountType });
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Falha ao atualizar tipo de conta" });
+      }
+      
+      // Retornar o usuário atualizado (sem a senha)
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      // Se estamos em simulação, não atualizar a sessão real
+      if (req.session.impersonatedUserId && req.session.originalAdminId) {
+        // Em simulação, apenas retornar os dados atualizados
+        res.status(200).json(userWithoutPassword);
+      } else {
+        // Atualizar a sessão com os novos dados do usuário real
+      req.login(updatedUser, (err) => {
+        if (err) {
+          console.error("Erro ao atualizar sessão:", err);
+        }
+        res.status(200).json(userWithoutPassword);
+      });
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar tipo de conta:", error);
+      res.status(500).json({ error: "Erro ao atualizar tipo de conta" });
     }
   });
   
@@ -317,6 +798,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Cliente WebSocket identificado: usuário ${data.userId}`);
           const existingClient = connectedClients.get(ws) || {};
           connectedClients.set(ws, { ...existingClient, userId: data.userId, isAlive: true });
+          
+          // Armazenar a conexão WebSocket por usuário para notificações de sessão
+          if (!userWebSockets.has(data.userId)) {
+            userWebSockets.set(data.userId, new Set());
+          }
+          userWebSockets.get(data.userId)?.add(ws);
         }
       } catch (error) {
         console.error('Erro ao processar mensagem WebSocket:', error);
@@ -336,13 +823,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on('close', (code, reason) => {
       // Remover cliente da lista quando a conexão é fechada
+      const client = connectedClients.get(ws);
+      if (client && client.userId) {
+        // Remover a conexão do mapa de conexões por usuário
+        const userSockets = userWebSockets.get(client.userId);
+        if (userSockets) {
+          userSockets.delete(ws);
+          // Se não houver mais conexões para este usuário, remover o conjunto
+          if (userSockets.size === 0) {
+            userWebSockets.delete(client.userId);
+          }
+        }
+      }
       connectedClients.delete(ws);
       console.log(`Conexão WebSocket fechada: código ${code}, razão: ${reason || 'N/A'}`);
     });
   });
   
   // Função auxiliar para enviar atualizações em tempo real
-  function broadcastUpdate(type: string, data: any) {
+  async function broadcastUpdate(type: string, data: any) {
     const message = JSON.stringify({ type, data });
     let sentCount = 0;
     let errorCount = 0;
@@ -352,18 +851,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { notificationId: data.notification?.id, userId: data.userId } : 
         { data: typeof data === 'object' ? 'objeto' : data });
     
+    // Buscar informações adicionais para direcionar corretamente as notificações
+    let targetUserIds: number[] = [];
+    
+    // Processar os dados para determinar os destinatários corretos
+    if (type === 'notification_created' && data.userId) {
+      // Notificações são enviadas apenas para o usuário específico
+      targetUserIds.push(data.userId);
+      console.log(`Notificação direcionada para o usuário ID: ${data.userId}`);
+    } 
+    else if (type === 'appointment_created' && data.providerId) {
+      // Buscar o userId associado ao providerId
+      try {
+        // Usar método assíncrono com Promise.resolve para obter o resultado síncrono
+        const providerId = Number(data.providerId);
+        if (!isNaN(providerId)) {
+          const provider = await storage.getProvider(providerId);
+          if (provider && provider.userId) {
+            targetUserIds.push(provider.userId);
+            console.log(`Agendamento direcionado para o provedor ID: ${providerId}, usuário ID: ${provider.userId}`);
+          } else {
+            console.log(`Provedor não encontrado ou sem userId para providerId: ${providerId}`);
+          }
+        } else {
+          console.log(`ProviderId inválido: ${data.providerId}`);
+        }
+      } catch (error) {
+        console.error(`Erro ao buscar provedor para providerId ${data.providerId}:`, error);
+      }
+    }
+    else if (type === 'appointment_updated' && data.providerId) {
+      // Buscar o userId associado ao providerId
+      try {
+        const providerId = Number(data.providerId);
+        if (!isNaN(providerId)) {
+          const provider = await storage.getProvider(providerId);
+          if (provider && provider.userId) {
+            targetUserIds.push(provider.userId);
+            console.log(`Atualização de agendamento direcionada para o provedor ID: ${providerId}, usuário ID: ${provider.userId}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Erro ao buscar provedor para providerId ${data.providerId}:`, error);
+      }
+    }
+    
+    // Enviar a mensagem para os clientes conectados
     connectedClients.forEach((client, ws) => {
       if (ws.readyState === WebSocket.OPEN) {
         try {
-          // Se for uma notificação, apenas enviar para o destinatário
-          if (type === 'notification_created') {
-            if (client.userId === data.userId) {
-              console.log(`Enviando notificação para usuário específico ${client.userId}`);
+          // Se temos destinatários específicos, verificar se este cliente é um deles
+          if (targetUserIds.length > 0) {
+            // Garantir que client.userId seja um número para comparação correta
+            const clientUserId = typeof client.userId === 'number' ? client.userId : Number(client.userId);
+            
+            if (!isNaN(clientUserId) && targetUserIds.includes(clientUserId)) {
+              console.log(`Enviando mensagem de tipo ${type} para usuário específico ${clientUserId}`);
               ws.send(message);
               sentCount++;
+            } else {
+              // Não enviar para este cliente, pois não é um destinatário
+              console.log(`Ignorando cliente ${client.userId} para mensagem de tipo ${type}`);
             }
           } else {
-            // Para outros tipos, enviar para todos
+            // Se não há destinatários específicos, enviar para todos (comportamento padrão)
+            console.log(`Enviando mensagem de tipo ${type} para todos os clientes (sem destinatário específico)`);
             ws.send(message);
             sentCount++;
           }
@@ -719,6 +1271,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Função helper para obter o ID do usuário correto (simulado ou real)
+  const getCurrentUserId = (req: Request): number => {
+    // Se há simulação ativa, usar o ID do usuário simulado
+    if (req.session.impersonatedUserId && req.session.originalAdminId) {
+      return req.session.impersonatedUserId;
+    }
+    // Caso contrário, usar o ID do usuário real
+    if (!req.user) {
+      throw new Error("Usuário não autenticado");
+    }
+    return req.user.id;
+  };
+
   // Middleware para verificar se o usuário é administrador
   const isAdmin = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
@@ -739,8 +1304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      // Busca o provider associado ao usuário atual
-      const provider = await storage.getProviderByUserId(req.user.id);
+      // Busca o provider associado ao usuário atual (considerando simulação)
+      const userId = getCurrentUserId(req);
+      const provider = await storage.getProviderByUserId(userId);
       
       if (!provider) {
         // Usuário logado não tem provider associado
@@ -922,11 +1488,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Criar novo plano
   app.post("/api/admin/subscription/plans", isAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, description, durationMonths, price, isActive } = req.body;
+      const { name, description, durationMonths, price, isActive, accountType } = req.body;
       
       // Validar dados
       if (!name || !durationMonths || price === undefined) {
         return res.status(400).json({ error: "Nome, duração e preço são obrigatórios" });
+      }
+
+      // Validar accountType
+      if (accountType && !['individual', 'company'].includes(accountType)) {
+        return res.status(400).json({ error: 'Tipo de conta inválido. Use "individual" ou "company"' });
       }
 
       // Verificar se já existe um plano com o mesmo nome
@@ -942,6 +1513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         durationMonths: parseInt(durationMonths),
         price: parseInt(price),
         isActive: isActive !== undefined ? isActive : true,
+        accountType: accountType || 'individual',
         createdAt: new Date(),
         updatedAt: new Date()
       }).returning();
@@ -961,11 +1533,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "ID inválido" });
       }
 
-      const { name, description, durationMonths, price, isActive } = req.body;
+      const { name, description, durationMonths, price, isActive, accountType } = req.body;
       
       // Validar dados
       if (!name || !durationMonths || price === undefined) {
         return res.status(400).json({ error: "Nome, duração e preço são obrigatórios" });
+      }
+
+      // Validar accountType se fornecido
+      if (accountType && !['individual', 'company'].includes(accountType)) {
+        return res.status(400).json({ error: 'Tipo de conta inválido. Use "individual" ou "company"' });
       }
 
       // Verificar se o plano existe
@@ -991,6 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           durationMonths: parseInt(durationMonths),
           price: parseInt(price),
           isActive: isActive !== undefined ? isActive : true,
+          accountType: accountType || existingPlan[0].accountType,
           updatedAt: new Date()
         })
         .where(eq(subscriptionPlans.id, planId))
@@ -1134,7 +1712,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         password: hashedPassword,
         role,
+        isEmailVerified: true, // Usuários criados pelo admin já são verificados
       });
+      
+      console.log(`Usuário criado pelo administrador: ${username} (${email}). Email já verificado.`);
       
       // Se for um usuário do tipo provider, criar também um provider associado
       if (role === 'provider') {
@@ -1189,7 +1770,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { name, username, password, role } = req.body;
-      const updateData: Partial<{ name: string, username: string, password: string, role: string }> = {};
+      const updateData: Partial<{ name: string, username: string, password: string, role: string, isEmailVerified: boolean }> = {
+        // Garantir que usuários editados pelo admin permaneçam com email verificado
+        isEmailVerified: true
+      };
       
       // Validar e adicionar campos a serem atualizados
       if (name) updateData.name = name;
@@ -1282,7 +1866,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Atualizar o usuário
-      const updatedUser = await storage.updateUser(id, { isActive: active });
+      const updatedUser = await storage.updateUser(id, { 
+        isActive: active,
+        isEmailVerified: true // Garantir que usuários gerenciados pelo admin permaneçam com email verificado
+      });
       if (!updatedUser) {
         return res.status(500).json({ error: "Falha ao atualizar o status do usuário" });
       }
@@ -1300,6 +1887,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao atualizar status do usuário:", error);
       res.status(500).json({ error: "Falha ao atualizar status do usuário" });
+    }
+  });
+
+  // Rotas para simulação de usuário (impersonation)
+  
+  // Iniciar simulação de usuário
+  app.post("/api/admin/impersonate/:userId", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const targetUserId = parseInt(req.params.userId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ error: "ID de usuário inválido" });
+      }
+
+      // Verificar se o usuário alvo existe
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+
+      // Impedir simulação do próprio admin
+      if (targetUserId === req.user?.id) {
+        return res.status(400).json({ error: "Não é possível simular seu próprio usuário" });
+      }
+
+      // Salvar o ID do admin original na sessão
+      if (!req.session.originalAdminId) {
+        req.session.originalAdminId = req.user?.id;
+      }
+
+      // Definir o usuário simulado na sessão
+      req.session.impersonatedUserId = targetUserId;
+      
+      // Salvar a sessão
+      req.session.save((err) => {
+        if (err) {
+          console.error("Erro ao salvar sessão de simulação:", err);
+          return res.status(500).json({ error: "Erro ao iniciar simulação" });
+        }
+
+        res.json({ 
+          success: true, 
+          message: `Simulação iniciada para usuário ${targetUser.name}`,
+          impersonatedUser: {
+            id: targetUser.id,
+            name: targetUser.name,
+            username: targetUser.username,
+            role: targetUser.role
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Erro ao iniciar simulação:", error);
+      res.status(500).json({ error: "Erro ao iniciar simulação" });
+    }
+  });
+
+  // Parar simulação de usuário
+  app.post("/api/admin/stop-impersonation", isAdmin, async (req: Request, res: Response) => {
+    try {
+      // Verificar se há uma simulação ativa
+      if (!req.session.impersonatedUserId || !req.session.originalAdminId) {
+        return res.status(400).json({ error: "Nenhuma simulação ativa" });
+      }
+
+      // Limpar dados de simulação da sessão
+      delete req.session.impersonatedUserId;
+      delete req.session.originalAdminId;
+      
+      // Salvar a sessão
+      req.session.save((err) => {
+        if (err) {
+          console.error("Erro ao salvar sessão ao parar simulação:", err);
+          return res.status(500).json({ error: "Erro ao parar simulação" });
+        }
+
+        res.json({ 
+          success: true, 
+          message: "Simulação encerrada com sucesso"
+        });
+      });
+    } catch (error) {
+      console.error("Erro ao parar simulação:", error);
+      res.status(500).json({ error: "Erro ao parar simulação" });
+    }
+  });
+
+  // Verificar status de simulação
+  app.get("/api/admin/impersonation-status", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const isImpersonating = !!(req.session.impersonatedUserId && req.session.originalAdminId);
+      
+      if (isImpersonating) {
+        const impersonatedUser = req.session.impersonatedUserId ? await storage.getUser(req.session.impersonatedUserId) : null;
+        const originalAdmin = req.session.originalAdminId ? await storage.getUser(req.session.originalAdminId) : null;
+        
+        res.json({
+          isImpersonating: true,
+          impersonatedUser: impersonatedUser ? {
+            id: impersonatedUser.id,
+            name: impersonatedUser.name,
+            username: impersonatedUser.username,
+            role: impersonatedUser.role
+          } : null,
+          originalAdmin: originalAdmin ? {
+            id: originalAdmin.id,
+            name: originalAdmin.name,
+            username: originalAdmin.username
+          } : null
+        });
+      } else {
+        res.json({ isImpersonating: false });
+      }
+    } catch (error) {
+      console.error("Erro ao verificar status de simulação:", error);
+      res.status(500).json({ error: "Erro ao verificar status de simulação" });
     }
   });
   
@@ -1333,7 +2035,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Preparar os dados para atualização
-      const updateData: Partial<any> = {};
+      const updateData: Partial<any> = {
+        // Garantir que usuários com assinatura gerenciada pelo admin permaneçam com email verificado
+        isEmailVerified: true
+      };
       
       if (neverExpires !== undefined) {
         updateData.neverExpires = neverExpires;
@@ -1502,6 +2207,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Rota para atualizar as configurações do provedor
   app.patch("/api/providers/:id/settings", async (req: Request, res: Response) => {
+    // Verificar autenticação
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid provider ID" });
@@ -1510,6 +2220,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const provider = await storage.getProvider(id);
     if (!provider) {
       return res.status(404).json({ message: "Provider not found" });
+    }
+    
+    // Verificar se o usuário tem permissão para editar este provider
+    // Usar getCurrentUserId para considerar simulação de acesso
+    const userId = getCurrentUserId(req);
+    
+    // Verificar se o provider pertence ao usuário atual (ou simulado)
+    if (provider.userId !== userId) {
+      return res.status(403).json({ 
+        error: "Acesso não autorizado", 
+        message: "Você não tem permissão para editar as configurações deste prestador" 
+      });
     }
     
     try {
@@ -2085,6 +2807,485 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee routes for providers (public route for booking page)
+  app.get("/api/providers/:providerId/employees", async (req: Request, res: Response) => {
+    const providerId = parseInt(req.params.providerId);
+    if (isNaN(providerId)) {
+      return res.status(400).json({ message: "Invalid provider ID" });
+    }
+    
+    try {
+      // Buscar o provider para obter o userId
+      const provider = await storage.getProvider(providerId);
+      if (!provider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      
+      // Buscar funcionários da empresa (usando o userId do provider como companyUserId)
+      const employeesResult = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.companyUserId, provider.userId),
+          eq(employees.isActive, true)
+        ))
+        .orderBy(employees.name);
+      
+      res.json(employeesResult);
+    } catch (error) {
+      console.error("Erro ao buscar funcionários do provider:", error);
+      res.status(500).json({ error: "Erro ao buscar funcionários" });
+    }
+  });
+
+  // Employee routes (para contas do tipo empresa)
+  app.get("/api/employees", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      // Obter ID do usuário correto (considerando simulação)
+      const userId = getCurrentUserId(req);
+      
+      // Buscar dados do usuário para verificar tipo de conta
+      const user = await storage.getUser(userId);
+      if (!user || user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Parâmetro para filtrar apenas funcionários ativos
+      const activeOnly = req.query.active === 'true';
+      
+      // Buscar funcionários da empresa
+      const conditions = [eq(employees.companyUserId, userId)];
+      
+      // Se activeOnly for true, adiciona filtro para funcionários ativos
+      if (activeOnly) {
+        conditions.push(eq(employees.isActive, true));
+      }
+      
+      const employeesResult = await db.select()
+        .from(employees)
+        .where(and(...conditions))
+        .orderBy(employees.name);
+        
+      res.json(employeesResult);
+    } catch (error) {
+      console.error("Erro ao buscar funcionários:", error);
+      res.status(500).json({ error: "Erro ao buscar funcionários" });
+    }
+  });
+
+  app.post("/api/employees", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      // Obter ID do usuário correto (considerando simulação)
+      const userId = getCurrentUserId(req);
+      
+      // Buscar dados do usuário para verificar tipo de conta
+      const user = await storage.getUser(userId);
+      if (!user || user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Validar dados do funcionário
+      const employeeData = insertEmployeeSchema.parse({
+        ...req.body,
+        companyUserId: userId
+      });
+      
+      // Criar funcionário
+      const [newEmployee] = await db.insert(employees)
+        .values(employeeData)
+        .returning();
+        
+      res.status(201).json(newEmployee);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      console.error("Erro ao criar funcionário:", error);
+      res.status(500).json({ error: "Erro ao criar funcionário" });
+    }
+  });
+
+  app.patch("/api/employees/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const employeeId = parseInt(req.params.id);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "ID de funcionário inválido" });
+      }
+      
+      // Obter ID do usuário correto (considerando simulação)
+      const userId = getCurrentUserId(req);
+      
+      // Buscar dados do usuário para verificar tipo de conta
+      const user = await storage.getUser(userId);
+      if (!user || user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Verificar se o funcionário pertence à empresa do usuário
+      const [existingEmployee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, userId)
+        ));
+        
+      if (!existingEmployee) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      
+      // Validar dados de atualização (parcial)
+      const updateData = insertEmployeeSchema.partial().parse(req.body);
+      
+      // Atualizar funcionário
+      const [updatedEmployee] = await db.update(employees)
+        .set({ ...updateData, updatedAt: new Date() })
+        .where(eq(employees.id, employeeId))
+        .returning();
+        
+      res.json(updatedEmployee);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      console.error("Erro ao atualizar funcionário:", error);
+      res.status(500).json({ error: "Erro ao atualizar funcionário" });
+    }
+  });
+
+  app.delete("/api/employees/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const employeeId = parseInt(req.params.id);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "ID de funcionário inválido" });
+      }
+      
+      const user = req.user;
+      if (user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Verificar se o funcionário pertence à empresa do usuário
+      const [existingEmployee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, user.id)
+        ));
+        
+      if (!existingEmployee) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      
+      // Verificar se o funcionário tem agendamentos
+      const appointmentsCount = await db.select({ count: sql`count(*)` })
+        .from(appointments)
+        .where(eq(appointments.employeeId, employeeId));
+      
+      const hasAppointments = Number(appointmentsCount[0]?.count) > 0;
+      
+      if (hasAppointments) {
+        // Se tem agendamentos, apenas desativar (soft delete)
+        await db.update(employees)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(employees.id, employeeId));
+          
+        res.json({ action: "deactivated", message: "Funcionário desativado devido a agendamentos existentes" });
+      } else {
+        // Se não tem agendamentos, excluir permanentemente
+        await db.delete(employees)
+          .where(eq(employees.id, employeeId));
+          
+        res.json({ action: "deleted", message: "Funcionário excluído permanentemente" });
+      }
+    } catch (error) {
+      console.error("Erro ao excluir funcionário:", error);
+      res.status(500).json({ error: "Erro ao excluir funcionário" });
+    }
+  });
+
+  // Rota para reativar funcionário
+  app.patch("/api/employees/:id/reactivate", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const employeeId = parseInt(req.params.id);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "ID de funcionário inválido" });
+      }
+      
+      const user = req.user;
+      if (user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Verificar se o funcionário pertence à empresa do usuário
+      const [existingEmployee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, user.id)
+        ));
+        
+      if (!existingEmployee) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      
+      // Reativar funcionário
+      const [reactivatedEmployee] = await db.update(employees)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(employees.id, employeeId))
+        .returning();
+        
+      res.json({ 
+        action: "reactivated", 
+        message: "Funcionário reativado com sucesso",
+        employee: reactivatedEmployee 
+      });
+    } catch (error) {
+      console.error("Erro ao reativar funcionário:", error);
+      res.status(500).json({ error: "Erro ao reativar funcionário" });
+    }
+  });
+
+  // Employee Services routes - Associações entre funcionários e serviços
+  app.get("/api/employees/:id/services", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const employeeId = parseInt(req.params.id);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "ID de funcionário inválido" });
+      }
+      
+      // Obter ID do usuário correto (considerando simulação)
+      const userId = getCurrentUserId(req);
+      
+      // Buscar dados do usuário (pode ser simulado)
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      if (user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Verificar se o funcionário pertence à empresa do usuário
+      const [existingEmployee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, userId)
+        ));
+        
+      if (!existingEmployee) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      
+      const services = await storage.getEmployeeServices(employeeId);
+      res.json(services);
+    } catch (error) {
+      console.error("Erro ao buscar serviços do funcionário:", error);
+      res.status(500).json({ error: "Erro ao buscar serviços do funcionário" });
+    }
+  });
+
+  app.post("/api/employees/:id/services", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const employeeId = parseInt(req.params.id);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "ID de funcionário inválido" });
+      }
+      
+      const { serviceIds } = req.body;
+      if (!Array.isArray(serviceIds)) {
+        return res.status(400).json({ error: "serviceIds deve ser um array" });
+      }
+      
+      // Obter ID do usuário correto (considerando simulação)
+      const userId = getCurrentUserId(req);
+      
+      // Buscar dados do usuário (pode ser simulado)
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      if (user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Verificar se o funcionário pertence à empresa do usuário
+      const [existingEmployee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, userId)
+        ));
+        
+      if (!existingEmployee) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      
+      // Verificar se todos os serviços pertencem ao provider do usuário
+      const provider = await storage.getProviderByUserId(userId);
+      if (!provider) {
+        return res.status(404).json({ error: "Provider não encontrado" });
+      }
+      
+      for (const serviceId of serviceIds) {
+        const service = await storage.getService(serviceId);
+        if (!service || service.providerId !== provider.id) {
+          return res.status(400).json({ error: `Serviço ${serviceId} não encontrado ou não pertence a você` });
+        }
+      }
+      
+      // Definir os serviços do funcionário
+      await storage.setEmployeeServices(employeeId, serviceIds);
+      
+      // Buscar os serviços atualizados
+      const updatedServices = await storage.getEmployeeServices(employeeId);
+      
+      res.json({ 
+        success: true, 
+        message: "Serviços do funcionário atualizados com sucesso",
+        services: updatedServices
+      });
+    } catch (error) {
+      console.error("Erro ao definir serviços do funcionário:", error);
+      res.status(500).json({ error: "Erro ao definir serviços do funcionário" });
+    }
+  });
+
+  // Employee Appointments - Buscar agendamentos de um funcionário específico
+  app.get("/api/employees/:id/appointments", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Não autenticado" });
+    }
+    
+    try {
+      const employeeId = parseInt(req.params.id);
+      if (isNaN(employeeId)) {
+        return res.status(400).json({ error: "ID de funcionário inválido" });
+      }
+      
+      // Obter ID do usuário correto (considerando simulação)
+      const userId = getCurrentUserId(req);
+      
+      // Buscar dados do usuário (pode ser simulado)
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      if (user.accountType !== 'company') {
+        return res.status(403).json({ error: "Acesso restrito a contas do tipo empresa" });
+      }
+      
+      // Verificar se o funcionário pertence à empresa do usuário
+      const [existingEmployee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, userId)
+        ));
+        
+      if (!existingEmployee) {
+        return res.status(404).json({ error: "Funcionário não encontrado" });
+      }
+      
+      // Buscar o provider da empresa
+      const provider = await storage.getProviderByUserId(userId);
+      if (!provider) {
+        return res.status(404).json({ error: "Provider não encontrado" });
+      }
+      
+      // Parâmetro opcional de data (últimos X dias)
+      const since = req.query.since as string;
+      let dateFilter = undefined;
+      
+      if (since) {
+        try {
+          dateFilter = new Date(since);
+        } catch (error) {
+          return res.status(400).json({ error: "Formato de data inválido" });
+        }
+      }
+      
+      // Buscar agendamentos do funcionário usando storage
+      const allAppointments = await storage.getAppointments(provider.id);
+      
+      // Filtrar por funcionário e data
+      let employeeAppointments = allAppointments.filter((apt: any) => apt.employeeId === employeeId);
+      
+      if (dateFilter) {
+        employeeAppointments = employeeAppointments.filter((apt: any) => 
+          new Date(apt.date) >= dateFilter
+        );
+      }
+      
+      // Buscar dados dos clientes e serviços para cada agendamento
+      const appointmentsWithDetails = await Promise.all(
+        employeeAppointments.map(async (apt: any) => {
+          const client = await storage.getClient(apt.clientId);
+          const service = await storage.getService(apt.serviceId);
+          
+          // Corrigir o fuso horário da data para exibição correta
+          const appointmentDate = new Date(apt.date);
+          
+          return {
+            ...apt,
+            dateTime: appointmentDate, // Usar a data corrigida
+            date: appointmentDate, // Manter consistência
+            client: client ? {
+              id: client.id,
+              name: client.name,
+              phone: client.phone,
+              email: client.email
+            } : null,
+            service: service ? {
+              id: service.id,
+              name: service.name,
+              duration: service.duration,
+              price: service.price
+            } : null
+          };
+        })
+      );
+      
+      // Ordenar por data decrescente
+      appointmentsWithDetails.sort((a: any, b: any) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+      
+      res.json(appointmentsWithDetails);
+    } catch (error) {
+      console.error("Erro ao buscar agendamentos do funcionário:", error);
+      res.status(500).json({ error: "Erro ao buscar agendamentos do funcionário" });
+    }
+  });
+
   // Rota para obter o provider do usuário logado
   app.get("/api/my-provider", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
@@ -2092,7 +3293,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      const provider = await storage.getProviderByUserId(req.user.id);
+      // Usar getCurrentUserId para considerar simulação de acesso
+      const userId = getCurrentUserId(req);
+      const provider = await storage.getProviderByUserId(userId);
       
       if (!provider) {
         return res.status(404).json({ 
@@ -2196,16 +3399,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const provider = (req as any).provider;
     const providerId = provider.id;
     
+    console.log(`🔍 API /my-appointments chamada para providerId: ${providerId}`);
+    console.log(`🔍 URL completa: ${req.url}`);
+    console.log(`🔍 Headers: ${JSON.stringify(req.headers)}`);
+    
     // Parse date filter parameters
     const dateParam = req.query.date as string;
     const startDateParam = req.query.startDate as string;
     const endDateParam = req.query.endDate as string;
     const statusFilter = req.query.status as string;
     
+    console.log(`📅 Parâmetros recebidos:`, {
+      dateParam,
+      startDateParam,
+      endDateParam,
+      statusFilter
+    });
+    
     // Determinar se os agendamentos cancelados devem ser incluídos
     // Se o filtro de status for 'cancelled', precisamos incluir agendamentos cancelados
     // Ou se não houver filtro de status, incluímos todos
     const includeCancelled = !statusFilter || statusFilter === 'all' || statusFilter === AppointmentStatus.CANCELLED;
+    
+    console.log(`🔧 includeCancelled: ${includeCancelled}`);
     
     let appointments;
     
@@ -2219,8 +3435,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid date format" });
       }
       
-      console.log(`Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
+      console.log(`🔍 Buscando agendamentos para a data: ${date.toISOString()} (data local: ${date.toString()})`);
       appointments = await storage.getAppointmentsByDate(providerId, date, includeCancelled);
+      console.log(`📋 Agendamentos encontrados: ${appointments.length}`);
     } else if (startDateParam && endDateParam) {
       const startDate = new Date(startDateParam);
       const endDate = new Date(endDateParam);
@@ -2237,7 +3454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       appointments = appointments.filter(appointment => appointment.status === statusFilter);
     }
     
-    // Enriquecer os agendamentos com informações de cliente e serviço
+    // Enriquecer os agendamentos com informações de cliente, serviço e funcionário
     const enrichedAppointments = await Promise.all(
       appointments.map(async (appointment) => {
         // Obter cliente
@@ -2246,15 +3463,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Obter serviço
         const service = await storage.getService(appointment.serviceId);
         
+        // Obter funcionário (se existir)
+        let employeeName = null;
+        let employeeSpecialty = null;
+        if (appointment.employeeId) {
+          try {
+            const employee = await storage.getEmployee(appointment.employeeId);
+            if (employee) {
+              employeeName = employee.name;
+              employeeSpecialty = employee.specialty;
+            }
+          } catch (error) {
+            console.error(`Erro ao buscar funcionário ${appointment.employeeId}:`, error);
+          }
+        }
+        
         return {
           ...appointment,
           clientName: client?.name || "Cliente não encontrado",
           serviceName: service?.name || "Serviço não encontrado",
           servicePrice: service?.price || 0,
-          serviceDuration: service?.duration || 0
+          serviceDuration: service?.duration || 0,
+          employeeName: employeeName,
+          employeeSpecialty: employeeSpecialty
         };
       })
     );
+    
+    // Log especial para agendamentos noturnos
+    enrichedAppointments.forEach(apt => {
+      const aptDate = new Date(apt.date);
+      if (aptDate.getHours() >= 21) {
+        console.log(`🌙 AGENDAMENTO NOTURNO ENCONTRADO NO SERVIDOR: ${aptDate.getHours()}:${aptDate.getMinutes().toString().padStart(2, '0')} - ${apt.clientName} - Status: ${apt.status}`);
+      }
+    });
+    
+    console.log(`✅ Retornando ${enrichedAppointments.length} agendamentos enriquecidos`);
     
     res.json(enrichedAppointments);
   });
@@ -2307,7 +3551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       appointments = appointments.filter(appointment => appointment.status === statusFilter);
     }
     
-    // Enriquecer os agendamentos com informações de cliente e serviço
+    // Enriquecer os agendamentos com informações de cliente, serviço e funcionário
     const enrichedAppointments = await Promise.all(
       appointments.map(async (appointment) => {
         // Obter cliente
@@ -2316,12 +3560,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Obter serviço
         const service = await storage.getService(appointment.serviceId);
         
+        // Obter funcionário (se existir)
+        let employeeName = null;
+        let employeeSpecialty = null;
+        if (appointment.employeeId) {
+          try {
+            const employee = await storage.getEmployee(appointment.employeeId);
+            if (employee) {
+              employeeName = employee.name;
+              employeeSpecialty = employee.specialty;
+            }
+          } catch (error) {
+            console.error(`Erro ao buscar funcionário ${appointment.employeeId}:`, error);
+          }
+        }
+        
         return {
           ...appointment,
           clientName: client?.name || "Cliente não encontrado",
           serviceName: service?.name || "Serviço não encontrado",
           servicePrice: service?.price || 0,
-          serviceDuration: service?.duration || 0
+          serviceDuration: service?.duration || 0,
+          employeeName: employeeName,
+          employeeSpecialty: employeeSpecialty
         };
       })
     );
@@ -2354,7 +3615,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
-      console.log("Criando agendamento com dados:", JSON.stringify(req.body, null, 2));
+      console.log("🔥 INICIANDO CRIAÇÃO DE AGENDAMENTO");
+      console.log("📋 Dados recebidos:", JSON.stringify(req.body, null, 2));
+      console.log("👤 Usuário autenticado:", req.isAuthenticated() ? req.user?.username : 'Não autenticado');
       
       // Tenta processar os dados com o esquema com transformações
       const data = insertAppointmentSchema.parse(req.body);
@@ -2414,18 +3677,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
               new Date(appointment.date.getTime() + service.duration * 60000);
             
             // Verifica sobreposição
-            return !(proposedEndTime <= appointment.date || data.date >= appointmentEndTime);
+            const hasTimeOverlap = !(proposedEndTime <= appointment.date || data.date >= appointmentEndTime);
+            
+            if (!hasTimeOverlap) {
+              return false; // Não há sobreposição de horário
+            }
+            
+            // Se há sobreposição de horário, verificar se é conta empresa com funcionários diferentes
+            const user = req.user;
+            const isCompanyAccount = user?.accountType === 'company';
+            
+            console.log(`DEBUG: Verificando conflito para agendamento ${appointment.id}:`);
+            console.log(`- Usuário: ${user?.username}, Tipo de conta: ${user?.accountType}`);
+            console.log(`- É conta empresa: ${isCompanyAccount}`);
+            console.log(`- EmployeeId solicitado: ${data.employeeId}`);
+            console.log(`- EmployeeId do agendamento existente: ${appointment.employeeId}`);
+            
+            if (isCompanyAccount && data.employeeId && appointment.employeeId) {
+              if (data.employeeId !== appointment.employeeId) {
+                console.log(`Conta empresa: Permitindo agendamento no mesmo horário para funcionário diferente (${data.employeeId} vs ${appointment.employeeId})`);
+                return false; // Funcionários diferentes, não há conflito
+              } else {
+                console.log(`Conta empresa: Conflito detectado - mesmo funcionário (${data.employeeId}) já tem agendamento no horário`);
+                return true; // Mesmo funcionário, há conflito
+              }
+            } else if (isCompanyAccount && (!data.employeeId || !appointment.employeeId)) {
+              console.log(`Conta empresa: Conflito detectado - agendamento sem funcionário específico (data.employeeId: ${data.employeeId}, appointment.employeeId: ${appointment.employeeId})`);
+              return true; // Sem funcionário específico, há conflito
+            } else {
+              console.log(`Conta individual: Conflito detectado - horário já ocupado`);
+              return true; // Conta individual ou sem funcionário, há conflito
+            }
           });
           
           isAvailable = !hasConflict;
           console.log(`Verificação de conflitos por usuário do sistema: ${hasConflict ? 'CONFLITO DETECTADO' : 'NENHUM CONFLITO'}`);
         } else {
           console.log(`Usuário não autorizado para agendamento privilegiado, usando verificação padrão`);
-          isAvailable = await storage.checkAvailability(data.providerId, data.date, service.duration);
+          isAvailable = await storage.checkAvailability(data.providerId, data.date, service.duration, data.employeeId || undefined);
         }
       } else {
         // Cliente normal fazendo agendamento - usa todas as verificações
-        isAvailable = await storage.checkAvailability(data.providerId, data.date, service.duration);
+        isAvailable = await storage.checkAvailability(data.providerId, data.date, service.duration, data.employeeId || undefined);
       }
       
       if (!isAvailable) {
@@ -2437,12 +3730,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Horário calculado para o agendamento: ${data.date.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`);
       
       // Cria o agendamento com o horário de término explícito
+      console.log("💾 Salvando agendamento no banco de dados...");
       const appointment = await storage.createAppointment({
         ...data,
         endTime
       });
+      console.log("✅ Agendamento salvo com sucesso! ID:", appointment.id);
+      console.log("📅 Detalhes do agendamento salvo:", {
+        id: appointment.id,
+        date: appointment.date,
+        endTime: appointment.endTime,
+        status: appointment.status,
+        providerId: appointment.providerId,
+        clientId: appointment.clientId,
+        serviceId: appointment.serviceId,
+        employeeId: appointment.employeeId
+      });
       
       // Enviar atualização em tempo real via WebSocket
+      console.log("📡 Enviando atualização via WebSocket...");
       broadcastUpdate('appointment_created', appointment);
       
       // Criar uma notificação para o prestador de serviço
@@ -2456,21 +3762,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: 'appointment',
             appointmentId: appointment.id
           });
-          console.log(`Notificação criada para o usuário ${provider.userId}`);
+          console.log(`📬 Notificação criada para o usuário ${provider.userId}`);
         } catch (error) {
-          console.error("Erro ao criar notificação:", error);
+          console.error("❌ Erro ao criar notificação:", error);
         }
       }
       
       // Aqui enviaríamos uma notificação via WhatsApp
       // Por enquanto, apenas logamos
-      console.log(`Agendamento ${appointment.id} criado com sucesso! Notificação seria enviada.`);
+      console.log(`🎉 Agendamento ${appointment.id} criado com sucesso! Notificação seria enviada.`);
       
       res.status(201).json(appointment);
     } catch (error) {
-      console.error("Erro ao criar agendamento:", error);
+      console.error("❌ ERRO AO CRIAR AGENDAMENTO:", error);
       
       if (error instanceof z.ZodError) {
+        console.error("❌ Erro de validação Zod:", error.errors);
         return res.status(400).json({ 
           message: "Dados de agendamento inválidos", 
           errors: error.errors 
@@ -2478,12 +3785,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (error instanceof Error) {
+        console.error("❌ Erro específico:", error.message);
+        console.error("❌ Stack trace:", error.stack);
         return res.status(400).json({ 
           message: "Erro ao processar agendamento", 
           details: error.message
         });
       }
       
+      console.error("❌ Erro desconhecido:", error);
       res.status(500).json({ message: "Falha ao criar agendamento" });
     }
   });
@@ -2581,6 +3891,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Atualizar agendamento completo (somente para o próprio provider)
+  app.put("/api/appointments/:id", loadUserProvider, async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    console.log(`🔄 PUT /api/appointments/${id} - Iniciando reagendamento`);
+    console.log(`📋 Dados recebidos:`, req.body);
+    
+    if (isNaN(id)) {
+      console.log(`❌ ID do agendamento inválido: ${req.params.id}`);
+      return res.status(400).json({ message: "Invalid appointment ID" });
+    }
+    
+    try {
+      const provider = (req as any).provider;
+      console.log(`👤 Provider:`, { id: provider?.id, name: provider?.name });
+      
+      // Busca o agendamento para verificar se pertence ao provider do usuário logado
+      console.log(`🔍 Buscando agendamento ${id}...`);
+      const existingAppointment = await storage.getAppointment(id);
+      if (!existingAppointment) {
+        console.log(`❌ Agendamento ${id} não encontrado`);
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
+      console.log(`📋 Agendamento encontrado:`, { 
+        id: existingAppointment.id, 
+        providerId: existingAppointment.providerId,
+        date: existingAppointment.date 
+      });
+      
+      // Verifica se o agendamento pertence ao provider do usuário logado
+      if (existingAppointment.providerId !== provider.id) {
+        console.log(`❌ Acesso negado - Provider do agendamento: ${existingAppointment.providerId}, Provider do usuário: ${provider.id}`);
+        return res.status(403).json({ 
+          error: "Acesso não autorizado", 
+          message: "Você não tem permissão para atualizar este agendamento" 
+        });
+      }
+      
+      const updateSchema = z.object({
+        date: z.string().optional(),
+        employeeId: z.number().int().positive().optional(),
+        serviceId: z.number().int().positive().optional(),
+        notes: z.string().optional()
+      });
+      
+      const updateData = updateSchema.parse(req.body);
+      
+      // Preparar dados para atualização
+      const appointmentUpdate: any = {};
+      
+      if (updateData.date) {
+        const newDate = new Date(updateData.date);
+        if (isNaN(newDate.getTime())) {
+          return res.status(400).json({ message: "Invalid date format" });
+        }
+        appointmentUpdate.date = newDate;
+        
+        // Se a data mudou, calcular novo endTime baseado na duração do serviço
+        const service = await storage.getService(existingAppointment.serviceId);
+        if (service) {
+          appointmentUpdate.endTime = new Date(newDate.getTime() + service.duration * 60000);
+        }
+      }
+      
+      if (updateData.employeeId !== undefined) {
+        appointmentUpdate.employeeId = updateData.employeeId;
+      }
+      
+      if (updateData.serviceId !== undefined) {
+        appointmentUpdate.serviceId = updateData.serviceId;
+        
+        // Se o serviço mudou, recalcular endTime
+        const newService = await storage.getService(updateData.serviceId);
+        if (newService) {
+          const appointmentDate = appointmentUpdate.date || existingAppointment.date;
+          appointmentUpdate.endTime = new Date(appointmentDate.getTime() + newService.duration * 60000);
+        }
+      }
+      
+      if (updateData.notes !== undefined) {
+        appointmentUpdate.notes = updateData.notes;
+      }
+      
+      // Atualizar o agendamento
+      const updatedAppointment = await storage.updateAppointment(id, appointmentUpdate);
+      
+      if (!updatedAppointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
+      // Enviar atualização em tempo real via WebSocket
+      broadcastUpdate('appointment_updated', updatedAppointment);
+      
+      // Criar notificação no sistema
+      if (provider && provider.userId) {
+        try {
+          await storage.createNotification({
+            userId: provider.userId,
+            title: "Agendamento reagendado",
+            message: `O agendamento #${updatedAppointment.id} foi reagendado com sucesso`,
+            type: 'appointment',
+            appointmentId: updatedAppointment.id
+          });
+        } catch (error) {
+          console.error("Erro ao criar notificação:", error);
+        }
+      }
+      
+      res.json(updatedAppointment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating appointment:", error);
+      res.status(500).json({ message: "Failed to update appointment" });
+    }
+  });
+
   // Check availability
   app.get("/api/providers/:providerId/availability", async (req: Request, res: Response) => {
     console.log(`=== VERIFICANDO DISPONIBILIDADE ===`);
@@ -2595,10 +4023,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const dateParam = req.query.date as string;
     const serviceIdParam = req.query.serviceId as string;
     const bySystemUserParam = req.query.bySystemUser as string; // Novo parâmetro para indicar se é feito pelo próprio sistema
+    const employeeIdParam = req.query.employeeId as string;
     
     console.log(`Data param: ${dateParam}`);
     console.log(`Service ID param: ${serviceIdParam}`);
     console.log(`By System User param: ${bySystemUserParam}`);
+    console.log(`Employee ID param: ${employeeIdParam}`);
     
     if (!dateParam || !serviceIdParam) {
       console.log(`❌ Data ou ID do serviço ausentes`);
@@ -2608,10 +4038,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const date = new Date(dateParam);
     const serviceId = parseInt(serviceIdParam);
     const bySystemUser = bySystemUserParam === 'true';
+    const employeeId = employeeIdParam ? parseInt(employeeIdParam) : undefined;
     
     console.log(`Data convertida: ${date.toISOString()} (${date.toLocaleString()})`);
     console.log(`ID do serviço: ${serviceId}`);
     console.log(`Agendamento pelo usuário do sistema: ${bySystemUser}`);
+    console.log(`ID do funcionário: ${employeeId}`);
     
     if (isNaN(date.getTime()) || isNaN(serviceId)) {
       console.log(`❌ Data ou ID do serviço inválidos`);
@@ -2659,18 +4091,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
             new Date(appointment.date.getTime() + service.duration * 60000);
           
           // Verifica sobreposição
-          return !(proposedEndTime <= appointment.date || date >= appointmentEndTime);
+          const hasTimeOverlap = !(proposedEndTime <= appointment.date || date >= appointmentEndTime);
+          
+          if (!hasTimeOverlap) {
+            return false; // Não há sobreposição de horário
+          }
+          
+          // Se há sobreposição de horário, verificar se é conta empresa com funcionários diferentes
+          const user = req.user;
+          const isCompanyAccount = user?.accountType === 'company';
+          
+          console.log(`DEBUG: Verificando conflito para agendamento ${appointment.id}:`);
+          console.log(`- Usuário: ${user?.username}, Tipo de conta: ${user?.accountType}`);
+          console.log(`- É conta empresa: ${isCompanyAccount}`);
+          console.log(`- EmployeeId solicitado: ${employeeId}`);
+          console.log(`- EmployeeId do agendamento existente: ${appointment.employeeId}`);
+          
+          if (isCompanyAccount && employeeId && appointment.employeeId) {
+            if (employeeId !== appointment.employeeId) {
+              console.log(`Conta empresa: Permitindo agendamento no mesmo horário para funcionário diferente (${employeeId} vs ${appointment.employeeId})`);
+              return false; // Funcionários diferentes, não há conflito
+            } else {
+              console.log(`Conta empresa: Conflito detectado - mesmo funcionário (${employeeId}) já tem agendamento no horário`);
+              return true; // Mesmo funcionário, há conflito
+            }
+          } else if (isCompanyAccount && (!employeeId || !appointment.employeeId)) {
+            console.log(`Conta empresa: Conflito detectado - agendamento sem funcionário específico (employeeId: ${employeeId}, appointment.employeeId: ${appointment.employeeId})`);
+            return true; // Sem funcionário específico, há conflito
+          } else {
+            console.log(`Conta individual: Conflito detectado - horário já ocupado`);
+            return true; // Conta individual ou sem funcionário, há conflito
+          }
         });
         
         isAvailable = !hasConflict;
         console.log(`Verificação de conflitos: ${hasConflict ? 'CONFLITO DETECTADO' : 'NENHUM CONFLITO'}`);
       } else {
         console.log(`Usuário não autorizado para agendamento privilegiado, usando verificação padrão`);
-        isAvailable = await storage.checkAvailability(providerId, date, service.duration);
+        isAvailable = await storage.checkAvailability(providerId, date, service.duration, employeeId);
       }
     } else {
       // Verificação padrão para clientes externos
-      isAvailable = await storage.checkAvailability(providerId, date, service.duration);
+      isAvailable = await storage.checkAvailability(providerId, date, service.duration, employeeId);
+    }
+    
+    // Verificar horário de almoço do funcionário (se employeeId foi fornecido)
+    if (isAvailable && employeeId) {
+      console.log(`Verificando horário de almoço para funcionário ${employeeId}`);
+      
+      try {
+        const employee = await db.select()
+          .from(employees)
+          .where(eq(employees.id, employeeId))
+          .limit(1);
+        
+        if (employee.length > 0) {
+          const emp = employee[0];
+          
+          // Verificar se o horário conflita com o intervalo de almoço
+          if (emp.lunchBreakStart && emp.lunchBreakEnd) {
+            const [lunchStartHour, lunchStartMin] = emp.lunchBreakStart.split(':').map(Number);
+            const [lunchEndHour, lunchEndMin] = emp.lunchBreakEnd.split(':').map(Number);
+            
+            const requestHour = date.getHours();
+            const requestMin = date.getMinutes();
+            const requestEndTime = new Date(date.getTime() + service.duration * 60000);
+            const requestEndHour = requestEndTime.getHours();
+            const requestEndMin = requestEndTime.getMinutes();
+            
+            // Converte horários para minutos para facilitar comparação
+            const lunchStart = lunchStartHour * 60 + lunchStartMin;
+            const lunchEnd = lunchEndHour * 60 + lunchEndMin;
+            const requestStart = requestHour * 60 + requestMin;
+            const requestEnd = requestEndHour * 60 + requestEndMin;
+            
+            // Verifica se há sobreposição com o horário de almoço
+            if (!(requestEnd <= lunchStart || requestStart >= lunchEnd)) {
+              console.log(`❌ Horário conflita com intervalo de almoço do funcionário (${emp.lunchBreakStart} - ${emp.lunchBreakEnd})`);
+              isAvailable = false;
+            } else {
+              console.log(`✓ Horário não conflita com intervalo de almoço do funcionário (${emp.lunchBreakStart} - ${emp.lunchBreakEnd})`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao verificar horário de almoço:", error);
+        // Em caso de erro, mantemos a disponibilidade original
+      }
     }
     
     console.log(`✓ Resultado da verificação: ${isAvailable ? 'DISPONÍVEL' : 'INDISPONÍVEL'}`);
@@ -2846,6 +4353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         providerId: service.providerId,
         clientId: client.id,
         serviceId: bookingData.serviceId,
+        employeeId: bookingData.employeeId || null, // Incluir funcionário se selecionado
         date: appointmentDate,
         endTime: endTime,
         status: AppointmentStatus.PENDING,
@@ -2924,7 +4432,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const notifications = await storage.getNotifications(req.user.id);
+      const userId = getCurrentUserId(req);
+      const notifications = await storage.getNotifications(userId);
       res.json(notifications);
     } catch (error: any) {
       console.error("Erro ao buscar notificações:", error);
@@ -2938,7 +4447,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const notifications = await storage.getUnreadNotifications(req.user.id);
+      const userId = getCurrentUserId(req);
+      const notifications = await storage.getUnreadNotifications(userId);
       res.json(notifications);
     } catch (error: any) {
       console.error("Erro ao buscar notificações não lidas:", error);
@@ -2971,7 +4481,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      await storage.markAllNotificationsAsRead(req.user.id);
+      const userId = getCurrentUserId(req);
+      await storage.markAllNotificationsAsRead(userId);
       res.json({ success: true });
     } catch (error: any) {
       console.error("Erro ao marcar todas notificações como lidas:", error);
@@ -3160,6 +4671,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao excluir exclusão de horário:", error);
       res.status(500).json({ message: "Erro ao excluir exclusão de horário" });
+    }
+  });
+
+  // Webhook para receber notificações de pagamento do Mercado Pago
+  app.post("/api/payments/webhook", async (req: Request, res: Response) => {
+    try {
+      console.log("Webhook do Mercado Pago recebido:", JSON.stringify(req.body, null, 2));
+      
+      // Verificar se é uma notificação de pagamento
+      if (req.body.action === 'payment.updated' || req.body.action === 'payment.created') {
+        const paymentId = req.body.data?.id;
+        if (paymentId) {
+          console.log(`Notificação de pagamento recebida para o ID: ${paymentId}`);
+          
+          // Buscar transações com este ID
+          const transactions = await db.select()
+            .from(subscriptionTransactions)
+            .where(eq(subscriptionTransactions.transactionId, paymentId.toString()));
+          
+          if (transactions.length > 0) {
+            console.log(`Transação encontrada: ${transactions[0].id} para usuário ${transactions[0].userId}`);
+            
+            // Verificar o status do pagamento
+            await subscriptionService.checkPaymentStatus(paymentId.toString());
+            console.log(`Status do pagamento verificado para transação ${paymentId}`);
+          } else {
+            console.log(`Nenhuma transação encontrada para o pagamento ${paymentId}`);
+          }
+        }
+      }
+      
+      // Sempre retornar 200 para o Mercado Pago
+      return res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Erro ao processar webhook do Mercado Pago:", error);
+      // Ainda retornamos 200 para o Mercado Pago não tentar novamente
+      return res.status(200).json({ received: true, error: true });
     }
   });
 
@@ -3496,7 +5044,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const provider = await storage.getProviderByUserId(req.user.id);
+      // Usar getCurrentUserId para considerar simulação de acesso
+      const userId = getCurrentUserId(req);
+      const provider = await storage.getProviderByUserId(userId);
       if (!provider) {
         return res.status(404).json({ error: "Provedor não encontrado" });
       }
@@ -3538,7 +5088,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rota para obter planos de assinatura
   app.get("/api/subscription/plans", async (req: Request, res: Response) => {
     try {
-      const plans = await subscriptionService.getActivePlans();
+      const { accountType } = req.query;
+      const plans = await subscriptionService.getActivePlans(accountType as string);
       res.json(plans);
     } catch (error: any) {
       console.error("Erro ao buscar planos de assinatura:", error);

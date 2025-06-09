@@ -144,7 +144,7 @@ const BookingPage: React.FC = () => {
       </div>
 
       <footer className="mt-16 text-center text-sm text-gray-500">
-        <p>© 2023 AgendaPro - Sistema de Agendamento Online</p>
+        <p>© 2023 Meu Agendamento PRO - Sistema de Agendamento Online</p>
       </footer>
     </div>
   );

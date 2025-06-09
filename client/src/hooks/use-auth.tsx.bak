@@ -13,6 +13,7 @@ interface User {
   username: string;
   email: string;
   role: string;
+  accountType?: string;
   avatarUrl: string | null;
   isActive: boolean;
   subscriptionExpiry?: string | null;

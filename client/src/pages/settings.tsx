@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Form,
   FormControl,
@@ -24,6 +25,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formatPhoneNumber } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import PageHeader from "@/components/layout/page-header";
 import { Clock, Calendar, Phone, Smartphone, CreditCard, DollarSign, Percent } from "lucide-react";
@@ -32,9 +34,20 @@ import { Input } from "@/components/ui/input";
 import WhatsAppPopup from "@/components/whatsapp-popup";
 import { TimeExclusionManager } from "@/components/time-exclusions/time-exclusion-manager";
 import { Switch } from "@/components/ui/switch";
+import { useImpersonation } from "@/hooks/use-impersonation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Schema para validação do formulário
 const settingsFormSchema = z.object({
+  // Configurações de conta
+  accountType: z.enum(['individual', 'company']).default('individual'),
+  
   // Configurações de horário de trabalho
   workingHoursStart: z.coerce.number().int().min(0).max(23),
   workingHoursEnd: z.coerce.number().int().min(1).max(24),
@@ -52,6 +65,9 @@ const settingsFormSchema = z.object({
   // Configurações do Mercado Pago
   pixMercadoPagoToken: z.string().optional(),
   pixIdentificationNumber: z.string().optional(),
+  
+  // Templates de mensagens WhatsApp
+  whatsappTemplateAppointment: z.string().optional().default("Caro {cliente}. Seu agendamento para o dia {data} às {hora} foi confirmado."),
 }).refine(data => data.workingHoursEnd > data.workingHoursStart, {
   message: "O horário de término deve ser maior que o horário de início",
   path: ["workingHoursEnd"]
@@ -67,7 +83,71 @@ type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 const SettingsPage: React.FC = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { impersonationStatus } = useImpersonation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCompanyConfirmDialog, setShowCompanyConfirmDialog] = useState(false);
+  const [pendingAccountType, setPendingAccountType] = useState<'individual' | 'company' | null>(null);
+
+  // Função para tratar mudança do tipo de conta
+  const handleAccountTypeChange = (newAccountType: 'individual' | 'company') => {
+    const currentAccountType = form.getValues('accountType');
+    
+    // Se está tentando mudar de individual para company, mostrar confirmação
+    if (currentAccountType === 'individual' && newAccountType === 'company') {
+      setPendingAccountType(newAccountType);
+      setShowCompanyConfirmDialog(true);
+      return;
+    }
+    
+    // Se está tentando mudar de company para individual, não permitir
+    if (currentAccountType === 'company' && newAccountType === 'individual') {
+      toast({
+        title: "Alteração não permitida",
+        description: "Não é possível alterar de conta empresa para conta individual.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Para outras mudanças, aplicar diretamente
+    form.setValue('accountType', newAccountType);
+  };
+
+  // Função para confirmar mudança para conta empresa
+  const confirmCompanyAccountChange = () => {
+    if (pendingAccountType) {
+      form.setValue('accountType', pendingAccountType);
+      setShowCompanyConfirmDialog(false);
+      setPendingAccountType(null);
+    }
+  };
+
+  // Função para cancelar mudança para conta empresa
+  const cancelCompanyAccountChange = () => {
+    setShowCompanyConfirmDialog(false);
+    setPendingAccountType(null);
+  };
+
+  // Invalidar queries quando o status de simulação mudar
+  React.useEffect(() => {
+    console.log("Status de simulação mudou na página de configurações:", impersonationStatus);
+    if (impersonationStatus) {
+      // Invalidar as queries principais para recarregar dados do usuário simulado
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-provider"] });
+    }
+  }, [impersonationStatus, queryClient]);
+
+  // Buscar dados do usuário atual
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
+    queryFn: async () => {
+      const res = await fetch("/api/user");
+      if (!res.ok) throw new Error("Failed to fetch user data");
+      return res.json();
+    },
+  });
 
   // Buscar dados do provedor atual através da API my-provider
   const { data: provider, isLoading } = useQuery({
@@ -82,6 +162,7 @@ const SettingsPage: React.FC = () => {
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues: {
+      accountType: "individual",
       workingHoursStart: 8,
       workingHoursEnd: 18,
       workingDays: "1,2,3,4,5",
@@ -93,20 +174,23 @@ const SettingsPage: React.FC = () => {
       pixPaymentPercentage: 100,
       pixMercadoPagoToken: "",
       pixIdentificationNumber: "",
+      whatsappTemplateAppointment: "Caro {cliente}. Seu agendamento para o dia {data} às {hora} foi confirmado.",
     },
   });
 
-  // Atualizar o formulário quando os dados do provedor forem carregados
+  // Atualizar o formulário quando os dados do usuário e provedor forem carregados
   React.useEffect(() => {
-    if (provider) {
+    if (provider && user) {
       console.log("Carregando dados do provedor para o formulário:", {
         id: provider.id,
+        phone: provider.phone, // Adicionado para depuração
         hasMercadoPagoToken: !!provider.pixMercadoPagoToken,
         hasIdentificationNumber: !!provider.pixIdentificationNumber,
         pixEnabled: provider.pixEnabled,
       });
       
       form.reset({
+        accountType: user.accountType || "individual",
         workingHoursStart: provider.workingHoursStart || 8,
         workingHoursEnd: provider.workingHoursEnd || 18,
         workingDays: provider.workingDays || "1,2,3,4,5",
@@ -121,18 +205,27 @@ const SettingsPage: React.FC = () => {
         // Configurações do Mercado Pago
         pixMercadoPagoToken: provider.pixMercadoPagoToken || "",
         pixIdentificationNumber: provider.pixIdentificationNumber || "",
+        // Templates de mensagens WhatsApp
+        whatsappTemplateAppointment: provider.whatsappTemplateAppointment || "Caro {cliente}. Seu agendamento para o dia {data} às {hora} foi confirmado.",
       });
     }
-  }, [provider, form]);
+  }, [provider, user, form]);
 
   // Mutation para atualizar as configurações
   const updateSettings = useMutation({
     mutationFn: async (data: SettingsFormValues) => {
-      if (!provider || !provider.id) {
-        throw new Error("Dados do provedor não disponíveis");
+      if (!provider || !provider.id || !user) {
+        throw new Error("Dados do usuário ou provedor não disponíveis");
       }
       
       console.log(`Atualizando configurações para provider ID ${provider.id}:`, data);
+      
+      // Primeiro, atualizar o tipo de conta se mudou
+      if (data.accountType !== user.accountType) {
+        await apiRequest("PATCH", `/api/user/account-type`, { accountType: data.accountType });
+      }
+      
+      // Depois, atualizar as configurações do provider
       return apiRequest("PATCH", `/api/providers/${provider.id}/settings`, data);
     },
     onSuccess: () => {
@@ -180,8 +273,98 @@ const SettingsPage: React.FC = () => {
           <Separator className="mb-6" />
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              {/* Seção de Tipo de Conta */}
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium">Tipo de Conta</h3>
+                  <p className="text-sm text-gray-500">
+                    Escolha o tipo de conta adequado para suas necessidades
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="accountType"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormControl>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div 
+                            className={`relative cursor-pointer rounded-lg border p-4 hover:bg-gray-50 ${
+                              field.value === 'individual' 
+                                ? 'border-primary bg-primary/5 ring-2 ring-primary' 
+                                : 'border-gray-200'
+                            }`}
+                            onClick={() => handleAccountTypeChange('individual')}
+                          >
+                            <div className="flex items-start">
+                              <div className="flex items-center h-5">
+                                <input
+                                  type="radio"
+                                  checked={field.value === 'individual'}
+                                  onChange={() => handleAccountTypeChange('individual')}
+                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                                />
+                              </div>
+                              <div className="ml-3">
+                                <div className="text-sm font-medium text-gray-900">
+                                  Conta Individual
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  Para profissionais autônomos que trabalham sozinhos
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div 
+                            className={`relative cursor-pointer rounded-lg border p-4 hover:bg-gray-50 ${
+                              field.value === 'company' 
+                                ? 'border-primary bg-primary/5 ring-2 ring-primary' 
+                                : 'border-gray-200'
+                            }`}
+                            onClick={() => handleAccountTypeChange('company')}
+                          >
+                            <div className="flex items-start">
+                              <div className="flex items-center h-5">
+                                <input
+                                  type="radio"
+                                  checked={field.value === 'company'}
+                                  onChange={() => handleAccountTypeChange('company')}
+                                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                                />
+                              </div>
+                              <div className="ml-3">
+                                <div className="text-sm font-medium text-gray-900">
+                                  Conta Empresa
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  Para empresas que gerenciam uma equipe de funcionários
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Seção de Horário de Trabalho */}
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium">Horário de Trabalho</h3>
+                  <p className="text-sm text-gray-500">
+                    Defina o horário em que você estará disponível para agendamentos
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="workingHoursStart"
@@ -311,6 +494,7 @@ const SettingsPage: React.FC = () => {
                   }}
                 />
               </div>
+              </div>
 
               <div className="mt-8">
                 <div className="mb-6">
@@ -321,53 +505,55 @@ const SettingsPage: React.FC = () => {
                 </div>
 
                 <Separator className="mb-6" />
-
+                
                 <FormField
                   control={form.control}
                   name="phone"
                   render={({ field }) => {
-                    // Formatar o número de telefone
-                    const formatPhone = (value: string) => {
-                      // Remove tudo que não for número
-                      const numbers = value.replace(/\D/g, '');
-                      
-                      // Aplica formatação de acordo com o tamanho
-                      if (numbers.length <= 2) {
-                        return numbers;
-                      }
-                      if (numbers.length <= 6) {
-                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-                      }
-                      if (numbers.length === 10) {
-                        // Para números com 10 dígitos (sem o 9) - formato antigo ou telefone fixo
-                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6, 10)}`;
-                      }
-                      if (numbers.length >= 11) {
-                        // Para números com 11 dígitos (com o 9) - formato celular Brasil
-                        return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
-                      }
-                      // Para números incompletos com mais de 6 dígitos
-                      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-                    };
-
+                    // Depurar o valor do campo
+                    console.log("Valor do campo phone na renderização:", field.value);
+                    
                     return (
                       <FormItem>
                         <FormLabel>WhatsApp</FormLabel>
                         <div className="flex items-center gap-2">
-                          <FormControl className="flex-1">
-                            <div className="relative flex items-center">
-                              <Phone className="h-4 w-4 absolute left-3 text-gray-400" />
-                              <Input 
-                                placeholder="(99) 99999-9999"
-                                className="pl-10"
-                                value={formatPhone(field.value || '')}
-                                onChange={(e) => {
-                                  field.onChange(e.target.value);
-                                }}
-                              />
-                            </div>
-                          </FormControl>
-                          <WhatsAppPopup triggerManually>
+                          <div className="flex-1 flex items-center border rounded-md p-3 bg-muted/30">
+                            <Phone className="h-4 w-4 mr-3 text-gray-500" />
+                            <span className="text-sm">
+                              {provider && provider.phone ? (
+                                // Usar o número diretamente do provedor para garantir que esteja correto
+                                (() => {
+                                  const phone = provider.phone;
+                                  // Se o número já estiver formatado, exibir como está
+                                  if (phone.includes('(') && phone.includes(')')) {
+                                    return phone;
+                                  }
+                                  // Se começar com +55, remover o código do país
+                                  if (phone.startsWith('+55')) {
+                                    return formatPhoneNumber(phone.substring(3));
+                                  }
+                                  // Se começar com 55 (sem o +), remover o código do país
+                                  if (phone.startsWith('55') && phone.length > 10) {
+                                    return formatPhoneNumber(phone.substring(2));
+                                  }
+                                  // Outros casos, formatar normalmente
+                                  return formatPhoneNumber(phone);
+                                })()
+                              ) : (
+                                <span className="text-muted-foreground italic">Não configurado</span>
+                              )}
+                            </span>
+                          </div>
+                          <WhatsAppPopup 
+                            triggerManually 
+                            initialPhone={field.value || ''}
+                            onPhoneUpdate={(phone) => {
+                              // Atualizar o campo de telefone no formulário quando o número for alterado no popup
+                              field.onChange(phone);
+                              // Marcar o campo como tocado para que o formulário saiba que foi alterado
+                              form.setValue('phone', phone, { shouldDirty: true, shouldTouch: true });
+                            }}
+                          >
                             <Button 
                               type="button" 
                               variant="outline" 
@@ -387,6 +573,44 @@ const SettingsPage: React.FC = () => {
                       </FormItem>
                     );
                   }}
+                />
+              </div>
+
+              <div className="mt-8">
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium">Templates de Mensagens WhatsApp</h3>
+                  <p className="text-sm text-gray-500">
+                    Personalize as mensagens enviadas automaticamente para seus clientes
+                  </p>
+                </div>
+
+                <Separator className="mb-6" />
+
+                <FormField
+                  control={form.control}
+                  name="whatsappTemplateAppointment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmação de Agendamento</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Mensagem de confirmação de agendamento"
+                          {...field}
+                          className="font-mono text-sm"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Mensagem enviada ao cliente quando um agendamento é confirmado. Você pode usar as seguintes variáveis:
+                        <ul className="list-disc pl-5 mt-2 space-y-1">
+                          <li><code className="bg-gray-100 px-1 rounded">{'{cliente}'}</code> - Nome do cliente</li>
+                          <li><code className="bg-gray-100 px-1 rounded">{'{data}'}</code> - Data do agendamento</li>
+                          <li><code className="bg-gray-100 px-1 rounded">{'{hora}'}</code> - Horário do agendamento</li>
+                          <li><code className="bg-gray-100 px-1 rounded">{'{serviço}'}</code> - Nome do serviço</li>
+                        </ul>
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
@@ -685,6 +909,47 @@ const SettingsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Popup de confirmação para mudança para conta empresa */}
+      <Dialog open={showCompanyConfirmDialog} onOpenChange={setShowCompanyConfirmDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Confirmar Mudança para Conta Empresa
+            </DialogTitle>
+            <DialogDescription className="space-y-3">
+              <p>
+                Você está prestes a alterar sua conta de <strong>Individual</strong> para <strong>Empresa</strong>.
+              </p>
+              <p className="text-amber-600 font-medium">
+                ⚠️ Esta alteração é <u>definitiva e irreversível</u>
+              </p>
+              <p>
+                Após a mudança, você não poderá mais voltar para conta individual e terá acesso às funcionalidades de gestão de equipe.
+              </p>
+              <p>
+                Tem certeza que deseja continuar?
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-3 pt-4">
+            <Button 
+              onClick={confirmCompanyAccountChange}
+              className="flex-1"
+            >
+              Sim, alterar para Empresa
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={cancelCompanyAccountChange}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

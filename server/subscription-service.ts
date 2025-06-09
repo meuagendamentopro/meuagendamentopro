@@ -1,5 +1,5 @@
 /**
- * Serviço para gerenciar assinaturas e pagamentos
+ * Serviço para gerenciar assinaturas e pagamentos teste
  */
 import { db, dbWithQueries } from './db';
 import { subscriptionPlans, subscriptionTransactions, users } from '../shared/schema';
@@ -7,11 +7,48 @@ import { eq, and, desc, inArray } from 'drizzle-orm';
 import { PaymentService } from './payment-service';
 import { storage } from './storage';
 import { User } from '../shared/schema';
+import * as emailService from './email-service';
 
 // Instância do serviço de pagamento
 const paymentService = new PaymentService();
 
 export class SubscriptionService {
+  constructor() {
+    // Inicializar o verificador de pagamentos pendentes
+    this.startPaymentStatusChecker();
+  }
+  
+  /**
+   * Inicia o verificador periódico de status de pagamentos pendentes
+   */
+  private startPaymentStatusChecker() {
+    // Verificar pagamentos pendentes a cada 5 minutos
+    setInterval(async () => {
+      try {
+        console.log('Verificando pagamentos pendentes...');
+        const pendingTransactions = await db.select()
+          .from(subscriptionTransactions)
+          .where(eq(subscriptionTransactions.status, 'pending'));
+        
+        console.log(`Encontrados ${pendingTransactions.length} pagamentos pendentes para verificação`);
+        
+        // Verificar cada transação pendente
+        for (const transaction of pendingTransactions) {
+          try {
+            if (transaction.transactionId) {
+              console.log(`Verificando status do pagamento ${transaction.transactionId}...`);
+              await this.checkPaymentStatus(transaction.transactionId);
+            }
+          } catch (error) {
+            console.error(`Erro ao verificar transação ${transaction.id}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar pagamentos pendentes:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutos
+  }
+  
   /**
    * Busca o histórico de assinaturas de um usuário
    */
@@ -57,12 +94,21 @@ export class SubscriptionService {
   }
   /**
    * Busca todos os planos de assinatura ativos
+   * @param accountType - Filtrar por tipo de conta: 'individual', 'company' ou undefined para todos
    */
-  async getActivePlans() {
+  async getActivePlans(accountType?: string) {
     try {
+      // Construir condições WHERE
+      const conditions = [eq(subscriptionPlans.isActive, true)];
+      
+      // Filtrar por tipo de conta se especificado
+      if (accountType && ['individual', 'company'].includes(accountType)) {
+        conditions.push(eq(subscriptionPlans.accountType, accountType));
+      }
+      
       const plans = await db.select()
         .from(subscriptionPlans)
-        .where(eq(subscriptionPlans.isActive, true))
+        .where(and(...conditions))
         .orderBy(subscriptionPlans.price);
       
       return plans;
@@ -184,6 +230,9 @@ export class SubscriptionService {
         })
         .returning();
       
+      // Enviar email com os dados do pagamento para o usuário
+      await this.sendPaymentEmail(user, plan, pixResponse);
+      
       return {
         transactionId: pixResponse.transactionId,
         pixQrCode: pixResponse.qrCode,
@@ -196,6 +245,28 @@ export class SubscriptionService {
     }
   }
   
+  /**
+   * Envia email com os dados do pagamento para o usuário
+   */
+  private async sendPaymentEmail(user: User, plan: any, pixResponse: any): Promise<boolean> {
+    try {
+      console.log(`Enviando email de pagamento para ${user.email}...`);
+      const result = await emailService.sendPaymentEmail(user, plan, pixResponse);
+      
+      if (result) {
+        console.log(`Email de pagamento enviado com sucesso para ${user.email}`);
+      } else {
+        console.error(`Falha ao enviar email de pagamento para ${user.email}`);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Erro ao enviar email de pagamento:', error);
+      // Não lançamos o erro para não interromper o fluxo principal
+      return false;
+    }
+  }
+
   /**
    * Verifica o status de um pagamento
    */
@@ -242,6 +313,7 @@ export class SubscriptionService {
       
       if (status === 'paid' || status === 'confirmed' || status === 'approved') {
         updateData.paidAt = paidAt || new Date();
+        console.log(`Transação ${transactionId} marcada como paga em ${updateData.paidAt}`);
       }
       
       await db.update(subscriptionTransactions)

@@ -1,25 +1,36 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { drizzle as drizzleNode } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
+const { Pool } = pg;
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
-import ws from 'ws';
 import * as schema from '@shared/schema';
+import { localConfig } from './local-config';
 
-// Configuração para WebSockets
-neonConfig.webSocketConstructor = ws;
+// Usa a URL do banco de dados do ambiente ou da configuração local
+const databaseUrl = process.env.DATABASE_URL || localConfig.database.url;
 
 // Verifica se a URL do banco de dados está definida
-if (!process.env.DATABASE_URL) {
+if (!databaseUrl) {
   throw new Error(
     "DATABASE_URL deve ser definida. Você esqueceu de provisionar um banco de dados?"
   );
 }
 
-// Cria o pool de conexão
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+console.log('Inicializando conexão com PostgreSQL usando pg standard driver');
+console.log(`URL do banco de dados: ${databaseUrl}`);
 
-// Exporta a instância do Drizzle ORM
+// Cria o pool de conexão usando o driver pg padrão
+export const pool = new Pool({ connectionString: databaseUrl });
+
+// Testa a conexão
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('ERRO AO CONECTAR AO POSTGRESQL:', err);
+  } else {
+    console.log('CONEXÃO COM POSTGRESQL BEM-SUCEDIDA! Timestamp:', res.rows[0].now);
+  }
+});
+
+// Exporta a instância do Drizzle ORM usando o driver node-postgres
 export const db = drizzle(pool, { schema });
 
 // Configuração para queries com relacionamentos
@@ -38,10 +49,12 @@ export const dbWithQueries = {
           .from(schema.subscriptionTransactions);
         
         if (where) {
+          // @ts-ignore - Ignorar erro de tipagem do Drizzle ORM
           query = query.where(where);
         }
         
         if (orderBy && orderBy.length > 0) {
+          // @ts-ignore - Ignorar erro de tipagem do Drizzle ORM
           query = query.orderBy(...orderBy);
         }
         

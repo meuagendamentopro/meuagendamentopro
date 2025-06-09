@@ -14,6 +14,7 @@ import { generateTimeSlots } from "@/lib/utils";
 import { Service } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import EmployeeSelector from "./employee-selector";
 
 interface BookingFormProps {
   providerId: number;
@@ -40,10 +41,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   const [appointmentId, setAppointmentId] = useState<number | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<string>('pending');
+  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
   
   // Função para resetar o formulário
   const resetForm = () => {
     setStep(1);
+    setSelectedEmployee(null);
     setSelectedService(null);
     setSelectedDate(new Date());
     setSelectedTime("");
@@ -67,13 +70,23 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     clientFormRef.current = { name: "", phone: "", notes: "" };
   }
 
-  // Fetch services
+  // Fetch services - para contas empresa, buscar serviços do funcionário selecionado
   const { data: services, isLoading: servicesLoading } = useQuery({
-    queryKey: ["/api/providers", providerId, "services"],
+    queryKey: selectedEmployee 
+      ? ["/api/employees", selectedEmployee, "services"] 
+      : ["/api/providers", providerId, "services"],
     queryFn: async ({ queryKey }) => {
-      const res = await fetch(`/api/providers/${providerId}/services`);
-      if (!res.ok) throw new Error("Failed to fetch services");
-      return res.json();
+      if (selectedEmployee) {
+        // Buscar serviços específicos do funcionário
+        const res = await fetch(`/api/employees/${selectedEmployee}/services`);
+        if (!res.ok) throw new Error("Failed to fetch employee services");
+        return res.json();
+      } else {
+        // Buscar todos os serviços do provider (conta individual)
+        const res = await fetch(`/api/providers/${providerId}/services`);
+        if (!res.ok) throw new Error("Failed to fetch services");
+        return res.json();
+      }
     },
   });
   
@@ -86,6 +99,38 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       return res.json();
     },
   });
+
+  // Fetch employees for company accounts
+  const { data: employees, isLoading: employeesLoading, error: employeesError } = useQuery({
+    queryKey: ["/api/providers", providerId, "employees"],
+    queryFn: async ({ queryKey }) => {
+      console.log(`Fetching employees for provider ${providerId}`);
+      const res = await fetch(`/api/providers/${providerId}/employees`);
+      console.log(`Employees API response status: ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.log("No employees found (404), returning empty array");
+          return [];
+        }
+        throw new Error("Failed to fetch employees");
+      }
+      const data = await res.json();
+      console.log("Employees data received:", data);
+      return data;
+    },
+  });
+
+  // Verificar se é uma conta empresa (tem funcionários)
+  const isCompanyAccount = employees && employees.length > 0;
+  
+  // Debug logs
+  console.log("=== BOOKING FORM DEBUG ===");
+  console.log("Provider ID:", providerId);
+  console.log("Employees loading:", employeesLoading);
+  console.log("Employees error:", employeesError);
+  console.log("Employees data:", employees);
+  console.log("Is company account:", isCompanyAccount);
+  console.log("========================");
 
   // Check availability for a selected service and date
   const checkAvailability = async (serviceId: number, date: Date) => {
@@ -169,25 +214,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         const [hours, minutes] = time.split(":").map(Number);
         
         // Criar a data completa combinando a data selecionada com o horário do slot
-        // IMPORTANTE: Compensando o fuso horário (Brasil GMT-3)
-        // Ajuste manual para que o backend receba o horário correto no formato UTC
-        let adjustedHours = hours - 3; // Subtraímos 3 horas para compensar GMT-3
+        // NÃO fazemos ajuste de fuso horário aqui - usamos o horário local como está
+        // O backend é responsável por fazer qualquer conversão necessária
+        let adjustedHours = hours; // Usamos o horário como está, sem ajuste
         let adjustedDay = date.getDate();
         let adjustedMonth = date.getMonth();
         let adjustedYear = date.getFullYear();
         
-        // Se o ajuste levar para o dia anterior, ajustamos a data
-        if (adjustedHours < 0) {
-          adjustedHours += 24;
-          // Criar uma data temporária para o dia anterior
-          const prevDay = new Date(date);
-          prevDay.setDate(date.getDate() - 1);
-          adjustedDay = prevDay.getDate();
-          adjustedMonth = prevDay.getMonth();
-          adjustedYear = prevDay.getFullYear();
-        }
-        
-        console.log(`Ajustando horário: ${hours}:${minutes} -> ${adjustedHours}:${minutes} (fuso GMT-3)`);
+        // Mantemos o log para debug
+        console.log(`Usando horário local: ${hours}:${minutes} (sem ajuste de fuso)`);
         
         const slotDate = new Date(
           adjustedYear,
@@ -221,9 +256,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         try {
           console.log(`Verificando disponibilidade para horário ${time} (${slotDate.toISOString()})`);
           
-          const res = await fetch(
-            `/api/providers/${providerId}/availability?date=${slotDate.toISOString()}&serviceId=${serviceId}`
-          );
+          const availabilityUrl = `/api/providers/${providerId}/availability?date=${slotDate.toISOString()}&serviceId=${serviceId}${selectedEmployee ? `&employeeId=${selectedEmployee}` : ''}`;
+          const res = await fetch(availabilityUrl);
           const data = await res.json();
           
           console.log(`Resposta de disponibilidade para ${time}: ${JSON.stringify(data)}`);
@@ -279,6 +313,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   };
 
   // Handle time selection
+  const handleSelectEmployee = (employeeId: number) => {
+    setSelectedEmployee(employeeId);
+    // Reset service selection when employee changes
+    setSelectedService(null);
+  };
+
   const handleSelectTime = (time: string) => {
     setSelectedTime(time);
   };
@@ -300,22 +340,63 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
 
   // Navigate to next step
   const handleNextStep = () => {
-    if (step === 1 && !selectedService) {
-      toast({
-        title: "Selecione um serviço",
-        description: "Por favor, selecione um serviço para continuar",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (isCompanyAccount) {
+      // Fluxo para contas empresa: Funcionário -> Serviço -> Data/Hora -> Dados
+      if (step === 1 && !selectedEmployee) {
+        toast({
+          title: "Selecione um funcionário",
+          description: "Por favor, selecione um funcionário para continuar",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (step === 2 && !selectedService) {
+        toast({
+          title: "Selecione um serviço",
+          description: "Por favor, selecione um serviço para continuar",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (step === 2 && !selectedTime) {
-      toast({
-        title: "Selecione um horário",
-        description: "Por favor, selecione um horário disponível para continuar",
-        variant: "destructive",
-      });
-      return;
+      if (step === 3 && !selectedTime) {
+        toast({
+          title: "Selecione um horário",
+          description: "Por favor, selecione um horário disponível para continuar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (step === 2 && selectedService) {
+        // Verificar disponibilidade quando um serviço é selecionado
+        checkAvailability(selectedService, selectedDate);
+      }
+    } else {
+      // Fluxo para contas individuais: Serviço -> Data/Hora -> Dados
+      if (step === 1 && !selectedService) {
+        toast({
+          title: "Selecione um serviço",
+          description: "Por favor, selecione um serviço para continuar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (step === 2 && !selectedTime) {
+        toast({
+          title: "Selecione um horário",
+          description: "Por favor, selecione um horário disponível para continuar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (step === 1 && selectedService) {
+        // Verificar disponibilidade quando um serviço é selecionado
+        checkAvailability(selectedService, selectedDate);
+      }
     }
 
     setStep(step + 1);
@@ -363,6 +444,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         serviceId: selectedService,
         date: appointmentDate.toISOString().split("T")[0],
         time: selectedTime,
+        ...(selectedEmployee && { employeeId: selectedEmployee }),
       };
 
       const response = await apiRequest("POST", "/api/booking", bookingData);
@@ -457,12 +539,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   if (bookingComplete) {
     // Criar link de WhatsApp baseado no número do provider
     const createWhatsAppLink = () => {
-      if (provider?.phone) {
-        // Remove caracteres que não são números
-        const phoneNumber = provider.phone.replace(/\D/g, '');
-        // Verifica se começa com '55' (Brasil), caso contrário adiciona
-        const formattedNumber = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;
-        return `https://wa.me/${formattedNumber}`;
+      if (provider && provider.phone) {
+        // Verificar se o número já tem código internacional
+        if (provider.phone.startsWith('+')) {
+          // Se já tem código internacional, remover o + e usar como está
+          return `https://wa.me/${provider.phone.substring(1)}`;
+        } else {
+          // Se não tem código internacional, assumir que é do Brasil
+          // Remove caracteres que não são números
+          const phoneNumber = provider.phone.replace(/\D/g, '');
+          // Verifica se começa com '55' (Brasil), caso contrário adiciona
+          const formattedNumber = phoneNumber.startsWith('55') ? phoneNumber : `55${phoneNumber}`;
+          return `https://wa.me/${formattedNumber}`;
+        }
       }
       return '#';
     };
@@ -545,36 +634,86 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     <div className="w-full max-w-md mx-auto">
       {/* Progress steps */}
       <div className="flex mb-6">
-        <div className="flex-1">
-          <div
-            className={`h-2 ${
-              step >= 1 ? "bg-primary-500" : "bg-gray-200"
-            } rounded-l-full transition-colors`}
-          ></div>
-          <span className="block text-xs mt-1 text-center">Serviço</span>
-        </div>
-        <div className="flex-1">
-          <div
-            className={`h-2 ${
-              step >= 2 ? "bg-primary-500" : "bg-gray-200"
-            } transition-colors`}
-          ></div>
-          <span className="block text-xs mt-1 text-center">Data e hora</span>
-        </div>
-        <div className="flex-1">
-          <div
-            className={`h-2 ${
-              step >= 3 ? "bg-primary-500" : "bg-gray-200"
-            } rounded-r-full transition-colors`}
-          ></div>
-          <span className="block text-xs mt-1 text-center">Seus dados</span>
-        </div>
+        {isCompanyAccount ? (
+          <>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 1 ? "bg-primary-500" : "bg-gray-200"
+                } rounded-l-full transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Profissional</span>
+            </div>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 2 ? "bg-primary-500" : "bg-gray-200"
+                } transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Serviço</span>
+            </div>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 3 ? "bg-primary-500" : "bg-gray-200"
+                } transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Data e hora</span>
+            </div>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 4 ? "bg-primary-500" : "bg-gray-200"
+                } rounded-r-full transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Seus dados</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 1 ? "bg-primary-500" : "bg-gray-200"
+                } rounded-l-full transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Serviço</span>
+            </div>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 2 ? "bg-primary-500" : "bg-gray-200"
+                } transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Data e hora</span>
+            </div>
+            <div className="flex-1">
+              <div
+                className={`h-2 ${
+                  step >= 3 ? "bg-primary-500" : "bg-gray-200"
+                } rounded-r-full transition-colors`}
+              ></div>
+              <span className="block text-xs mt-1 text-center">Seus dados</span>
+            </div>
+          </>
+        )}
       </div>
 
       <Card>
         <CardContent className="pt-6">
-          {/* Step 1: Select Service */}
-          {step === 1 && (
+          {/* Step 1: Company accounts - Select Employee, Individual accounts - Select Service */}
+          {step === 1 && isCompanyAccount && (
+            <div className="space-y-4">
+              <EmployeeSelector
+                employees={employees || []}
+                selectedEmployee={selectedEmployee}
+                onSelectEmployee={handleSelectEmployee}
+                onNext={handleNextStep}
+              />
+            </div>
+          )}
+
+          {step === 1 && !isCompanyAccount && (
             <div className="space-y-4">
               <div className="mb-4">
                 <h2 className="text-lg font-medium text-gray-900">Escolha o serviço</h2>
@@ -591,8 +730,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
             </div>
           )}
 
-          {/* Step 2: Select Date and Time */}
-          {step === 2 && (
+          {/* Step 2: Company accounts - Select Service, Individual accounts - Select Date and Time */}
+          {step === 2 && isCompanyAccount && (
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Escolha o serviço</h2>
+                <p className="text-sm text-gray-500">
+                  Selecione o serviço que deseja agendar
+                </p>
+              </div>
+              <ServiceSelector
+                services={services || []}
+                selectedServiceId={selectedService}
+                onSelect={handleSelectService}
+                isLoading={servicesLoading}
+              />
+            </div>
+          )}
+
+          {/* Step 2: Individual accounts - Select Date and Time */}
+          {step === 2 && !isCompanyAccount && (
             <div className="space-y-6">
               <div className="mb-4">
                 <h2 className="text-lg font-medium text-gray-900">Escolha data e horário</h2>
@@ -631,8 +788,77 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
             </div>
           )}
 
-          {/* Step 3: Client Information */}
-          {step === 3 && (
+          {/* Step 3: Company accounts - Select Date and Time */}
+          {step === 3 && isCompanyAccount && (
+            <div className="space-y-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Escolha data e horário</h2>
+                <p className="text-sm text-gray-500">
+                  Selecione quando deseja agendar seu serviço
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Data</label>
+                  <DateSelector
+                    selectedDate={selectedDate}
+                    onChange={handleSelectDate}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Horário</label>
+                  {loadingTimes ? (
+                    <div className="flex justify-center items-center py-8 border border-dashed rounded-lg bg-gray-50">
+                      <div className="flex flex-col items-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mb-2"></div>
+                        <p className="text-sm text-gray-500">Carregando horários disponíveis...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <TimeSelector
+                      availableTimes={availableTimes}
+                      selectedTime={selectedTime}
+                      onChange={handleSelectTime}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Individual accounts - Client Information */}
+          {step === 3 && !isCompanyAccount && (
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Suas informações</h2>
+                <p className="text-sm text-gray-500">
+                  Preencha seus dados para confirmar o agendamento
+                </p>
+              </div>
+
+              {selectedServiceDetails && (
+                <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                  <div className="flex items-center mb-2">
+                    <Calendar className="h-4 w-4 text-primary-500 mr-2" />
+                    <span className="text-sm font-medium">Detalhes do agendamento</span>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">{selectedServiceDetails.name}</span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {formatDate(selectedDate)} às {selectedTime}
+                  </p>
+                </div>
+              )}
+
+              <ClientForm onSubmitValues={handleClientForm} />
+            </div>
+          )}
+
+          {/* Step 4: Company accounts - Client Information */}
+          {step === 4 && isCompanyAccount && (
             <div className="space-y-4">
               <div className="mb-4">
                 <h2 className="text-lg font-medium text-gray-900">Suas informações</h2>
@@ -670,7 +896,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
               <div></div> // Empty div to maintain flex spacing
             )}
 
-            {step < 3 ? (
+            {/* Para contas individuais: steps 1 e 2 mostram "Próximo", step 3 mostra "Confirmar" */}
+            {/* Para contas empresa: steps 1, 2 e 3 mostram "Próximo", step 4 mostra "Confirmar" */}
+            {(!isCompanyAccount && step < 3) || (isCompanyAccount && step < 4) ? (
               <Button onClick={handleNextStep}>
                 Próximo
               </Button>

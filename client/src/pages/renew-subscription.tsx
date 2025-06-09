@@ -47,11 +47,19 @@ export default function RenewSubscriptionPage() {
     },
   });
   
+  // Extrair dados do usuário da URL
+  const [location] = useLocation();
+  const [urlUserId, setUrlUserId] = useState<number | null>(null);
+  const [expiredUser, setExpiredUser] = useState<any>(null);
+  
   // Buscar planos de assinatura disponíveis
   const { data: plans, isLoading, error } = useQuery({
-    queryKey: ['/api/subscription/plans'],
+    queryKey: ['/api/subscription/plans', authUser?.accountType || expiredUser?.accountType],
     queryFn: async () => {
-      const res = await apiRequest('GET', '/api/subscription/plans');
+      // Determinar o tipo de conta do usuário
+      const accountType = authUser?.accountType || expiredUser?.accountType || 'individual';
+      
+      const res = await apiRequest('GET', `/api/subscription/plans?accountType=${accountType}`);
       if (!res.ok) {
         const error = await res.json();
         throw new Error(error.message || 'Erro ao buscar planos de assinatura');
@@ -75,11 +83,6 @@ export default function RenewSubscriptionPage() {
   //     }
   //   }
   // });
-  
-  // Extrair dados do usuário da URL
-  const [location] = useLocation();
-  const [urlUserId, setUrlUserId] = useState<number | null>(null);
-  const [expiredUser, setExpiredUser] = useState<any>(null);
   
   useEffect(() => {
     // Verificar se o usuário já está autenticado

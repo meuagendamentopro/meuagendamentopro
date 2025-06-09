@@ -166,9 +166,8 @@ export const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({
         </DialogHeader>
 
         <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3">
+          <TabsList className="grid grid-cols-2">
             <TabsTrigger value="details">Detalhes</TabsTrigger>
-            <TabsTrigger value="payment">Pagamento</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
           
@@ -189,7 +188,7 @@ export const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({
                       {client?.phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4 text-gray-500" />
-                          <span>{formatPhoneNumber(client.phone)}</span>
+                          <span>{client.phone.startsWith('+') ? client.phone : formatPhoneNumber(client.phone)}</span>
                         </div>
                       )}
                       {client?.email && (
@@ -232,7 +231,7 @@ export const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({
                       </div>
 
                       {/* Detalhes do pagamento quando pagamento parcial é utilizado */}
-                      {appointment.requiresPayment && appointment.paymentPercentage && appointment.paymentPercentage < 100 && (
+                      {appointment.requiresPayment && appointment.paymentAmount && appointment.paymentAmount > 0 && (
                         <>
                           <div className="flex items-center gap-2 text-green-600">
                             <CheckCircle2 className="h-4 w-4" />
@@ -346,25 +345,7 @@ export const AppointmentDetails: React.FC<AppointmentDetailsProps> = ({
             </div>
           </TabsContent>
           
-          {/* Tab de Pagamento */}
-          <TabsContent value="payment">
-            {service ? (
-              <AppointmentPixPayment 
-                appointmentId={appointment.id} 
-                servicePrice={service.price || 0} 
-                serviceName={service.name || ""}
-              />
-            ) : (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-center text-center p-4">
-                    <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                    <span>Informações do serviço não encontradas</span>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+          {/* Tab de Pagamento desativada */}
           
           {/* Tab de Atualização de Status */}
           <TabsContent value="status">

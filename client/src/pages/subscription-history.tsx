@@ -38,15 +38,16 @@ export default function SubscriptionHistoryPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
 
+  // Opção para usar ou não o fallback
+  const [useFallback, setUseFallback] = React.useState(false);
+
   // Obter planos de assinatura
   const { data: plans } = useQuery({
     queryKey: ["/api/subscription/plans"],
     enabled: !!user
   });
-
-  // Opção para usar ou não o fallback
-  const [useFallback, setUseFallback] = React.useState(false);
   
+  // Buscar o histórico de transações
   const { data: history, isLoading, error, refetch } = useQuery<SubscriptionTransaction[]>({
     queryKey: ["/api/subscription/history", useFallback],
     queryFn: async () => {
@@ -96,6 +97,38 @@ export default function SubscriptionHistoryPage() {
     refetchOnWindowFocus: false,
     refetchOnMount: true
   });
+  
+  // Verificar pagamentos pendentes quando a página é carregada
+  const { data: pendingPaymentsCheck } = useQuery({
+    queryKey: ['pendingPaymentsCheck'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/subscription/check-pending-payments');
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Não é um erro, apenas não está autenticado
+            return { checked: 0, updated: 0, confirmed: 0 };
+          }
+          throw new Error('Erro ao verificar pagamentos pendentes');
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Erro ao verificar pagamentos pendentes:', error);
+        return { checked: 0, updated: 0, confirmed: 0 };
+      }
+    },
+    enabled: !!user, // Só executa se o usuário estiver logado
+    refetchOnMount: true // Verifica quando o componente é montado
+  });
+  
+  // Efeito para atualizar a lista de transações quando pagamentos forem confirmados
+  React.useEffect(() => {
+    if (pendingPaymentsCheck?.confirmed > 0) {
+      console.log(`${pendingPaymentsCheck.confirmed} pagamento(s) confirmado(s). Atualizando lista...`);
+      // Atualizar a lista de transações
+      refetch();
+    }
+  }, [pendingPaymentsCheck, refetch]);
 
   // Função para formatar valores em reais
   const formatCurrency = (valueInCents: number) => {
@@ -130,6 +163,10 @@ export default function SubscriptionHistoryPage() {
       case 'failed':
       case 'cancelled':
         return "destructive";
+      case 'expired':
+        return "secondary";
+      case 'error':
+        return "secondary"; // Tratar erros como status secundário
       default:
         return "secondary";
     }
@@ -148,8 +185,12 @@ export default function SubscriptionHistoryPage() {
         return "Falhou";
       case 'cancelled':
         return "Cancelado";
+      case 'expired':
+        return "Expirado";
+      case 'error':
+        return "Pendente"; // Tratar erros como pendentes para melhor experiência do usuário
       default:
-        return status;
+        return "Pendente";
     }
   };
   
@@ -205,23 +246,17 @@ export default function SubscriptionHistoryPage() {
           variant="ghost" 
           size="sm" 
           className="mr-2"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/dashboard")}
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           Voltar
         </Button>
-        <h1 className="text-2xl font-bold">Histórico de Assinaturas</h1>
-        <div className="flex gap-2 ml-auto">
-          <Button 
-            variant={useFallback ? "default" : "outline"} 
-            size="sm"
-            onClick={() => setUseFallback(!useFallback)}
-          >
-            {useFallback ? "Usando dados de exemplo" : "Usar dados de exemplo"}
-          </Button>
+        <h1 className="text-xl sm:text-2xl font-bold">Histórico de Assinaturas</h1>
+        <div className="ml-auto">
           <Button 
             variant="outline" 
             size="sm"
+            className="text-xs sm:text-sm"
             onClick={() => refetch()}
           >
             Atualizar
@@ -236,44 +271,53 @@ export default function SubscriptionHistoryPage() {
             className="bg-muted hover:bg-muted/80 cursor-pointer transition-colors"
             onClick={() => navigate('/renew-subscription')}
           >
-            {isInTrialPeriod(user) ? <Gift className="h-5 w-5" /> : <CalendarPlus className="h-5 w-5" />}
-            <AlertTitle>
-              {isInTrialPeriod(user) ? "Assine um plano" : "Renovação Antecipada"}
-            </AlertTitle>
-            <AlertDescription className="mt-2">
-              <div className="flex flex-col gap-3">
-                <p>
-                  {isInTrialPeriod(user) ? (
-                    <>
-                      Você está em <span className="font-semibold">período de teste</span>. 
-                      Assine agora um plano para manter seu acesso após o período de teste.
-                    </>
-                  ) : user.subscriptionExpiry ? (
-                    <>
-                      Sua assinatura atual expira em {" "}
-                      <span className="font-semibold">
-                        {user.subscriptionExpiry ? new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR') : 'N/A'}
-                      </span>
-                      . Renove antecipadamente e mantenha seu acesso sem interrupções.
-                    </>
-                  ) : (
-                    <>
-                      Assine um plano para continuar utilizando o sistema sem interrupções.
-                    </>
-                  )}
-                </p>
-                <Button
-                  variant="default"
-                  className="self-start mt-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate('/renew-subscription');
-                  }}
-                >
-                  {isInTrialPeriod(user) ? "Assinar agora" : "Renovar agora"}
-                </Button>
+            <div className="flex flex-col sm:flex-row sm:items-center w-full">
+              <div className="flex items-center">
+                {isInTrialPeriod(user) ? 
+                  <Gift className="h-5 w-5 flex-shrink-0" /> : 
+                  <CalendarPlus className="h-5 w-5 flex-shrink-0" />
+                }
+                <AlertTitle className="ml-2">
+                  {isInTrialPeriod(user) ? "Assine um plano" : "Renovação Antecipada"}
+                </AlertTitle>
               </div>
-            </AlertDescription>
+              
+              <AlertDescription className="mt-2 sm:mt-0 sm:ml-4 w-full">
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm sm:text-base">
+                    {isInTrialPeriod(user) ? (
+                      <>
+                        Você está em <span className="font-semibold">período de teste</span>. 
+                        Assine agora um plano para manter seu acesso.
+                      </>
+                    ) : user.subscriptionExpiry ? (
+                      <>
+                        Sua assinatura expira em {" "}
+                        <span className="font-semibold">
+                          {user.subscriptionExpiry ? new Date(user.subscriptionExpiry).toLocaleDateString('pt-BR') : 'N/A'}
+                        </span>
+                        . Renove e mantenha seu acesso sem interrupções.
+                      </>
+                    ) : (
+                      <>
+                        Assine um plano para continuar utilizando o sistema.
+                      </>
+                    )}
+                  </p>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="self-start mt-1 text-xs sm:text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/renew-subscription');
+                    }}
+                  >
+                    {isInTrialPeriod(user) ? "Assinar agora" : "Renovar agora"}
+                  </Button>
+                </div>
+              </AlertDescription>
+            </div>
           </Alert>
         </div>
       )}
@@ -313,43 +357,88 @@ export default function SubscriptionHistoryPage() {
               </p>
             </div>
           ) : history && Array.isArray(history) && history.length > 0 ? (
-            <Table>
-              <TableCaption>Histórico completo de assinaturas</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Plano</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data Pagamento</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <div>
+              {/* Tabela para desktop */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableCaption>Histórico completo de assinaturas</TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Plano</TableHead>
+                      <TableHead>Duração</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data Pagamento</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {history.map((transaction: SubscriptionTransaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="font-medium">
+                          {formatDate(transaction.createdAt)}
+                        </TableCell>
+                        <TableCell>{transaction.plan.name}</TableCell>
+                        <TableCell>{transaction.plan.durationMonths} {transaction.plan.durationMonths === 1 ? 'mês' : 'meses'}</TableCell>
+                        <TableCell>{formatCurrency(transaction.amount)}</TableCell>
+                        <TableCell className="capitalize">
+                          {transaction.paymentMethod === 'pix' ? 'PIX' : transaction.paymentMethod}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(transaction.status) as any}>
+                            {getStatusText(transaction.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {transaction.paidAt ? formatDate(transaction.paidAt) : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              {/* Layout de cartões para mobile */}
+              <div className="md:hidden space-y-4">
                 {history.map((transaction: SubscriptionTransaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell className="font-medium">
-                      {formatDate(transaction.createdAt)}
-                    </TableCell>
-                    <TableCell>{transaction.plan.name}</TableCell>
-                    <TableCell>{transaction.plan.durationMonths} {transaction.plan.durationMonths === 1 ? 'mês' : 'meses'}</TableCell>
-                    <TableCell>{formatCurrency(transaction.amount)}</TableCell>
-                    <TableCell className="capitalize">
-                      {transaction.paymentMethod === 'pix' ? 'PIX' : transaction.paymentMethod}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(transaction.status) as any}>
-                        {getStatusText(transaction.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {transaction.paidAt ? formatDate(transaction.paidAt) : "-"}
-                    </TableCell>
-                  </TableRow>
+                  <Card key={transaction.id} className="overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="p-4 bg-muted/30 border-b flex justify-between items-center">
+                        <div className="font-medium">{formatDate(transaction.createdAt)}</div>
+                        <Badge variant={getStatusBadgeVariant(transaction.status) as any}>
+                          {getStatusText(transaction.status)}
+                        </Badge>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="text-sm text-muted-foreground">Plano:</div>
+                          <div>{transaction.plan.name}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="text-sm text-muted-foreground">Duração:</div>
+                          <div>{transaction.plan.durationMonths} {transaction.plan.durationMonths === 1 ? 'mês' : 'meses'}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="text-sm text-muted-foreground">Valor:</div>
+                          <div className="font-medium">{formatCurrency(transaction.amount)}</div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1">
+                          <div className="text-sm text-muted-foreground">Método:</div>
+                          <div className="capitalize">{transaction.paymentMethod === 'pix' ? 'PIX' : transaction.paymentMethod}</div>
+                        </div>
+                        {transaction.paidAt && (
+                          <div className="grid grid-cols-2 gap-1">
+                            <div className="text-sm text-muted-foreground">Data Pagamento:</div>
+                            <div>{formatDate(transaction.paidAt)}</div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
               <FileX className="h-8 w-8 text-muted-foreground mb-2" />

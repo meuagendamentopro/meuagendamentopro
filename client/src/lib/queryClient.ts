@@ -40,6 +40,8 @@ export const getQueryFn = (options: FetcherOptions = {}) => {
   };
 };
 
+
+
 export const apiRequest = async (
   method: string,
   url: string,
@@ -66,6 +68,22 @@ export const apiRequest = async (
     
     const response = await fetch(url, options);
     clearTimeout(timeoutId);
+    
+    // Verificar se a resposta é um erro de sessão invalidada
+    if (response.status === 401) {
+      try {
+        const data = await response.clone().json();
+        if (data.code === 'SESSION_INVALIDATED') {
+          // Disparar um evento personalizado para notificar a aplicação
+          const event = new CustomEvent('sessionInvalidated', { 
+            detail: { message: data.message } 
+          });
+          window.dispatchEvent(event);
+        }
+      } catch (e) {
+        // Ignorar erros ao tentar ler o JSON (pode não ser um JSON válido)
+      }
+    }
     
     return response;
   } catch (error) {

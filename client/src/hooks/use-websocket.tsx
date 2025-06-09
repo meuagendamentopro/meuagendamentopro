@@ -65,10 +65,8 @@ function createSingletonWebSocket(userId?: number) {
   // Função para calcular delay com backoff exponencial e jitter
   const getRetryDelay = () => {
     // Exponential backoff com jitter para evitar reconexões sincronizadas
-    const expDelay = Math.min(baseRetryDelay * Math.pow(1.5, retryCount), maxRetryDelay);
-    // Adiciona jitter (até 20%)
-    const jitter = expDelay * 0.2 * Math.random();
-    return expDelay + jitter;
+    const expDelay = Math.min(2000 * Math.pow(2, retryCount) * (0.9 + Math.random() * 0.2), maxRetryDelay);
+    return expDelay;
   };
   
   // Limpar timer quando necessário
@@ -81,40 +79,56 @@ function createSingletonWebSocket(userId?: number) {
   
   // Função de reconexão
   const reconnect = () => {
-    clearReconnectTimer();
-    window.__WS_CONNECTED = false;
-    
-    if (retryCount < maxRetry) {
-      const delay = getRetryDelay();
-      console.log(`Tentando reconexão WebSocket em ${Math.round(delay/1000)}s (tentativa ${retryCount + 1} de ${maxRetry})`);
-      
-      reconnectTimer = setTimeout(() => {
-        retryCount++;
-        createSingletonWebSocket(userId);
-      }, delay);
-      
-      // Notifica todos os handlers que estamos reconectando
-      window.__WS_CONNECTION_HANDLERS?.forEach(handler => handler(false));
-      
-      // Só notifica na primeira tentativa para não poluir a interface
-      if (retryCount === 0) {
-        window.__WS_ERROR_HANDLERS?.forEach(handler => 
-          handler('Tentando reconectar. Atualizações em tempo real podem estar atrasadas.')
-        );
-      }
-    } else {
-      console.log('Número máximo de tentativas de reconexão WebSocket atingido');
-      
-      // Desiste quietamente após tentativas para não incomodar o usuário
-      // A aplicação continuará funcionando normalmente, só não terá atualizações em tempo real
-      window.__WS_ERROR_HANDLERS?.forEach(handler => handler(null));
-      
-      // Uma última tentativa será feita após um intervalo longo (2 minutos)
-      reconnectTimer = setTimeout(() => {
-        retryCount = 0; // Reinicia o contador para permitir novas tentativas
-        createSingletonWebSocket(userId);
-      }, 120000); // 2 minutos
+    // Limpar qualquer timer de reconexão existente
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
+    
+    // Calcular delay exponencial com jitter (aumentado para reduzir tentativas frequentes)
+    const delay = getRetryDelay();
+    retryCount++;
+    
+    // Limitar logs no console
+    if (retryCount <= 3 || retryCount % 5 === 0) {
+      console.log(`Tentando reconectar WebSocket em ${Math.round(delay / 1000)} segundos (tentativa ${retryCount})`);
+    }
+    
+    // Tentar reconectar após o delay
+    reconnectTimer = setTimeout(() => {
+      // Verificar se o navegador está online antes de tentar reconectar
+      if (navigator.onLine) {
+        // Limitar o número de tentativas para evitar loop infinito
+        if (retryCount <= maxRetry) { 
+          createSingletonWebSocket(userId);
+          
+          // Notificar os handlers sobre a tentativa de reconexão apenas na primeira tentativa
+          if (retryCount <= 1) {
+            window.__WS_ERROR_HANDLERS?.forEach(handler => 
+              handler('Tentando reconectar. Atualizações em tempo real podem estar atrasadas.')
+            );
+          }
+        }
+      } else {
+        // Limitar logs no console
+        if (retryCount <= 3 || retryCount % 5 === 0) {
+          console.log('Navegador offline, adiando tentativa de reconexão WebSocket');
+        }
+        
+        // Tentar novamente em 30 segundos se estiver offline (aumentado de 10 para 30)
+        reconnectTimer = setTimeout(() => {
+          retryCount = 0; // Reinicia o contador
+          reconnect();
+        }, 30000);
+        
+        // Notificar os handlers sobre a tentativa de reconexão apenas na primeira tentativa
+        if (retryCount <= 1) {
+          window.__WS_ERROR_HANDLERS?.forEach(handler => 
+            handler('Tentando reconectar. Atualizações em tempo real podem estar atrasadas.')
+          );
+        }
+      }
+    }, delay);
   };
   
   try {
@@ -241,6 +255,15 @@ function createSingletonWebSocket(userId?: number) {
               });
             }
           }
+        }
+        else if (data.type === 'session_invalidated') {
+          console.log('Sessão invalidada via WebSocket:', data);
+          
+          // Disparar um evento personalizado para notificar a aplicação
+          const event = new CustomEvent('sessionInvalidated', { 
+            detail: { message: data.message } 
+          });
+          window.dispatchEvent(event);
         }
         else if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
           console.log(`Atualizando dados após ${data.type}`);

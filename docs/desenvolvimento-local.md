@@ -53,7 +53,7 @@ Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 ```
 # Ambiente
 NODE_ENV=development
-PORT=5000
+PORT=3003
 
 # Sessão
 SESSION_SECRET=sua_chave_secreta_para_sessoes

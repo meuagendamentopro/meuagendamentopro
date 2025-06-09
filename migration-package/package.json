@@ -1,0 +1,22 @@
+{
+  "name": "database-migration",
+  "version": "1.0.0",
+  "description": "Script de migração para Sistema de Gerenciamento de Equipe",
+  "main": "migration-script.cjs",
+  "scripts": {
+    "check": "node check-dependencies.cjs",
+    "migrate": "node migration-script.cjs",
+    "install-deps": "npm install pg dotenv"
+  },
+  "dependencies": {
+    "pg": "^8.11.0",
+    "dotenv": "^16.0.0"
+  },
+  "keywords": [
+    "migration",
+    "database",
+    "postgresql"
+  ],
+  "author": "Sistema de Agendamento",
+  "license": "MIT"
+}

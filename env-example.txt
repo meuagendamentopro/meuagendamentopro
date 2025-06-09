@@ -1,0 +1,32 @@
+# Configuração do Banco de Dados para Migração
+# Copie este arquivo para .env e configure com os dados do seu ambiente
+
+# Host do banco de dados
+DB_HOST=localhost
+
+# Porta do banco de dados (padrão PostgreSQL: 5432)
+DB_PORT=5432
+
+# Nome do banco de dados
+DB_NAME=agendamento
+
+# Usuário do banco de dados
+DB_USER=postgres
+
+# Senha do banco de dados
+DB_PASSWORD=linday1818
+
+# Ambiente (development para ambiente local)
+NODE_ENV=development
+
+# URL completa do banco (alternativa às configurações individuais)
+DATABASE_URL=postgres://postgres:linday1818@localhost:5432/agendamento
+
+# Configurações para produção (descomente e ajuste conforme necessário):
+# DB_HOST=seu-servidor-producao.com
+# DB_PORT=5432
+# DB_NAME=agendamento
+# DB_USER=postgres
+# DB_PASSWORD=sua_senha_producao
+# NODE_ENV=production
+# DATABASE_URL=postgres://postgres:sua_senha_producao@seu-servidor-producao.com:5432/agendamento 
