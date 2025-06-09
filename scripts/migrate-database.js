@@ -2,6 +2,7 @@
 
 import pkg from 'pg';
 const { Client } = pkg;
+import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 
 // Carrega variáveis de ambiente
@@ -26,230 +27,369 @@ const createTablesQueries = [
   // Tabela de usuários
   `CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) DEFAULT 'user',
-    is_verified BOOLEAN DEFAULT false,
-    verification_token VARCHAR(255),
-    reset_token VARCHAR(255),
-    reset_token_expires TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name TEXT NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'provider',
+    avatar_url TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_email_verified BOOLEAN NOT NULL DEFAULT false,
+    verification_token TEXT,
+    verification_token_expiry TIMESTAMP,
+    subscription_expiry TIMESTAMP,
+    never_expires BOOLEAN DEFAULT false,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    account_type TEXT NOT NULL DEFAULT 'individual'
   )`,
 
-  // Tabela de provedores/profissionais
+  // Tabela de providers
   `CREATE TABLE IF NOT EXISTS providers (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    business_name VARCHAR(255) NOT NULL,
-    phone VARCHAR(20),
-    address TEXT,
-    subscription_plan VARCHAR(50) DEFAULT 'free',
-    subscription_status VARCHAR(50) DEFAULT 'active',
-    subscription_expires_at TIMESTAMP,
-    trial_ends_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    booking_link TEXT,
+    avatar_url TEXT,
+    working_hours_start INTEGER DEFAULT 8,
+    working_hours_end INTEGER DEFAULT 18,
+    working_days TEXT NOT NULL DEFAULT '1,2,3,4,5',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    pix_enabled BOOLEAN NOT NULL DEFAULT false,
+    pix_key_type TEXT,
+    pix_key TEXT,
+    pix_require_payment BOOLEAN NOT NULL DEFAULT false,
+    pix_payment_percentage INTEGER DEFAULT 100,
+    pix_company_name TEXT,
+    pix_merchant_id TEXT,
+    pix_webhook_secret TEXT,
+    pix_mercadopago_token TEXT,
+    pix_identification_number TEXT,
+    whatsapp_template_appointment TEXT
   )`,
 
   // Tabela de clientes
   `CREATE TABLE IF NOT EXISTS clients (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
-    phone VARCHAR(20),
-    address TEXT,
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
   // Tabela de serviços
   `CREATE TABLE IF NOT EXISTS services (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
+    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
     description TEXT,
     duration INTEGER NOT NULL,
-    price DECIMAL(10,2),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )`,
-
-  // Tabela de funcionários
-  `CREATE TABLE IF NOT EXISTS employees (
-    id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
-    phone VARCHAR(20),
-    role VARCHAR(100),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )`,
-
-  // Tabela de serviços por funcionário
-  `CREATE TABLE IF NOT EXISTS employee_services (
-    id SERIAL PRIMARY KEY,
-    employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-    service_id INTEGER REFERENCES services(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(employee_id, service_id)
+    price DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
   // Tabela de agendamentos
   `CREATE TABLE IF NOT EXISTS appointments (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-    service_id INTEGER REFERENCES services(id) ON DELETE CASCADE,
-    employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
-    appointment_date DATE NOT NULL,
-    appointment_time TIME NOT NULL,
+    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    service_id INTEGER REFERENCES services(id) ON DELETE SET NULL,
+    employee_id INTEGER,
+    date DATE NOT NULL,
+    time TIME NOT NULL,
     duration INTEGER NOT NULL,
-    status VARCHAR(50) DEFAULT 'scheduled',
+    status TEXT NOT NULL DEFAULT 'scheduled',
     notes TEXT,
-    price DECIMAL(10,2),
-    payment_status VARCHAR(50) DEFAULT 'pending',
-    payment_method VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )`,
-
-  // Tabela de exclusões de horário
-  `CREATE TABLE IF NOT EXISTS time_exclusions (
-    id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    start_time TIME,
-    end_time TIME,
-    reason VARCHAR(255),
-    is_recurring BOOLEAN DEFAULT false,
-    recurrence_pattern VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    cancellation_reason TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
   // Tabela de notificações
   `CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-    appointment_id INTEGER REFERENCES appointments(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending',
-    message TEXT,
-    scheduled_for TIMESTAMP,
-    sent_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'info',
+    is_read BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
-  // Tabela de sessões
-  `CREATE TABLE IF NOT EXISTS session (
-    sid VARCHAR NOT NULL COLLATE "default",
-    sess JSON NOT NULL,
-    expire TIMESTAMP(6) NOT NULL,
-    PRIMARY KEY (sid)
-  )`,
-
-  // Tabela de sessões ativas
-  `CREATE TABLE IF NOT EXISTS active_sessions (
+  // Tabela de associação provider-client
+  `CREATE TABLE IF NOT EXISTS provider_clients (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    session_id VARCHAR(255) NOT NULL,
-    ip_address INET,
-    user_agent TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, session_id)
-  )`,
-
-  // Tabela de tokens de sessão de usuário
-  `CREATE TABLE IF NOT EXISTS user_session_tokens (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    token VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(token)
+    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(provider_id, client_id)
   )`,
 
   // Tabela de planos de assinatura
   `CREATE TABLE IF NOT EXISTS subscription_plans (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    name TEXT NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
-    billing_cycle VARCHAR(20) NOT NULL,
-    features JSON,
-    max_appointments INTEGER,
-    max_clients INTEGER,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    duration_days INTEGER NOT NULL,
+    features TEXT[],
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
   // Tabela de transações de assinatura
   `CREATE TABLE IF NOT EXISTS subscription_transactions (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    plan_id INTEGER REFERENCES subscription_plans(id),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_id INTEGER NOT NULL REFERENCES subscription_plans(id),
     amount DECIMAL(10,2) NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending',
-    payment_method VARCHAR(50),
-    transaction_id VARCHAR(255),
-    paid_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status TEXT NOT NULL DEFAULT 'pending',
+    payment_method TEXT,
+    transaction_id TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
   // Tabela de configurações do sistema
   `CREATE TABLE IF NOT EXISTS system_settings (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    setting_key VARCHAR(100) NOT NULL,
-    setting_value TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(provider_id, setting_key)
+    site_name TEXT NOT NULL DEFAULT 'Meu Agendamento PRO',
+    trial_period_days INTEGER NOT NULL DEFAULT 3,
+    maintenance_mode BOOLEAN NOT NULL DEFAULT false,
+    maintenance_message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`,
+
+  // Tabela de tokens de sessão de usuário
+  `CREATE TABLE IF NOT EXISTS user_session_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`,
+
+  // Tabela de exclusões de tempo
+  `CREATE TABLE IF NOT EXISTS time_exclusions (
+    id SERIAL PRIMARY KEY,
+    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    day_of_week INTEGER NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
   // Tabela de notas clínicas
   `CREATE TABLE IF NOT EXISTS clinical_notes (
     id SERIAL PRIMARY KEY,
-    appointment_id INTEGER REFERENCES appointments(id) ON DELETE CASCADE,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+    appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
     notes TEXT NOT NULL,
-    created_by INTEGER REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`,
 
-  // Tabela de relacionamento provider-client
-  `CREATE TABLE IF NOT EXISTS provider_clients (
+  // Tabela de funcionários
+  `CREATE TABLE IF NOT EXISTS employees (
     id SERIAL PRIMARY KEY,
-    provider_id INTEGER REFERENCES providers(id) ON DELETE CASCADE,
-    client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(provider_id, client_id)
+    company_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    role TEXT NOT NULL DEFAULT 'employee',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`,
+
+  // Tabela de serviços dos funcionários
+  `CREATE TABLE IF NOT EXISTS employee_services (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(employee_id, service_id)
+  )`,
+
+  // Tabela de sessões ativas
+  `CREATE TABLE IF NOT EXISTS active_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id TEXT NOT NULL,
+    user_email TEXT NOT NULL,
+    last_activity TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`
 ];
 
 // Índices para melhor performance
 const createIndexesQueries = [
-  'CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date)',
-  'CREATE INDEX IF NOT EXISTS idx_appointments_provider ON appointments(provider_id)',
-  'CREATE INDEX IF NOT EXISTS idx_appointments_client ON appointments(client_id)',
-  'CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)',
-  'CREATE INDEX IF NOT EXISTS idx_session_expire ON session(expire)',
+  'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+  'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+  'CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date)',
+  'CREATE INDEX IF NOT EXISTS idx_appointments_provider_date ON appointments(provider_id, date)',
+  'CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read)',
   'CREATE INDEX IF NOT EXISTS idx_active_sessions_user ON active_sessions(user_id)',
-  'CREATE INDEX IF NOT EXISTS idx_notifications_provider ON notifications(provider_id)',
-  'CREATE INDEX IF NOT EXISTS idx_time_exclusions_provider ON time_exclusions(provider_id)'
+  'CREATE INDEX IF NOT EXISTS idx_active_sessions_session ON active_sessions(session_id)',
+  'CREATE INDEX IF NOT EXISTS idx_provider_clients_provider ON provider_clients(provider_id)'
 ];
+
+// Dados iniciais dos planos de assinatura
+const subscriptionPlansData = [
+  {
+    name: 'Gratuito',
+    description: 'Plano básico gratuito',
+    price: 0.00,
+    duration_days: 30,
+    features: ['Até 50 agendamentos por mês', 'Suporte básico']
+  },
+  {
+    name: 'Básico',
+    description: 'Plano básico para pequenos negócios',
+    price: 29.90,
+    duration_days: 30,
+    features: ['Agendamentos ilimitados', 'Suporte por email', 'Relatórios básicos']
+  },
+  {
+    name: 'Profissional',
+    description: 'Plano profissional para médias empresas',
+    price: 59.90,
+    duration_days: 30,
+    features: ['Agendamentos ilimitados', 'Suporte prioritário', 'Relatórios avançados', 'Integração com calendário']
+  },
+  {
+    name: 'Premium',
+    description: 'Plano premium para grandes empresas',
+    price: 99.90,
+    duration_days: 30,
+    features: ['Agendamentos ilimitados', 'Suporte 24/7', 'Relatórios completos', 'API personalizada', 'White label']
+  },
+  {
+    name: 'Anual Básico',
+    description: 'Plano básico anual com desconto',
+    price: 299.00,
+    duration_days: 365,
+    features: ['Agendamentos ilimitados', 'Suporte por email', 'Relatórios básicos', '2 meses grátis']
+  },
+  {
+    name: 'Anual Profissional',
+    description: 'Plano profissional anual com desconto',
+    price: 599.00,
+    duration_days: 365,
+    features: ['Agendamentos ilimitados', 'Suporte prioritário', 'Relatórios avançados', 'Integração com calendário', '2 meses grátis']
+  },
+  {
+    name: 'Anual Premium',
+    description: 'Plano premium anual com desconto',
+    price: 999.00,
+    duration_days: 365,
+    features: ['Agendamentos ilimitados', 'Suporte 24/7', 'Relatórios completos', 'API personalizada', 'White label', '2 meses grátis']
+  },
+  {
+    name: 'Teste 3 Dias',
+    description: 'Período de teste gratuito',
+    price: 0.00,
+    duration_days: 3,
+    features: ['Acesso completo por 3 dias', 'Todos os recursos disponíveis']
+  }
+];
+
+async function createTestUsers() {
+  console.log('\n👥 Criando usuários de teste...');
+  
+  try {
+    // Verificar se já existem usuários de teste
+    const adminCheck = await client.query("SELECT id FROM users WHERE email = 'admin@meuagendamentopro.com.br'");
+    const testCheck = await client.query("SELECT id FROM users WHERE email = 'teste@meuagendamentopro.com.br'");
+    
+    if (adminCheck.rows.length === 0) {
+      console.log('🔧 Criando usuário administrador...');
+      
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      const adminResult = await client.query(`
+        INSERT INTO users (name, username, email, password, role, is_email_verified, never_expires) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `, [
+        'Administrador',
+        'admin',
+        'admin@meuagendamentopro.com.br',
+        hashedPassword,
+        'admin',
+        true,
+        true
+      ]);
+
+      console.log('✅ Usuário administrador criado!');
+      console.log('📧 Email: admin@meuagendamentopro.com.br');
+      console.log('🔑 Senha: admin123');
+    } else {
+      console.log('✅ Usuário administrador já existe');
+    }
+
+    if (testCheck.rows.length === 0) {
+      console.log('🔧 Criando usuário de teste...');
+      
+      const hashedPassword = await bcrypt.hash('teste123', 10);
+      
+      // Calcular data de expiração (30 dias a partir de agora)
+      const subscriptionExpiry = new Date();
+      subscriptionExpiry.setDate(subscriptionExpiry.getDate() + 30);
+      
+      const testResult = await client.query(`
+        INSERT INTO users (name, username, email, password, role, is_email_verified, subscription_expiry) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+      `, [
+        'Usuário Teste',
+        'teste',
+        'teste@meuagendamentopro.com.br',
+        hashedPassword,
+        'provider',
+        true,
+        subscriptionExpiry
+      ]);
+
+      const userId = testResult.rows[0].id;
+
+      // Criar provider para o usuário teste
+      await client.query(`
+        INSERT INTO providers (user_id, name, email, booking_link) 
+        VALUES ($1, $2, $3, $4)
+      `, [
+        userId,
+        'Clínica Teste',
+        'teste@meuagendamentopro.com.br',
+        'clinica-teste'
+      ]);
+
+      console.log('✅ Usuário de teste criado!');
+      console.log('📧 Email: teste@meuagendamentopro.com.br');
+      console.log('🔑 Senha: teste123');
+    } else {
+      console.log('✅ Usuário de teste já existe');
+    }
+
+    console.log('\n🎉 Usuários de teste configurados com sucesso!');
+    console.log('\n🔑 Credenciais para acesso:');
+    console.log('👨‍💼 Admin: admin@meuagendamentopro.com.br / admin123');
+    console.log('🧪 Teste: teste@meuagendamentopro.com.br / teste123');
+    
+  } catch (error) {
+    console.error('❌ Erro ao criar usuários de teste:', error);
+    // Não falhar a migração por causa dos usuários de teste
+  }
+}
 
 async function runMigration() {
   try {
@@ -257,64 +397,74 @@ async function runMigration() {
     console.log('✅ Conectado ao banco de dados');
 
     console.log('📝 Criando tabelas...');
-    for (const [index, query] of createTablesQueries.entries()) {
+    for (let i = 0; i < createTablesQueries.length; i++) {
       try {
-        await client.query(query);
-        console.log(`  ✓ Tabela ${index + 1}/${createTablesQueries.length} criada/verificada`);
+        await client.query(createTablesQueries[i]);
+        console.log(`  ✓ Tabela ${i + 1}/${createTablesQueries.length} criada/verificada`);
       } catch (error) {
-        console.log(`  ⚠️ Erro na tabela ${index + 1}: ${error.message}`);
+        console.log(`  ❌ Erro na tabela ${i + 1}: ${error.message}`);
       }
     }
 
     console.log('📝 Criando índices...');
-    for (const [index, query] of createIndexesQueries.entries()) {
+    for (let i = 0; i < createIndexesQueries.length; i++) {
       try {
-        await client.query(query);
-        console.log(`  ✓ Índice ${index + 1}/${createIndexesQueries.length} criado/verificado`);
+        await client.query(createIndexesQueries[i]);
+        console.log(`  ✓ Índice ${i + 1}/${createIndexesQueries.length} criado/verificado`);
       } catch (error) {
-        console.log(`  ⚠️ Erro no índice ${index + 1}: ${error.message}`);
+        console.log(`  ⚠️ Erro no índice ${i + 1}: ${error.message}`);
       }
     }
 
-    // Verificar se existem planos de assinatura
-    try {
-      const plansResult = await client.query('SELECT COUNT(*) FROM subscription_plans');
-      const plansCount = parseInt(plansResult.rows[0].count);
+    // Verificar se os planos já existem
+    const existingPlans = await client.query('SELECT COUNT(*) FROM subscription_plans');
+    const planCount = parseInt(existingPlans.rows[0].count);
 
-      if (plansCount === 0) {
-        console.log('📦 Criando planos de assinatura padrão...');
+    if (planCount === 0) {
+      console.log('📦 Inserindo planos de assinatura...');
+      for (const plan of subscriptionPlansData) {
         await client.query(`
-          INSERT INTO subscription_plans (name, description, price, billing_cycle, features, max_appointments, max_clients) VALUES
-          ('Gratuito', 'Plano básico gratuito', 0.00, 'monthly', '{"basic": true}', 50, 25),
-          ('Profissional', 'Plano profissional', 29.90, 'monthly', '{"advanced": true, "reports": true}', 500, 200),
-          ('Empresarial', 'Plano para empresas', 99.90, 'monthly', '{"enterprise": true, "unlimited": true}', -1, -1)
-        `);
-        console.log('✅ Planos de assinatura criados!');
-      } else {
-        console.log(`📦 Planos de assinatura já existem (${plansCount} planos)`);
+          INSERT INTO subscription_plans (name, description, price, duration_days, features)
+          VALUES ($1, $2, $3, $4, $5)
+        `, [plan.name, plan.description, plan.price, plan.duration_days, plan.features]);
       }
-    } catch (error) {
-      console.log(`⚠️ Erro ao verificar/criar planos: ${error.message}`);
+      console.log(`✅ ${subscriptionPlansData.length} planos de assinatura inseridos`);
+    } else {
+      console.log(`📦 Planos de assinatura já existem (${planCount} planos)`);
     }
+
+    // Verificar configurações do sistema
+    const existingSettings = await client.query('SELECT COUNT(*) FROM system_settings');
+    const settingsCount = parseInt(existingSettings.rows[0].count);
+
+    if (settingsCount === 0) {
+      console.log('⚙️ Inserindo configurações do sistema...');
+      await client.query(`
+        INSERT INTO system_settings (site_name, trial_period_days, maintenance_mode)
+        VALUES ($1, $2, $3)
+      `, ['Meu Agendamento PRO', 3, false]);
+      console.log('✅ Configurações do sistema inseridas');
+    } else {
+      console.log('⚙️ Configurações do sistema já existem');
+    }
+
+    // Criar usuários de teste
+    await createTestUsers();
 
     // Verificar tabelas criadas
-    try {
-      const tablesResult = await client.query(`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        ORDER BY table_name
-      `);
+    const tablesResult = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      ORDER BY table_name
+    `);
 
-      console.log('\n📋 Tabelas no banco de dados:');
-      tablesResult.rows.forEach(row => {
-        console.log(`  ✓ ${row.table_name}`);
-      });
+    console.log('\n📋 Tabelas no banco de dados:');
+    tablesResult.rows.forEach(row => {
+      console.log(`  ✓ ${row.table_name}`);
+    });
 
-      console.log(`\n🎉 Migração concluída! Total de tabelas: ${tablesResult.rows.length}`);
-    } catch (error) {
-      console.log(`⚠️ Erro ao listar tabelas: ${error.message}`);
-    }
+    console.log(`\n🎉 Migração concluída! Total de tabelas: ${tablesResult.rows.length}`);
 
   } catch (error) {
     console.error('❌ Erro durante a migração:', error);
