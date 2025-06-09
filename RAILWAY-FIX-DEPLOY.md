@@ -13,24 +13,10 @@ O erro `Missing script: "migrate-database.js"` ocorreu porque:
 - [x] **`nixpacks.toml`** - Criado para configuração correta do build
 - [x] **`.gitignore`** - Atualizado para excluir `.replit`
 
-### 2. Configuração Nixpacks
-Arquivo `nixpacks.toml` criado com:
-```toml
-[phases.setup]
-nixPkgs = ["nodejs_20", "npm"]
-
-[phases.install]
-cmds = ["npm ci"]
-
-[phases.build]
-cmds = ["npm run build"]
-
-[start]
-cmd = "npm start"
-
-[variables]
-NODE_ENV = "production"
-```
+### 2. Configuração Simplificada
+- **`nixpacks.toml`** - Removido (causava conflitos)
+- **`railway.json`** - Simplificado para detecção automática
+- Railway detecta automaticamente projetos Node.js
 
 ## 🚀 Próximos Passos
 
