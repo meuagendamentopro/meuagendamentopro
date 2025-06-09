@@ -74,7 +74,12 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
+  if (!__dirname) {
+    throw new Error("__dirname is not defined");
+  }
+  
   const distPath = path.resolve(__dirname, "public");
+  console.log(`Serving static files from: ${distPath}`);
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
@@ -86,6 +91,12 @@ export function serveStatic(app: Express) {
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    const indexPath = path.resolve(distPath, "index.html");
+    if (!fs.existsSync(indexPath)) {
+      console.error(`index.html not found at: ${indexPath}`);
+      res.status(404).send("index.html not found");
+      return;
+    }
+    res.sendFile(indexPath);
   });
 }
