@@ -136,7 +136,15 @@ export function setupAuth(app: Express) {
         const normalizedUsername = username.toLowerCase();
         console.log(`Tentando autenticar usuário: ${normalizedUsername}`);
         
-        const user = await storage.getUserByUsername(normalizedUsername);
+        // Tentar buscar por username primeiro, depois por email
+        let user = await storage.getUserByUsername(normalizedUsername);
+        
+        // Se não encontrou por username, tentar por email
+        if (!user && normalizedUsername.includes('@')) {
+          console.log(`Tentando buscar por email: ${normalizedUsername}`);
+          user = await storage.getUserByEmail(normalizedUsername);
+        }
+        
         console.log(`Resultado da busca por usuário: ${user ? 'Encontrado' : 'Não encontrado'}`);
         
         // Verificar se o usuário existe e se a senha está correta
