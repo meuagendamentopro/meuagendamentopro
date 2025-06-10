@@ -542,13 +542,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Retornar o usuário atualizado (sem a senha)
       const { password: _, ...userWithoutPassword } = updatedUser;
       
-      // Atualizar a sessão com os novos dados do usuário via login
-      req.login(updatedUser, (err) => {
-        if (err) {
-          console.error("Erro ao atualizar sessão:", err);
+      // Se alterou a senha, precisa fazer novo login
+      if (updateData.password) {
+        // Atualizar a sessão com os novos dados do usuário via login
+        req.login(updatedUser, (err) => {
+          if (err) {
+            console.error("Erro ao atualizar sessão:", err);
+          }
+          res.status(200).json(userWithoutPassword);
+        });
+      } else {
+        // Se não alterou a senha, apenas atualizar os dados na sessão atual
+        if (req.user) {
+          Object.assign(req.user, userWithoutPassword);
         }
         res.status(200).json(userWithoutPassword);
-      });
+      }
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       res.status(500).json({ error: "Erro ao atualizar perfil" });
