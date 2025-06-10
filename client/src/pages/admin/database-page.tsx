@@ -1882,7 +1882,9 @@ function AppointmentForm({ initialData, providers, clients, services, onSubmit, 
                   type="date"
                   value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
                   onChange={(e) => {
-                    const date = new Date(e.target.value);
+                    // Criar data em UTC para evitar conversão automática de timezone
+                    const [year, month, day] = e.target.value.split('-').map(Number);
+                    const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
                     field.onChange(date);
                   }}
                 />
@@ -1902,8 +1904,16 @@ function AppointmentForm({ initialData, providers, clients, services, onSubmit, 
                   value={field.value ? new Date(field.value).toTimeString().slice(0, 5) : ''}
                   onChange={(e) => {
                     const [hours, minutes] = e.target.value.split(':').map(Number);
-                    const date = new Date(form.getValues('date'));
-                    date.setHours(hours, minutes);
+                    const baseDate = form.getValues('date');
+                    // Criar data em UTC para evitar conversão automática de timezone
+                    const date = new Date(Date.UTC(
+                      baseDate.getFullYear(),
+                      baseDate.getMonth(),
+                      baseDate.getDate(),
+                      hours,
+                      minutes,
+                      0
+                    ));
                     field.onChange(date);
                   }}
                 />
@@ -2126,7 +2136,11 @@ function AppointmentsTable() {
   // Função para formatar hora
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('pt-BR', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo'
+    });
   };
 
   // Função para formatar preço em reais

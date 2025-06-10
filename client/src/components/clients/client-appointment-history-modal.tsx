@@ -183,7 +183,7 @@ const ClientAppointmentHistoryModal: React.FC<ClientAppointmentHistoryModalProps
                     <TableCell>
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                        {formatTime(new Date(appointment.date))}
+                        {`${new Date(appointment.date).getUTCHours().toString().padStart(2, '0')}:${new Date(appointment.date).getUTCMinutes().toString().padStart(2, '0')}`}
                       </div>
                     </TableCell>
                     <TableCell>{appointment.serviceName || "Serviço não especificado"}</TableCell>

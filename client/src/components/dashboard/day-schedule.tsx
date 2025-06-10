@@ -110,7 +110,7 @@ const AppointmentItem: React.FC<AppointmentItemProps> = ({
             )}
           </p>
           <p className="text-xs text-gray-500">
-            {formatTime(new Date(appointment.date))} - {formatTime(appointmentEndTime)}
+            {`${new Date(appointment.date).getUTCHours().toString().padStart(2, '0')}:${new Date(appointment.date).getUTCMinutes().toString().padStart(2, '0')}`} - {`${appointmentEndTime.getUTCHours().toString().padStart(2, '0')}:${appointmentEndTime.getUTCMinutes().toString().padStart(2, '0')}`}
           </p>
         </div>
         <div className="flex space-x-2">
@@ -265,10 +265,10 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
         // Log detalhado de cada agendamento
         data.forEach((apt: any, index: number) => {
           const startTime = new Date(apt.date);
-          const timeString = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+          const timeString = `${startTime.getUTCHours().toString().padStart(2, '0')}:${startTime.getUTCMinutes().toString().padStart(2, '0')}`;
           
           // Log especial para agendamentos noturnos (21h ou mais)
-          if (startTime.getHours() >= 21) {
+          if (startTime.getUTCHours() >= 21) {
             console.log(`🌙 AGENDAMENTO NOTURNO ENCONTRADO: ${timeString} - ${apt.clientName} - Status: ${apt.status}`, {
               id: apt.id,
               originalDate: apt.date,
@@ -276,8 +276,8 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
               timeString: timeString,
               status: apt.status,
               clientName: apt.clientName,
-              hora: startTime.getHours(),
-              minuto: startTime.getMinutes()
+              hora: startTime.getUTCHours(),
+              minuto: startTime.getUTCMinutes()
             });
           }
           
@@ -322,24 +322,8 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
       monthAppointments.forEach((appointment: any) => {
         // Verificar se o agendamento NÃO está cancelado
         if (appointment.status !== AppointmentStatus.CANCELLED) {
-          // CORREÇÃO: Interpretar a data como horário local para extrair o dia correto
-          const dateString = String(appointment.date);
-          let date: Date;
-          
-          // Se a data termina com Z (UTC), converter para local mantendo o mesmo horário visual
-          if (dateString.endsWith('Z')) {
-            const utcDate = new Date(appointment.date);
-            date = new Date(
-              utcDate.getUTCFullYear(),
-              utcDate.getUTCMonth(),
-              utcDate.getUTCDate(),
-              utcDate.getUTCHours(),
-              utcDate.getUTCMinutes(),
-              utcDate.getUTCSeconds()
-            );
-          } else {
-            date = new Date(appointment.date);
-          }
+          // Usar a data do agendamento diretamente
+          const date = new Date(appointment.date);
           
           const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
           days.add(dateStr);
@@ -521,20 +505,10 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     appointments.forEach(apt => {
       // Incluir apenas agendamentos NÃO cancelados na grid
       if (apt.status !== AppointmentStatus.CANCELLED) {
-        // CORREÇÃO: Interpretar a data como horário local, não UTC
-        let startTime: Date;
+        // Usar a data do agendamento diretamente
+        const startTime = new Date(apt.date);
         
-        const dateString = String(apt.date);
-        if (dateString.endsWith('Z')) {
-          // Se termina com Z, é UTC - converter para local mantendo o mesmo horário
-          const utcDate = new Date(apt.date);
-          startTime = new Date(utcDate.getTime() + (utcDate.getTimezoneOffset() * 60 * 1000));
-        } else {
-          // Caso contrário, interpretar como local
-          startTime = new Date(apt.date);
-        }
-        
-        const timeString = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        const timeString = `${startTime.getUTCHours().toString().padStart(2, '0')}:${startTime.getUTCMinutes().toString().padStart(2, '0')}`;
         appointmentTimes.add(timeString);
         
         // Log detalhado para debug
@@ -547,20 +521,9 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
         });
       } else {
         // Log para agendamentos cancelados (não incluídos na grid)
-        // CORREÇÃO: Interpretar a data como horário local, não UTC
-        let startTime: Date;
+        const startTime = new Date(apt.date);
         
-        const dateString = String(apt.date);
-        if (dateString.endsWith('Z')) {
-          // Se termina com Z, é UTC - converter para local mantendo o mesmo horário
-          const utcDate = new Date(apt.date);
-          startTime = new Date(utcDate.getTime() + (utcDate.getTimezoneOffset() * 60 * 1000));
-        } else {
-          // Caso contrário, interpretar como local
-          startTime = new Date(apt.date);
-        }
-        
-        const timeString = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        const timeString = `${startTime.getUTCHours().toString().padStart(2, '0')}:${startTime.getUTCMinutes().toString().padStart(2, '0')}`;
         console.log(`❌ Agendamento CANCELADO ignorado: ${timeString} (${startTime.toLocaleString()}) - Status: ${apt.status}`);
       }
     });
@@ -599,7 +562,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
       if (apt.status === AppointmentStatus.CANCELLED) return false;
       
       const startTime = new Date(apt.date);
-      const hour = startTime.getHours();
+      const hour = startTime.getUTCHours();
       
       return hour < filterStartHour || hour >= filterEndHour;
     }).length;
@@ -627,29 +590,20 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
       if (apt.status === AppointmentStatus.CANCELLED) {
         return false;
       }
-      // Criar uma cópia da data do agendamento
+      // Usar a data do agendamento diretamente
       const startTime = new Date(apt.date);
       
-      // Adicionar 3 horas para compensar fuso horário (UTC → GMT-3)
-      const adjustedStartHours = startTime.getHours() + 3;
-      const adjustedStartTime = new Date(startTime);
-      adjustedStartTime.setHours(adjustedStartHours);
-      
-      // Calcular o horário de término ajustado
+      // Calcular o horário de término
       const endTime = apt.endTime ? new Date(apt.endTime) : 
         new Date(startTime.getTime() + 30*60000); // Fallback de 30 minutos se não tiver endTime
-      
-      const adjustedEndHours = endTime.getHours() + 3;
-      const adjustedEndTime = new Date(endTime);
-      adjustedEndTime.setHours(adjustedEndHours);
       
       // Verificar se o horário atual está dentro do período do agendamento
       const currentHour = currentTime.getHours();
       const currentMinute = currentTime.getMinutes();
       const currentTotalMinutes = currentHour * 60 + currentMinute;
       
-      const startTotalMinutes = adjustedStartTime.getHours() * 60 + adjustedStartTime.getMinutes();
-      const endTotalMinutes = adjustedEndTime.getHours() * 60 + adjustedEndTime.getMinutes();
+      const startTotalMinutes = startTime.getUTCHours() * 60 + startTime.getUTCMinutes();
+      const endTotalMinutes = endTime.getUTCHours() * 60 + endTime.getUTCMinutes();
       
       return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
     });
@@ -689,20 +643,13 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
       
       // Verificar se o horário coincide
       const startTime = new Date(apt.date);
-      const adjustedStartHours = startTime.getHours() + 3;
-      const adjustedStartTime = new Date(startTime);
-      adjustedStartTime.setHours(adjustedStartHours);
       
       const endTime = apt.endTime ? new Date(apt.endTime) : 
         new Date(startTime.getTime() + 30*60000);
       
-      const adjustedEndHours = endTime.getHours() + 3;
-      const adjustedEndTime = new Date(endTime);
-      adjustedEndTime.setHours(adjustedEndHours);
-      
       const currentTotalMinutes = hours * 60 + minutes;
-      const startTotalMinutes = adjustedStartTime.getHours() * 60 + adjustedStartTime.getMinutes();
-      const endTotalMinutes = adjustedEndTime.getHours() * 60 + adjustedEndTime.getMinutes();
+      const startTotalMinutes = startTime.getUTCHours() * 60 + startTime.getUTCMinutes();
+      const endTotalMinutes = endTime.getUTCHours() * 60 + endTime.getUTCMinutes();
       
       return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
     });

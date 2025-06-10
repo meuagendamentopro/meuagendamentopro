@@ -4276,7 +4276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Tenta analisar a data e hora com tratamento de erro
         if (bookingData.date.includes('-')) {
-          // Formato ISO (YYYY-MM-DD) - usando Date.UTC para garantir consistência no fuso horário
+          // Formato ISO (YYYY-MM-DD) - criar data no horário local
           const [year, month, day] = bookingData.date.split('-').map(Number);
           const [hour, minute] = bookingData.time.split(':').map(Number);
         
@@ -4284,14 +4284,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
           
-          // CORREÇÃO: Compensar fuso horário de Brasília (GMT-3)
-          // Cliente seleciona horário local (Brasília), precisamos converter para UTC
-          // Brasília = UTC-3, então adicionamos 3 horas para converter para UTC
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
-          console.log(`Horário selecionado (Brasília): ${hour}:${minute} -> UTC: ${hour + 3}:${minute} (dia ${day}/${month}/${year})`);
+          // Criar data em UTC para manter o horário exato selecionado pelo usuário
+          // Isso evita a conversão automática de timezone que adiciona +3h
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+          console.log(`Horário selecionado: ${hour}:${minute} (dia ${day}/${month}/${year})`);
           
         } else if (bookingData.date.includes('/')) {
-          // Formato BR (DD/MM/YYYY) - usando Date.UTC para garantir consistência no fuso horário
+          // Formato BR (DD/MM/YYYY) - criar data no horário local
           const [day, month, year] = bookingData.date.split('/').map(Number);
           const [hour, minute] = bookingData.time.split(':').map(Number);
         
@@ -4299,27 +4298,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
         
-          // CORREÇÃO: Compensar fuso horário de Brasília (GMT-3)
-          // Cliente seleciona horário local (Brasília), precisamos converter para UTC
-          // Brasília = UTC-3, então adicionamos 3 horas para converter para UTC
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
-          console.log(`Horário selecionado (Brasília): ${hour}:${minute} -> UTC: ${hour + 3}:${minute} (dia ${day}/${month}/${year})`);
+          // Criar data em UTC para manter o horário exato selecionado pelo usuário
+          // Isso evita a conversão automática de timezone que adiciona +3h
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+          console.log(`Horário selecionado: ${hour}:${minute} (dia ${day}/${month}/${year})`);
           
         } else {
-          // Tentar como timestamp ou outro formato - usando UTC para consistência
+          // Tentar como timestamp ou outro formato - criar data no horário local
           const baseDate = new Date(bookingData.date);
           const [hour, minute] = bookingData.time.split(':').map(Number);
           
-          // CORREÇÃO: Compensar fuso horário de Brasília (GMT-3)
-          // Cliente seleciona horário local (Brasília), precisamos converter para UTC
-          // Brasília = UTC-3, então adicionamos 3 horas para converter para UTC
+          // Criar data em UTC para manter o horário exato selecionado pelo usuário
+          // Isso evita a conversão automática de timezone que adiciona +3h
           appointmentDate = new Date(Date.UTC(
             baseDate.getFullYear(),
             baseDate.getMonth(),
             baseDate.getDate(),
-            hour + 3, minute, 0
+            hour, minute, 0
           ));
-          console.log(`Horário selecionado (Brasília): ${hour}:${minute} -> UTC: ${hour + 3}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
+          console.log(`Horário selecionado: ${hour}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
         }
         
         if (isNaN(appointmentDate.getTime())) {

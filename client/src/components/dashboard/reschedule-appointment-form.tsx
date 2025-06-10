@@ -108,53 +108,20 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
   useEffect(() => {
     if (existingAppointments) {
       const occupied = existingAppointments.map((apt: any) => {
-        // Criar uma cópia da data do agendamento
-        let startTime: Date;
+        // Usar a data do agendamento diretamente
+        const startTime = new Date(apt.date);
         
-        const dateString = String(apt.date);
-        if (dateString.endsWith('Z')) {
-          // Se termina com Z, é UTC - converter para local mantendo o mesmo horário visual
-          const utcDate = new Date(apt.date);
-          startTime = new Date(
-            utcDate.getUTCFullYear(),
-            utcDate.getUTCMonth(),
-            utcDate.getUTCDate(),
-            utcDate.getUTCHours(),
-            utcDate.getUTCMinutes(),
-            utcDate.getUTCSeconds()
-          );
-        } else {
-          // Caso contrário, interpretar como local
-          startTime = new Date(apt.date);
-        }
-        
-        return `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
+        return `${startTime.getUTCHours().toString().padStart(2, '0')}:${startTime.getUTCMinutes().toString().padStart(2, '0')}`;
       });
       
       console.log('🕐 Horários ocupados calculados:', {
         agendamentos: existingAppointments.map((apt: any) => {
-          const dateString = String(apt.date);
-          let startTime: Date;
-          
-          if (dateString.endsWith('Z')) {
-            const utcDate = new Date(apt.date);
-            startTime = new Date(
-              utcDate.getUTCFullYear(),
-              utcDate.getUTCMonth(),
-              utcDate.getUTCDate(),
-              utcDate.getUTCHours(),
-              utcDate.getUTCMinutes(),
-              utcDate.getUTCSeconds()
-            );
-          } else {
-            startTime = new Date(apt.date);
-          }
+          const startTime = new Date(apt.date);
           
           return {
             id: apt.id,
             dataOriginal: apt.date,
-            isUTC: dateString.endsWith('Z'),
-            horarioCalculado: `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`
+            horarioCalculado: `${startTime.getUTCHours().toString().padStart(2, '0')}:${startTime.getUTCMinutes().toString().padStart(2, '0')}`
           };
         }),
         horariosOcupados: occupied
@@ -285,14 +252,14 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
         originalDate: appointment.date
       });
 
-      // Criar nova data/hora mantendo o horário local exato
+      // Criar nova data/hora em UTC para manter o horário exato
       const [year, month, day] = selectedDate.split('-').map(Number);
       const [hours, minutes] = selectedTime.split(':').map(Number);
       
-      // Criar data em UTC para evitar problemas de fuso horário
+      // Criar data em UTC para evitar conversão automática de timezone
       const newDateTime = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
       console.log('📅 Nova data/hora criada (UTC):', newDateTime.toISOString());
-      console.log('📅 Horário local selecionado:', `${selectedDate} ${selectedTime}`);
+      console.log('📅 Horário selecionado:', `${selectedDate} ${selectedTime}`);
       
       // Atualizar o agendamento
       const response = await apiRequest("PUT", `/api/appointments/${appointment.id}`, {

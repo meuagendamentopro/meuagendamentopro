@@ -7,14 +7,12 @@ export function formatDate(date: Date): string {
 }
 
 export function formatTime(date: Date): string {
-  // Cria uma nova data adicionando 3 horas para compensar UTC para Brasília (GMT-3)
-  const localDate = new Date(date.getTime());
-  localDate.setHours(localDate.getHours() + 3);
-  
-  return localDate.toLocaleTimeString('pt-BR', {
+  // Usar o fuso horário de São Paulo/Brasília diretamente
+  return date.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'America/Sao_Paulo'
   });
 }
 
@@ -108,10 +106,9 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
     }
     
-    // CORREÇÃO: Não fazemos mais ajuste de fuso horário aqui
-    // O backend agora é responsável por fazer a conversão correta
-    // Usamos o horário exatamente como o usuário selecionou
-    const result = new Date(
+    // CORREÇÃO: Criar data em UTC para evitar conversão automática de timezone
+    // Isso garante que o horário selecionado pelo usuário seja mantido exatamente
+    const result = new Date(Date.UTC(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
@@ -119,7 +116,7 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       minutes,
       0,
       0
-    );
+    ));
     
     console.log(`Data e hora combinadas (sem ajuste): ${date.toLocaleDateString()} ${timeString} -> ${result.toLocaleString()}`);
     

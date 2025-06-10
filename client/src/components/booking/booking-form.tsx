@@ -214,24 +214,18 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         const [hours, minutes] = time.split(":").map(Number);
         
         // Criar a data completa combinando a data selecionada com o horário do slot
-        // NÃO fazemos ajuste de fuso horário aqui - usamos o horário local como está
-        // O backend é responsável por fazer qualquer conversão necessária
-        let adjustedHours = hours; // Usamos o horário como está, sem ajuste
-        let adjustedDay = date.getDate();
-        let adjustedMonth = date.getMonth();
-        let adjustedYear = date.getFullYear();
-        
-        // Mantemos o log para debug
-        console.log(`Usando horário local: ${hours}:${minutes} (sem ajuste de fuso)`);
-        
-        const slotDate = new Date(
-          adjustedYear,
-          adjustedMonth,
-          adjustedDay,
-          adjustedHours,
+        // Usar Date.UTC para criar data em UTC mantendo o horário exato
+        const slotDate = new Date(Date.UTC(
+          date.getFullYear(),
+          date.getMonth(),
+          date.getDate(),
+          hours,
           minutes,
+          0,
           0
-        );
+        ));
+        
+        console.log(`Criando data UTC: ${hours}:${minutes} -> ${slotDate.toISOString()}`);
         
         // Pular horários que já passaram no dia atual
         const now = new Date();

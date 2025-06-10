@@ -389,7 +389,7 @@ const AppointmentsPage: React.FC = () => {
                         )}
                         <TableCell className="p-1 sm:p-3">
                           <div className="truncate max-w-[65px] sm:max-w-full">{formatDate(appointmentDate)}</div>
-                          <div className="text-xs sm:text-sm text-gray-500 truncate max-w-[65px] sm:max-w-full">{formatTime(appointmentDate)}</div>
+                          <div className="text-xs sm:text-sm text-gray-500 truncate max-w-[65px] sm:max-w-full">{`${appointmentDate.getUTCHours().toString().padStart(2, '0')}:${appointmentDate.getUTCMinutes().toString().padStart(2, '0')}`}</div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         {appointment.status === AppointmentStatus.CANCELLED && appointment.cancellationReason ? (
