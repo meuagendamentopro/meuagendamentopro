@@ -24,10 +24,31 @@ import { ptBR } from "date-fns/locale";
 const employeeFormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   specialty: z.string().min(2, "Especialidade é obrigatória"),
-  lunchBreakStart: z.string().regex(/^\d{2}:\d{2}$/, "Formato deve ser HH:MM"),
-  lunchBreakEnd: z.string().regex(/^\d{2}:\d{2}$/, "Formato deve ser HH:MM"),
+  lunchBreakStart: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => {
+      if (!val || val === "") return true;
+      // Aceita formato HH:MM (24h) - valida se é um horário válido
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      return timeRegex.test(val);
+    }, "Formato deve ser HH:MM (24h) - ex: 13:00, 09:30"),
+  lunchBreakEnd: z.string()
+    .optional()
+    .or(z.literal(""))
+    .refine((val) => {
+      if (!val || val === "") return true;
+      // Aceita formato HH:MM (24h) - valida se é um horário válido
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      return timeRegex.test(val);
+    }, "Formato deve ser HH:MM (24h) - ex: 14:00, 18:30"),
   isActive: z.boolean().default(true),
 }).refine((data) => {
+  // Só validar se ambos os campos estiverem preenchidos
+  if (!data.lunchBreakStart || !data.lunchBreakEnd || data.lunchBreakStart === "" || data.lunchBreakEnd === "") {
+    return true; // Permite campos vazios
+  }
+  
   // Validar se o horário de fim do almoço é após o início
   const [startHour, startMinute] = data.lunchBreakStart.split(':').map(Number);
   const [endHour, endMinute] = data.lunchBreakEnd.split(':').map(Number);
@@ -457,11 +478,27 @@ export default function TeamPage() {
     form.reset({
       name: employee.name,
       specialty: employee.specialty,
-      lunchBreakStart: employee.lunchBreakStart,
-      lunchBreakEnd: employee.lunchBreakEnd,
+      lunchBreakStart: employee.lunchBreakStart || "",
+      lunchBreakEnd: employee.lunchBreakEnd || "",
       isActive: employee.isActive,
     });
     setIsDialogOpen(true);
+  };
+
+  // Função para calcular automaticamente o fim do almoço (+1 hora)
+  const handleLunchStartChange = (value: string) => {
+    if (value && value.match(/^\d{2}:\d{2}$/)) {
+      const [hour, minute] = value.split(':').map(Number);
+      let endHour = hour + 1;
+      
+      // Garantir que não passe de 23:59
+      if (endHour > 23) {
+        endHour = 23;
+      }
+      
+      const endTime = `${endHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      form.setValue('lunchBreakEnd', endTime);
+    }
   };
 
   const handleDelete = (employee: Employee) => {
@@ -509,7 +546,13 @@ export default function TeamPage() {
 
   const openAddDialog = () => {
     setEditingEmployee(null);
-    form.reset();
+    form.reset({
+      name: "",
+      specialty: "",
+      lunchBreakStart: "",
+      lunchBreakEnd: "",
+      isActive: true,
+    });
     setIsDialogOpen(true);
   };
 
@@ -600,10 +643,21 @@ export default function TeamPage() {
                     name="lunchBreakStart"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Início do Almoço</FormLabel>
+                        <FormLabel>Início do Almoço (24h)</FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} />
+                          <Input 
+                            type="time" 
+                            placeholder="13:00"
+                            {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              handleLunchStartChange(e.target.value);
+                            }}
+                          />
                         </FormControl>
+                        <FormDescription className="text-xs">
+                          Formato 24h - ex: 13:00 para 1:00 PM
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -614,10 +668,17 @@ export default function TeamPage() {
                     name="lunchBreakEnd"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Fim do Almoço</FormLabel>
+                        <FormLabel>Fim do Almoço (24h)</FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} />
+                          <Input 
+                            type="time" 
+                            placeholder="14:00"
+                            {...field} 
+                          />
                         </FormControl>
+                        <FormDescription className="text-xs">
+                          Formato 24h - ex: 14:00 para 2:00 PM
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

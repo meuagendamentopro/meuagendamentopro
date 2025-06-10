@@ -57,13 +57,16 @@ interface PhoneInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   defaultCountry?: string;
 }
 
-export function PhoneInput({ 
+export const PhoneInput = React.forwardRef<
+  HTMLInputElement,
+  PhoneInputProps
+>(({ 
   value, 
   onChange, 
   onCountryChange,
   defaultCountry = "BR",
   ...props 
-}: PhoneInputProps) {
+}, ref) => {
   const [displayValue, setDisplayValue] = useState("");
   const [countryCode, setCountryCode] = useState(defaultCountry);
   const [fullNumber, setFullNumber] = useState("");
@@ -123,6 +126,7 @@ export function PhoneInput({
       />
       <Input
         {...props}
+        ref={ref}
         type="tel"
         value={displayValue}
         onChange={handleChange}
@@ -131,4 +135,6 @@ export function PhoneInput({
       />
     </div>
   );
-}
+});
+
+PhoneInput.displayName = "PhoneInput";

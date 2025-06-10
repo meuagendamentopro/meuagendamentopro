@@ -40,8 +40,8 @@ export function ImpersonationProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/impersonation-status");
       if (!res.ok) {
-        if (res.status === 403) {
-          // Usuário não é admin, retornar status padrão
+        if (res.status === 401 || res.status === 403) {
+          // Usuário não autenticado ou não é admin, retornar status padrão
           return { isImpersonating: false };
         }
         throw new Error("Erro ao verificar status de simulação");

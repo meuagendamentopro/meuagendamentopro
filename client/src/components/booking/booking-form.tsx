@@ -73,12 +73,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
   // Fetch services - para contas empresa, buscar serviços do funcionário selecionado
   const { data: services, isLoading: servicesLoading } = useQuery({
     queryKey: selectedEmployee 
-      ? ["/api/employees", selectedEmployee, "services"] 
+      ? ["/api/providers", providerId, "employees", selectedEmployee, "services"] 
       : ["/api/providers", providerId, "services"],
     queryFn: async ({ queryKey }) => {
       if (selectedEmployee) {
-        // Buscar serviços específicos do funcionário
-        const res = await fetch(`/api/employees/${selectedEmployee}/services`);
+        // Buscar serviços específicos do funcionário usando a rota pública
+        const res = await fetch(`/api/providers/${providerId}/employees/${selectedEmployee}/services`);
         if (!res.ok) throw new Error("Failed to fetch employee services");
         return res.json();
       } else {
@@ -409,10 +409,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
 
   // Submit booking
   const handleSubmitBooking = async () => {
-    if (!selectedService || !selectedTime) return;
+    console.log("=== SUBMIT BOOKING DEBUG ===");
+    console.log("User Agent:", navigator.userAgent);
+    console.log("Is Mobile:", /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    console.log("Selected Service:", selectedService);
+    console.log("Selected Time:", selectedTime);
+    console.log("Client Form Data:", clientFormRef.current);
+    
+    if (!selectedService || !selectedTime) {
+      console.log("Missing required data - aborting");
+      return;
+    }
     
     // Verificar se os dados do cliente estão preenchidos
     if (!clientFormRef.current.name || clientFormRef.current.name.trim().length < 3) {
+      console.log("Validation failed: Invalid name");
       toast({
         title: "Nome inválido",
         description: "O nome deve ter pelo menos 3 caracteres.",
@@ -422,6 +433,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
     }
     
     if (!clientFormRef.current.phone || clientFormRef.current.phone.replace(/\D/g, '').length < 10) {
+      console.log("Validation failed: Invalid phone");
       toast({
         title: "Telefone inválido",
         description: "O telefone deve ter pelo menos 10 dígitos (incluindo DDD).",
@@ -430,6 +442,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
       return;
     }
 
+    console.log("Starting booking submission...");
     setIsSubmitting(true);
 
     try {
@@ -447,8 +460,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         ...(selectedEmployee && { employeeId: selectedEmployee }),
       };
 
+      console.log("Booking data prepared:", bookingData);
+      console.log("Making API request...");
+      
       const response = await apiRequest("POST", "/api/booking", bookingData);
+      console.log("API response status:", response.status);
+      
       const result = await response.json();
+      console.log("API response data:", result);
 
       if (result.success) {
         // Verificar se o agendamento requer pagamento PIX
@@ -699,7 +718,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
         )}
       </div>
 
-      <Card>
+      <Card className="booking-form">
         <CardContent className="pt-6">
           {/* Step 1: Company accounts - Select Employee, Individual accounts - Select Service */}
           {step === 1 && isCompanyAccount && (
@@ -904,8 +923,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ providerId }) => {
               </Button>
             ) : (
               <Button 
-                onClick={() => handleSubmitBooking()}
+                onClick={handleSubmitBooking}
                 disabled={isSubmitting}
+                className="min-h-[44px] touch-manipulation"
+                type="button"
               >
                 {isSubmitting ? "Agendando..." : "Confirmar agendamento"}
               </Button>

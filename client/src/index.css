@@ -164,3 +164,29 @@
 .hover\:text-danger-500:hover {
   @apply hover:text-red-500;
 }
+
+/* Melhorias específicas para dispositivos móveis - SEM AFETAR O VISUAL */
+@media (max-width: 768px) {
+  /* Melhorar área de toque em botões */
+  button, 
+  [role="button"], 
+  input[type="submit"], 
+  input[type="button"] {
+    touch-action: manipulation;
+  }
+  
+  /* Prevenir zoom em inputs em iOS */
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Classe específica para touch manipulation */
+.touch-manipulation {
+  touch-action: manipulation;
+}

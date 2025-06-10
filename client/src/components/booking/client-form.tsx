@@ -45,14 +45,20 @@ const ClientForm: React.FC<ClientFormProps> = ({ onSubmitValues, defaultValues =
   React.useEffect(() => {
     // Sempre que os valores do formulário mudarem, atualize o callback
     const subscription = form.watch((values) => {
+      // Debug para dispositivos móveis
+      console.log("Form values changed:", values);
+      
       // Envie os valores para o componente pai, mesmo que incompletos
       // O componente pai vai lidar com a validação
-      onSubmitValues({
+      const formData = {
         name: values.name || "",
         phone: values.phone || "",
         countryCode: values.countryCode || "BR",
         notes: values.notes || "",
-      });
+      };
+      
+      console.log("Sending form data to parent:", formData);
+      onSubmitValues(formData);
     });
     
     return () => subscription.unsubscribe();

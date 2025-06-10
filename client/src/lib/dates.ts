@@ -108,38 +108,20 @@ export function combineDateAndTime(date: Date, timeString: string): Date {
       throw new Error(`Valores de hora inválidos: ${hours}:${minutes}`);
     }
     
-    // IMPORTANTE: Compensando o fuso horário (Brasil GMT-3)
-    // Ajustamos manualmente para que o backend receba o horário correto em UTC
-    // Exemplo: se o usuário seleciona 18:00, enviamos como 15:00 UTC
-    let adjustedHours = hours - 3; // Subtraímos 3 horas para compensar GMT-3
-    let adjustedDay = date.getDate();
-    let adjustedMonth = date.getMonth();
-    let adjustedYear = date.getFullYear();
-    
-    // Se o ajuste levar para o dia anterior, ajustamos a data
-    if (adjustedHours < 0) {
-      adjustedHours += 24;
-      // Criar uma data temporária para o dia anterior
-      const prevDay = new Date(date);
-      prevDay.setDate(date.getDate() - 1);
-      adjustedDay = prevDay.getDate();
-      adjustedMonth = prevDay.getMonth();
-      adjustedYear = prevDay.getFullYear();
-    }
-    
-    console.log(`Ajustando horário para UTC: ${hours}:${minutes} -> ${adjustedHours}:${minutes} (fuso GMT-3)`);
-    
+    // CORREÇÃO: Não fazemos mais ajuste de fuso horário aqui
+    // O backend agora é responsável por fazer a conversão correta
+    // Usamos o horário exatamente como o usuário selecionou
     const result = new Date(
-      adjustedYear,
-      adjustedMonth,
-      adjustedDay,
-      adjustedHours,
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      hours,
       minutes,
       0,
       0
     );
     
-    console.log(`Data e hora combinadas: ${date.toLocaleDateString()} ${timeString} -> ${result.toLocaleString()}`);
+    console.log(`Data e hora combinadas (sem ajuste): ${date.toLocaleDateString()} ${timeString} -> ${result.toLocaleString()}`);
     
     return result;
   } catch (error) {

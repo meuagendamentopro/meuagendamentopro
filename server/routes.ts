@@ -2837,6 +2837,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee services for providers (public route for booking page)
+  app.get("/api/providers/:providerId/employees/:employeeId/services", async (req: Request, res: Response) => {
+    const providerId = parseInt(req.params.providerId);
+    const employeeId = parseInt(req.params.employeeId);
+    
+    if (isNaN(providerId) || isNaN(employeeId)) {
+      return res.status(400).json({ message: "Invalid provider ID or employee ID" });
+    }
+    
+    try {
+      // Buscar o provider para obter o userId
+      const provider = await storage.getProvider(providerId);
+      if (!provider) {
+        return res.status(404).json({ message: "Provider not found" });
+      }
+      
+      // Verificar se o funcionário pertence a este provider
+      const [employee] = await db.select()
+        .from(employees)
+        .where(and(
+          eq(employees.id, employeeId),
+          eq(employees.companyUserId, provider.userId),
+          eq(employees.isActive, true)
+        ));
+        
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      
+      // Buscar serviços do funcionário
+      const services = await storage.getEmployeeServices(employeeId);
+      res.json(services);
+    } catch (error) {
+      console.error("Erro ao buscar serviços do funcionário:", error);
+      res.status(500).json({ error: "Erro ao buscar serviços do funcionário" });
+    }
+  });
+
   // Employee routes (para contas do tipo empresa)
   app.get("/api/employees", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
@@ -4215,10 +4253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
           
-          // Usamos diretamente o horário informado, sem nenhuma compensação
-          // Como queremos trabalhar com o horário de Brasília (GMT-3)
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-          console.log(`Usando horário de Brasília: ${hour}:${minute} (dia ${day}/${month}/${year})`);
+          // CORREÇÃO: Compensar fuso horário de Brasília (GMT-3)
+          // Cliente seleciona horário local (Brasília), precisamos converter para UTC
+          // Brasília = UTC-3, então adicionamos 3 horas para converter para UTC
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+          console.log(`Horário selecionado (Brasília): ${hour}:${minute} -> UTC: ${hour + 3}:${minute} (dia ${day}/${month}/${year})`);
           
         } else if (bookingData.date.includes('/')) {
           // Formato BR (DD/MM/YYYY) - usando Date.UTC para garantir consistência no fuso horário
@@ -4229,25 +4268,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Valores inválidos: ano=${year}, mês=${month}, dia=${day}, hora=${hour}, minuto=${minute}`);
           }
         
-          // Usamos diretamente o horário informado, sem nenhuma compensação
-          // Como queremos trabalhar com o horário de Brasília (GMT-3)
-          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-          console.log(`Usando horário de Brasília: ${hour}:${minute} (dia ${day}/${month}/${year})`);
+          // CORREÇÃO: Compensar fuso horário de Brasília (GMT-3)
+          // Cliente seleciona horário local (Brasília), precisamos converter para UTC
+          // Brasília = UTC-3, então adicionamos 3 horas para converter para UTC
+          appointmentDate = new Date(Date.UTC(year, month - 1, day, hour + 3, minute, 0));
+          console.log(`Horário selecionado (Brasília): ${hour}:${minute} -> UTC: ${hour + 3}:${minute} (dia ${day}/${month}/${year})`);
           
         } else {
           // Tentar como timestamp ou outro formato - usando UTC para consistência
           const baseDate = new Date(bookingData.date);
           const [hour, minute] = bookingData.time.split(':').map(Number);
           
-          // Usamos diretamente o horário informado, sem nenhuma compensação
-          // Como queremos trabalhar com o horário de Brasília (GMT-3)
+          // CORREÇÃO: Compensar fuso horário de Brasília (GMT-3)
+          // Cliente seleciona horário local (Brasília), precisamos converter para UTC
+          // Brasília = UTC-3, então adicionamos 3 horas para converter para UTC
           appointmentDate = new Date(Date.UTC(
             baseDate.getFullYear(),
             baseDate.getMonth(),
             baseDate.getDate(),
-            hour, minute, 0
+            hour + 3, minute, 0
           ));
-          console.log(`Usando horário de Brasília: ${hour}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
+          console.log(`Horário selecionado (Brasília): ${hour}:${minute} -> UTC: ${hour + 3}:${minute} (dia ${baseDate.getDate()}/${baseDate.getMonth()+1}/${baseDate.getFullYear()})`);
         }
         
         if (isNaN(appointmentDate.getTime())) {
