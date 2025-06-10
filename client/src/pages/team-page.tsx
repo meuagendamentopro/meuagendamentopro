@@ -20,7 +20,7 @@ import type { Employee, InsertEmployee, Service } from "@shared/schema";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Schema para validação do formulário de funcionário
+// Schema para validação do formulário de funcionários
 const employeeFormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   specialty: z.string().min(2, "Especialidade é obrigatória"),
