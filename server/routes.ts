@@ -493,20 +493,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user.id;
-      const { name, email, currentPassword, newPassword, avatarUrl } = req.body;
+      const { name, email, currentPassword, newPassword, avatarUrl, hideWhatsappPopup } = req.body;
       
       // Criar objeto com dados a atualizar
       const updateData: Partial<{ 
         name: string, 
         email: string, 
         password: string,
-        avatarUrl: string 
+        avatarUrl: string,
+        hideWhatsappPopup: boolean
       }> = {};
       
       // Validar e adicionar campos a serem atualizados
       if (name) updateData.name = name;
       if (email) updateData.email = email;
       if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+      if (hideWhatsappPopup !== undefined) updateData.hideWhatsappPopup = hideWhatsappPopup;
       
       // Se está tentando alterar a senha
       if (newPassword && currentPassword) {

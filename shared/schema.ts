@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   verificationTokenExpiry: timestamp("verification_token_expiry"), // Data de expiração do token
   subscriptionExpiry: timestamp("subscription_expiry"), // Data de expiração da assinatura (null para admin ou assinatura sem expiração)
   neverExpires: boolean("never_expires").default(false), // Para assinaturas que nunca expiram
+  hideWhatsappPopup: boolean("hide_whatsapp_popup").default(false).notNull(), // Preferência para não mostrar popup do WhatsApp
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => {
@@ -43,6 +44,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   verificationTokenExpiry: true,
   subscriptionExpiry: true,
   neverExpires: true,
+  hideWhatsappPopup: true,
 });
 
 // Provider/Professional model (vinculado a um usuário)

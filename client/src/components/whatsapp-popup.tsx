@@ -31,6 +31,18 @@ const WhatsAppPopup = ({ triggerManually = false, children, initialPhone = '', o
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
+  // Buscar dados do usuário atual
+  const { data: user } = useQuery({
+    queryKey: ['/api/user'],
+    queryFn: async () => {
+      const res = await fetch('/api/user');
+      if (!res.ok) {
+        throw new Error('Falha ao buscar dados do usuário');
+      }
+      return res.json();
+    },
+  });
+
   // Buscar dados do provider
   const { data: provider, isLoading: isLoadingProvider, error } = useQuery({
     queryKey: ['/api/my-provider'],
@@ -53,6 +65,18 @@ const WhatsAppPopup = ({ triggerManually = false, children, initialPhone = '', o
       }
     },
     retry: false, // Não tentar novamente se falhar, já retornamos um objeto vazio
+  });
+
+  // Mutation para atualizar a preferência do usuário
+  const updateUserPreferenceMutation = useMutation({
+    mutationFn: async (hideWhatsappPopup: boolean) => {
+      return apiRequest('PATCH', '/api/user/profile', { 
+        hideWhatsappPopup 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    }
   });
 
   // Mutation para atualizar o número de WhatsApp
@@ -140,14 +164,39 @@ const WhatsAppPopup = ({ triggerManually = false, children, initialPhone = '', o
   };
 
   const handleSubmit = () => {
-    // O número já vem formatado com o código do país do componente PhoneInput
-    // Então não precisamos fazer nenhuma formatação adicional
+    // Verificar se o número está em branco (apenas espaços ou vazio)
+    const phoneNumbers = whatsapp.replace(/\D/g, '');
+    const isPhoneEmpty = !phoneNumbers || phoneNumbers.trim() === '';
     
     // Inicia o indicador de salvamento
     setSaving(true);
     
-    // Executa a mutação com o número completo, incluindo código do país
-    updateWhatsAppMutation.mutate(whatsapp);
+    if (isPhoneEmpty) {
+      // Se o número está em branco, atualizar a preferência do usuário para não mostrar mais o popup
+      console.log('Número em branco, ocultando popup permanentemente');
+      updateUserPreferenceMutation.mutate(true, {
+        onSuccess: () => {
+          toast({
+            title: 'Preferência salva',
+            description: 'O popup do WhatsApp não será mais exibido.',
+          });
+          setSaving(false);
+          setOpen(false);
+        },
+        onError: (error: any) => {
+          console.error('Erro ao salvar preferência:', error);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível salvar sua preferência.',
+            variant: 'destructive',
+          });
+          setSaving(false);
+        }
+      });
+    } else {
+      // Se tem número, salvar normalmente
+      updateWhatsAppMutation.mutate(phoneNumbers);
+    }
   };
 
   // Verificar se deve mostrar o popup
@@ -193,12 +242,18 @@ const WhatsAppPopup = ({ triggerManually = false, children, initialPhone = '', o
       }
     }
     
-    // Se não estiver em modo manual e o provider não tem telefone, mostra o popup automaticamente
-    if (provider && !triggerManually && (!provider.phone || provider.phone.trim() === '')) {
-      console.log('Provider sem WhatsApp configurado, exibindo popup automaticamente');
-      setOpen(true);
+    // Se não estiver em modo manual, verificar se deve mostrar o popup
+    if (!triggerManually && provider && user) {
+      // Verificar se o usuário não optou por ocultar o popup
+      const shouldHidePopup = user.hideWhatsappPopup || user.hide_whatsapp_popup;
+      
+      // Se o provider não tem telefone E o usuário não optou por ocultar, mostra o popup
+      if (!shouldHidePopup && (!provider.phone || provider.phone.trim() === '')) {
+        console.log('Provider sem WhatsApp configurado e usuário não optou por ocultar, exibindo popup automaticamente');
+        setOpen(true);
+      }
     }
-  }, [provider, triggerManually, initialPhone]);
+  }, [provider, triggerManually, initialPhone, user]);
 
   return (
     <Dialog open={triggerManually ? undefined : open} onOpenChange={setOpen}>
@@ -224,6 +279,9 @@ const WhatsAppPopup = ({ triggerManually = false, children, initialPhone = '', o
           </div>
           <p className="text-sm text-gray-600">
             Informe seu número de WhatsApp para que os clientes possam entrar em contato caso precisem remarcar ou cancelar agendamentos.
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            💡 <strong>Dica:</strong> Se você não quiser configurar o WhatsApp agora, pode clicar em "Salvar" com o campo vazio e este popup não aparecerá mais.
           </p>
         </DialogHeader>
         <div className="grid gap-4 py-4">
