@@ -460,7 +460,7 @@ export default function AuthPage() {
                           className="text-primary underline hover:text-primary/80 focus:outline-none"
                         >
                           termos de serviço
-                        </button> e terá um período de teste gratuito de 3 dias.
+                        </button> e terá um período de teste gratuito de {systemSettings?.trialPeriodDays || 3} dias.
                       </p>
                       <TermsOfServiceDialog 
                         open={termsDialogOpen} 

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Calendar, Users, Clock, CreditCard, Settings, BarChart3, MessageSquare } from "lucide-react";
+import { CheckCircle2, Calendar, Users, Clock, CreditCard, Settings, BarChart3, MessageSquare, UserCheck, Building2 } from "lucide-react";
 
 export default function LandingPage() {
   const [, navigate] = useLocation();
@@ -20,12 +20,17 @@ export default function LandingPage() {
     },
   });
 
-  // Lista de recursos/funcionalidades
+  // Lista de recursos/funcionalidades - ATUALIZADA com gestão de equipe
   const features = [
     {
       title: "Agendamento Online",
       description: "Permita que seus clientes agendem serviços 24/7 através de uma interface intuitiva e responsiva.",
       icon: <Calendar className="h-10 w-10 text-primary" />
+    },
+    {
+      title: "Gestão de Equipe",
+      description: "Gerencie profissionais, horários individuais e distribua agendamentos automaticamente entre sua equipe.",
+      icon: <UserCheck className="h-10 w-10 text-primary" />
     },
     {
       title: "Gerenciamento de Clientes",
@@ -34,7 +39,7 @@ export default function LandingPage() {
     },
     {
       title: "Controle de Horários",
-      description: "Configure sua disponibilidade, intervalos e bloqueios de horários de forma flexível.",
+      description: "Configure disponibilidade individual de cada profissional, intervalos e bloqueios de horários.",
       icon: <Clock className="h-10 w-10 text-primary" />
     },
     {
@@ -43,13 +48,13 @@ export default function LandingPage() {
       icon: <CreditCard className="h-10 w-10 text-primary" />
     },
     {
-      title: "Personalização",
-      description: "Adapte o sistema às necessidades do seu negócio com configurações flexíveis.",
-      icon: <Settings className="h-10 w-10 text-primary" />
+      title: "Personalização Empresarial",
+      description: "Adapte o sistema às necessidades da sua empresa com configurações flexíveis para múltiplos profissionais.",
+      icon: <Building2 className="h-10 w-10 text-primary" />
     },
     {
       title: "Relatórios e Análises",
-      description: "Acompanhe o desempenho do seu negócio com relatórios detalhados e gráficos intuitivos.",
+      description: "Acompanhe o desempenho individual e da equipe com relatórios detalhados e gráficos intuitivos.",
       icon: <BarChart3 className="h-10 w-10 text-primary" />
     },
     {
@@ -152,11 +157,11 @@ export default function LandingPage() {
               </div>
               
               <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-                Revolucione seu <span className="text-primary">Agendamento</span> e Impulsione seu Negócio
+                Sistema Completo para <span className="text-primary">Profissionais</span> e <span className="text-primary">Empresas</span>
               </h2>
               
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
-                Simplifique a gestão da sua agenda, reduza faltas em até 70%, aumente a produtividade e proporcione uma experiência excepcional aos seus clientes.
+                Ideal para profissionais individuais e empresas como salões de beleza, clínicas, consultórios e centros estéticos. Gerencie sua equipe, reduza faltas em até 70% e aumente a produtividade.
               </p>
               
               <div className="flex flex-wrap gap-4 mb-8">
@@ -164,14 +169,14 @@ export default function LandingPage() {
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                     <CheckCircle2 className="h-5 w-5 text-primary" />
                   </div>
-                  <span>Agendamento 24/7</span>
+                  <span>Gestão de Equipe</span>
                 </div>
                 
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                     <CheckCircle2 className="h-5 w-5 text-primary" />
                   </div>
-                  <span>Redução de faltas</span>
+                  <span>Agendamento 24/7</span>
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -184,7 +189,7 @@ export default function LandingPage() {
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" className="px-8" onClick={() => navigate("/auth")}>
-                  Experimentar Grátis
+                  Experimentar Grátis por {systemSettings?.trialPeriodDays || 7} Dias
                 </Button>
                 <Button size="lg" variant="outline" className="px-8" onClick={() => {
                   const demoSection = document.getElementById('demo');
@@ -203,7 +208,7 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-bold">+5.000</span> profissionais já utilizam
+                  <span className="font-bold">+5.000</span> profissionais e empresas já utilizam
                 </p>
               </div>
             </div>
@@ -228,15 +233,15 @@ export default function LandingPage() {
           <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 bg-card p-6 rounded-lg border border-border shadow-lg">
             <div className="text-center">
               <p className="text-3xl font-bold text-primary">+5.000</p>
-              <p className="text-sm text-muted-foreground">Profissionais</p>
+              <p className="text-sm text-muted-foreground">Profissionais e Empresas</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-primary">+100.000</p>
               <p className="text-sm text-muted-foreground">Agendamentos</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-primary">70%</p>
-              <p className="text-sm text-muted-foreground">Redução de faltas</p>
+              <p className="text-3xl font-bold text-primary">+15.000</p>
+              <p className="text-sm text-muted-foreground">Profissionais Gerenciados</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-primary">30%</p>
@@ -256,7 +261,7 @@ export default function LandingPage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-16">
             {/* Cartão 1: Agenda Inteligente */}
             <div className="bg-card rounded-lg border border-border overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
               <div className="p-6 flex flex-col items-center text-center">
@@ -265,12 +270,12 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-2">Agenda Inteligente</h3>
                 <p className="text-muted-foreground">
-                  Visualize sua agenda diária, semanal ou mensal com facilidade. Organize seus compromissos de forma eficiente.
+                  Visualize agendas individuais e da equipe. Organize compromissos de forma eficiente.
                 </p>
                 <div className="mt-6 pt-6 border-t border-border w-full">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Visualizações</span>
-                    <span className="font-medium">Dia, Semana, Mês</span>
+                    <span className="font-medium">Individual/Equipe</span>
                   </div>
                   <div className="flex justify-between text-sm mt-2">
                     <span className="text-muted-foreground">Notificações</span>
@@ -280,7 +285,30 @@ export default function LandingPage() {
               </div>
             </div>
             
-            {/* Cartão 2: Gestão de Clientes */}
+            {/* Cartão 2: Gestão de Equipe */}
+            <div className="bg-card rounded-lg border border-border overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
+              <div className="p-6 flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <UserCheck className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Gestão de Equipe</h3>
+                <p className="text-muted-foreground">
+                  Cadastre profissionais, configure horários individuais e distribua agendamentos automaticamente entre sua equipe.
+                </p>
+                <div className="mt-6 pt-6 border-t border-border w-full">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Profissionais</span>
+                    <span className="font-medium">Ilimitados</span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-2">
+                    <span className="text-muted-foreground">Horários</span>
+                    <span className="font-medium">Individuais</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Cartão 3: Gestão de Clientes */}
             <div className="bg-card rounded-lg border border-border overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
               <div className="p-6 flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -288,7 +316,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-2">Gestão de Clientes</h3>
                 <p className="text-muted-foreground">
-                  Cadastre e gerencie seus clientes. Mantenha um histórico completo de atendimentos e preferências.
+                  Cadastre e gerencie clientes com histórico completo de atendimentos e preferências.
                 </p>
                 <div className="mt-6 pt-6 border-t border-border w-full">
                   <div className="flex justify-between text-sm">
@@ -303,7 +331,7 @@ export default function LandingPage() {
               </div>
             </div>
             
-            {/* Cartão 3: Serviços e Preços */}
+            {/* Cartão 4: Serviços e Preços */}
             <div className="bg-card rounded-lg border border-border overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
               <div className="p-6 flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -326,24 +354,24 @@ export default function LandingPage() {
               </div>
             </div>
             
-            {/* Cartão 4: Relatórios */}
+            {/* Cartão 5: Relatórios */}
             <div className="bg-card rounded-lg border border-border overflow-hidden shadow-md hover:shadow-lg transition-all hover:-translate-y-1">
               <div className="p-6 flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <BarChart3 className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Relatórios Detalhados</h3>
+                <h3 className="text-xl font-bold mb-2">Relatórios da Equipe</h3>
                 <p className="text-muted-foreground">
-                  Acompanhe o desempenho do seu negócio com relatórios detalhados e gráficos intuitivos.
+                  Acompanhe desempenho individual e da equipe com relatórios detalhados e gráficos.
                 </p>
                 <div className="mt-6 pt-6 border-t border-border w-full">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Exportação</span>
-                    <span className="font-medium">PDF</span>
+                    <span className="text-muted-foreground">Análises</span>
+                    <span className="font-medium">Individual/Equipe</span>
                   </div>
                   <div className="flex justify-between text-sm mt-2">
-                    <span className="text-muted-foreground">Periodicidade</span>
-                    <span className="font-medium">Diária, Mensal, Por período</span>
+                    <span className="text-muted-foreground">Exportação</span>
+                    <span className="font-medium">PDF</span>
                   </div>
                 </div>
               </div>
@@ -364,7 +392,7 @@ export default function LandingPage() {
                 </div>
                 <h4 className="text-xl font-bold mb-2">Configure</h4>
                 <p className="text-muted-foreground">
-                  Cadastre seus serviços, horários de funcionamento e equipe em poucos minutos.
+                  Cadastre seus serviços, horários de funcionamento e toda sua equipe em poucos minutos.
                 </p>
               </div>
               
@@ -375,7 +403,7 @@ export default function LandingPage() {
                 </div>
                 <h4 className="text-xl font-bold mb-2">Gerencie</h4>
                 <p className="text-muted-foreground">
-                  Acompanhe sua agenda, confirme reservas e gerencie seus clientes em um só lugar.
+                  Acompanhe agendas individuais e da equipe, distribua clientes automaticamente entre profissionais.
                 </p>
               </div>
               
@@ -386,7 +414,7 @@ export default function LandingPage() {
                 </div>
                 <h4 className="text-xl font-bold mb-2">Cresça</h4>
                 <p className="text-muted-foreground">
-                  Analise relatórios de desempenho, fidelize clientes e expanda seu negócio.
+                  Analise relatórios de desempenho individual e da equipe, otimize recursos e expanda seu negócio.
                 </p>
               </div>
             </div>
@@ -396,7 +424,7 @@ export default function LandingPage() {
           <div className="mt-16 text-center">
             <div className="inline-flex flex-col items-center">
               <Button size="lg" className="px-8 py-6 text-lg" onClick={() => navigate("/auth")}>
-                Experimentar Gratuitamente
+                Experimentar Grátis por {systemSettings?.trialPeriodDays || 7} Dias
               </Button>
               <p className="mt-3 text-muted-foreground">Não é necessário cartão de crédito</p>
             </div>
@@ -475,15 +503,15 @@ export default function LandingPage() {
           <div className="mt-16 bg-muted/30 rounded-lg border border-border p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div>
-                <h3 className="text-2xl font-bold mb-4">Benefícios Comprovados</h3>
+                <h3 className="text-2xl font-bold mb-4">Benefícios para Profissionais e Empresas</h3>
                 <ul className="space-y-4">
                   <li className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
                       <CheckCircle2 className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Redução de 70% nas faltas</p>
-                      <p className="text-sm text-muted-foreground">Com lembretes automáticos e confirmações</p>
+                      <p className="font-medium">Gestão completa de equipe</p>
+                      <p className="text-sm text-muted-foreground">Controle horários individuais e distribua agendamentos automaticamente</p>
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
@@ -491,8 +519,8 @@ export default function LandingPage() {
                       <CheckCircle2 className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Economia de 10 horas semanais</p>
-                      <p className="text-sm text-muted-foreground">Automatizando tarefas administrativas</p>
+                      <p className="font-medium">Redução de 70% nas faltas</p>
+                      <p className="text-sm text-muted-foreground">Com lembretes automáticos e confirmações para toda equipe</p>
                     </div>
                   </li>
                   <li className="flex items-start gap-3">
@@ -501,7 +529,16 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <p className="font-medium">Aumento de 30% na receita</p>
-                      <p className="text-sm text-muted-foreground">Com melhor gestão de agenda e pagamentos</p>
+                      <p className="text-sm text-muted-foreground">Otimizando agenda da equipe e reduzindo tempo ocioso</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Ideal para salões, clínicas e consultórios</p>
+                      <p className="text-sm text-muted-foreground">Sistema escalável para empresas de todos os tamanhos</p>
                     </div>
                   </li>
                 </ul>
@@ -538,45 +575,237 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="py-20 bg-muted/30">
+      {/* Pricing Section - Reformulada */}
+      <section className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-16">Planos e Preços</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-            {plans.map((plan, index) => (
-              <Card 
-                key={index} 
-                className={`border ${plan.highlight ? 'border-primary shadow-lg scale-105' : 'border-border'} transition-all duration-300 hover:shadow-md`}
-              >
-                <CardHeader>
-                  <CardTitle className="text-xl text-center">{plan.name}</CardTitle>
-                  <CardDescription className="text-center">
-                    <span className="text-3xl font-bold">R$ {plan.price.toFixed(2)}</span>
-                    <span className="text-muted-foreground">/mês</span>
-                  </CardDescription>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Escolha Seu Período de Uso</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Acesso completo a todas as funcionalidades. Escolha o período que melhor se adapta ao seu negócio. Planos a partir de <span className="font-bold text-primary">R$ 49,90</span>.
+            </p>
+          </div>
+
+          {/* Planos de Período */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-16">
+            <Card className="border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="text-center">
+                <CardTitle className="text-lg">Mensal</CardTitle>
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-primary">R$ 49,90</div>
+                  <div className="text-sm text-muted-foreground">por mês</div>
+                </div>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center">
-                        <CheckCircle2 className="h-5 w-5 text-primary mr-2" />
-                        <span>{feature}</span>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Todas as funcionalidades</span>
                       </li>
-                    ))}
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Agendamentos ilimitados</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Pagamentos via PIX</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Relatórios completos</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Suporte por email</span>
+                  </li>
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    variant={plan.highlight ? "default" : "outline"} 
-                    className="w-full"
-                    onClick={() => navigate("/auth")}
-                  >
+                <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
                     Começar Agora
                   </Button>
                 </CardFooter>
               </Card>
-            ))}
+
+            <Card className="border border-primary shadow-lg relative">
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-medium">
+                  MAIS POPULAR
+                </span>
+              </div>
+              <CardHeader className="text-center">
+                <CardTitle className="text-lg">Trimestral</CardTitle>
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-primary">R$ 39,97</div>
+                  <div className="text-sm text-muted-foreground">por mês</div>
+                  <div className="text-xs text-green-600 font-medium">Economize 20%</div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Todas as funcionalidades</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Agendamentos ilimitados</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Pagamentos via PIX</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Relatórios completos</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Suporte prioritário</span>
+                  </li>
+                </ul>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onClick={() => navigate("/auth")}>
+                  Começar Agora
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card className="border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="text-center">
+                <CardTitle className="text-lg">Semestral</CardTitle>
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-primary">R$ 36,65</div>
+                  <div className="text-sm text-muted-foreground">por mês</div>
+                  <div className="text-xs text-green-600 font-medium">Economize 27%</div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Todas as funcionalidades</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Agendamentos ilimitados</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Pagamentos via PIX</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Relatórios completos</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Suporte prioritário</span>
+                  </li>
+                </ul>
+              </CardContent>
+              <CardFooter>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
+                  Começar Agora
+                </Button>
+              </CardFooter>
+            </Card>
+
+            <Card className="border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
+              <CardHeader className="text-center">
+                <CardTitle className="text-lg">Anual</CardTitle>
+                <div className="space-y-1">
+                  <div className="text-3xl font-bold text-primary">R$ 37,49</div>
+                  <div className="text-sm text-muted-foreground">por mês</div>
+                  <div className="text-xs text-green-600 font-medium">Economize 25%</div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Todas as funcionalidades</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Agendamentos ilimitados</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Pagamentos via PIX</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Relatórios completos</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Suporte VIP</span>
+                  </li>
+                </ul>
+              </CardContent>
+              <CardFooter>
+                <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
+                  Começar Agora
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+
+          {/* Seção Gestão de Equipe */}
+          <div className="bg-gradient-to-br from-card to-primary/5 rounded-lg border border-primary/20 p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-4">
+                <Building2 className="h-5 w-5 text-primary" />
+                <span className="font-medium text-primary">Funcionalidade Empresarial</span>
+              </div>
+              <h3 className="text-2xl font-bold mb-4">Gestão Completa de Equipe</h3>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Para empresas como salões, clínicas e consultórios que precisam gerenciar múltiplos profissionais, oferecemos funcionalidades avançadas de gestão de equipe.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <UserCheck className="h-6 w-6 text-primary" />
+                </div>
+                <h4 className="font-medium mb-2">Profissionais Ilimitados</h4>
+                <p className="text-sm text-muted-foreground">Cadastre quantos profissionais precisar, cada um com suas especialidades e horários.</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <Clock className="h-6 w-6 text-primary" />
+                </div>
+                <h4 className="font-medium mb-2">Horários Individuais</h4>
+                <p className="text-sm text-muted-foreground">Configure horários de trabalho específicos para cada profissional da equipe.</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <BarChart3 className="h-6 w-6 text-primary" />
+                </div>
+                <h4 className="font-medium mb-2">Relatórios por Profissional</h4>
+                <p className="text-sm text-muted-foreground">Acompanhe performance individual e da equipe com relatórios detalhados.</p>
+              </div>
+            </div>
+
+            <div className="text-center mt-8">
+              <p className="text-sm text-muted-foreground mb-4">
+                Interessado na gestão de equipe? Entre em contato para ativar essa funcionalidade.
+              </p>
+              <Button variant="outline" onClick={() => navigate("/auth")}>
+                Solicitar Ativação da Gestão de Equipe
+              </Button>
+            </div>
+          </div>
+
+                               {/* CTA Final */}
+          <div className="text-center mt-12">
+            <p className="text-muted-foreground mb-4">Todas as funcionalidades disponíveis em todos os períodos!</p>
+            <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
+              Experimentar Grátis por {systemSettings?.trialPeriodDays || 7} Dias
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">Acesso completo • Sem compromisso • Cancele quando quiser</p>
           </div>
         </div>
       </section>
@@ -768,7 +997,7 @@ export default function LandingPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Oferecemos 14 dias de teste grátis com acesso a todas as funcionalidades. Não é necessário cartão de crédito para começar a testar.
+                  Oferecemos {systemSettings?.trialPeriodDays || 14} dias de teste grátis com acesso a todas as funcionalidades. Não é necessário cartão de crédito para começar a testar.
                 </p>
               </CardContent>
             </Card>

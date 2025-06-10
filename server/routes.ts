@@ -583,13 +583,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Em simulação, apenas retornar os dados atualizados
         res.status(200).json(userWithoutPassword);
       } else {
-        // Atualizar a sessão com os novos dados do usuário real
-      req.login(updatedUser, (err) => {
-        if (err) {
-          console.error("Erro ao atualizar sessão:", err);
+        // Atualizar os dados do usuário na sessão atual sem forçar novo login
+        if (req.user) {
+          req.user.accountType = updatedUser.accountType;
         }
         res.status(200).json(userWithoutPassword);
-      });
       }
     } catch (error) {
       console.error("Erro ao atualizar tipo de conta:", error);
@@ -2252,32 +2250,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whatsappTemplateAppointment
       } = req.body;
       
-      if (workingHoursStart === undefined || workingHoursEnd === undefined) {
-        return res.status(400).json({ 
-          message: "Missing required fields",
-          errors: ["workingHoursStart and workingHoursEnd are required"]
-        });
+      // Validar workingHoursStart se fornecido
+      if (workingHoursStart !== undefined) {
+        if (typeof workingHoursStart !== 'number') {
+          return res.status(400).json({ 
+            message: "Invalid data type",
+            errors: ["workingHoursStart must be a number"]
+          });
+        }
+        
+        if (workingHoursStart < 0 || workingHoursStart > 23) {
+          return res.status(400).json({ 
+            message: "Invalid hour range",
+            errors: ["workingHoursStart must be between 0-23"]
+          });
+        }
       }
       
-      if (typeof workingHoursStart !== 'number' || typeof workingHoursEnd !== 'number') {
-        return res.status(400).json({ 
-          message: "Invalid data types",
-          errors: ["workingHoursStart and workingHoursEnd must be numbers"]
-        });
+      // Validar workingHoursEnd se fornecido
+      if (workingHoursEnd !== undefined) {
+        if (typeof workingHoursEnd !== 'number') {
+          return res.status(400).json({ 
+            message: "Invalid data type",
+            errors: ["workingHoursEnd must be a number"]
+          });
+        }
+        
+        if (workingHoursEnd < 1 || workingHoursEnd > 24) {
+          return res.status(400).json({ 
+            message: "Invalid hour range",
+            errors: ["workingHoursEnd must be between 1-24"]
+          });
+        }
       }
       
-      if (workingHoursStart < 0 || workingHoursStart > 23 || workingHoursEnd < 1 || workingHoursEnd > 24) {
-        return res.status(400).json({ 
-          message: "Invalid hour range",
-          errors: ["workingHoursStart must be between 0-23 and workingHoursEnd must be between 1-24"]
-        });
-      }
-      
-      if (workingHoursEnd <= workingHoursStart) {
-        return res.status(400).json({ 
-          message: "Invalid hour range",
-          errors: ["workingHoursEnd must be greater than workingHoursStart"]
-        });
+      // Validar a relação entre os horários apenas se ambos forem fornecidos
+      if (workingHoursStart !== undefined && workingHoursEnd !== undefined) {
+        if (workingHoursEnd <= workingHoursStart) {
+          return res.status(400).json({ 
+            message: "Invalid hour range",
+            errors: ["workingHoursEnd must be greater than workingHoursStart"]
+          });
+        }
       }
       
       // Validar campos do PIX se ele estiver habilitado
@@ -2326,10 +2340,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Preparar o objeto com os dados para atualização
-      const providerData: Partial<InsertProvider> = {
-        workingHoursStart,
-        workingHoursEnd
-      };
+      const providerData: Partial<InsertProvider> = {};
+      
+      // Adicionar horários apenas se fornecidos
+      if (workingHoursStart !== undefined) {
+        providerData.workingHoursStart = workingHoursStart;
+      }
+      
+      if (workingHoursEnd !== undefined) {
+        providerData.workingHoursEnd = workingHoursEnd;
+      }
       
       // Adicionar workingDays ao update se fornecido
       if (workingDays !== undefined) {

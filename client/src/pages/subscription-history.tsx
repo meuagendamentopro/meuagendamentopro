@@ -41,6 +41,18 @@ export default function SubscriptionHistoryPage() {
   // Opção para usar ou não o fallback
   const [useFallback, setUseFallback] = React.useState(false);
 
+  // Buscar configurações do sistema
+  const { data: systemSettings } = useQuery({
+    queryKey: ['systemSettings'],
+    queryFn: async () => {
+      const response = await fetch('/api/system-settings');
+      if (!response.ok) {
+        throw new Error('Erro ao buscar configurações do sistema');
+      }
+      return response.json();
+    },
+  });
+
   // Obter planos de assinatura
   const { data: plans } = useQuery({
     queryKey: ["/api/subscription/plans"],
@@ -352,7 +364,7 @@ export default function SubscriptionHistoryPage() {
               <Gift className="h-12 w-12 text-primary mb-4" />
               <h3 className="text-xl font-semibold mb-2">Período de Teste Gratuito</h3>
               <p className="text-muted-foreground max-w-md">
-                Você está utilizando o período de teste de 3 dias. Após esse período, 
+                Você está utilizando o período de teste de {systemSettings?.trialPeriodDays || 3} dias. Após esse período, 
                 será necessário escolher um plano para continuar usando o sistema.
               </p>
             </div>

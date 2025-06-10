@@ -117,7 +117,13 @@ const SettingsPage: React.FC = () => {
   // Função para confirmar mudança para conta empresa
   const confirmCompanyAccountChange = () => {
     if (pendingAccountType) {
+      // Atualizar o formulário
       form.setValue('accountType', pendingAccountType);
+      
+      // Salvar automaticamente no banco de dados
+      updateAccountType.mutate(pendingAccountType);
+      
+      // Fechar o dialog
       setShowCompanyConfirmDialog(false);
       setPendingAccountType(null);
     }
@@ -243,6 +249,91 @@ const SettingsPage: React.FC = () => {
         variant: "destructive",
       });
       setIsSubmitting(false);
+    },
+  });
+
+  // Mutation específica para horários de trabalho (salvamento automático)
+  const updateWorkingHours = useMutation({
+    mutationFn: async (data: { workingHoursStart?: number; workingHoursEnd?: number }) => {
+      if (!provider || !provider.id) {
+        throw new Error("Dados do provedor não disponíveis");
+      }
+      
+      console.log(`Atualizando horários de trabalho para provider ID ${provider.id}:`, data);
+      return apiRequest("PATCH", `/api/providers/${provider.id}/settings`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Horário atualizado",
+        description: "Horário de trabalho salvo automaticamente.",
+      });
+      // Invalidar queries para atualizar os dados
+      queryClient.invalidateQueries({ queryKey: ["/api/my-provider"] });
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar horários:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o horário de trabalho.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation específica para dias de trabalho (salvamento automático)
+  const updateWorkingDays = useMutation({
+    mutationFn: async (workingDays: string) => {
+      if (!provider || !provider.id) {
+        throw new Error("Dados do provedor não disponíveis");
+      }
+      
+      console.log(`Atualizando dias de trabalho para provider ID ${provider.id}:`, workingDays);
+      return apiRequest("PATCH", `/api/providers/${provider.id}/settings`, { workingDays });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Dias atualizados",
+        description: "Dias de trabalho salvos automaticamente.",
+      });
+      // Invalidar queries para atualizar os dados
+      queryClient.invalidateQueries({ queryKey: ["/api/my-provider"] });
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar dias:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar os dias de trabalho.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation específica para tipo de conta (salvamento automático)
+  const updateAccountType = useMutation({
+    mutationFn: async (accountType: 'individual' | 'company') => {
+      if (!user) {
+        throw new Error("Dados do usuário não disponíveis");
+      }
+      
+      console.log(`Atualizando tipo de conta para: ${accountType}`);
+      return apiRequest("PATCH", `/api/user/account-type`, { accountType });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Tipo de conta atualizado",
+        description: "Sua conta foi alterada para empresa com sucesso.",
+      });
+      // Invalidar queries para atualizar os dados
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-provider"] });
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar tipo de conta:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o tipo de conta.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -372,15 +463,24 @@ const SettingsPage: React.FC = () => {
                     <FormItem>
                       <FormLabel>Horário de início</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        onValueChange={(value) => {
+                          const newValue = parseInt(value);
+                          field.onChange(newValue);
+                          // Salvar automaticamente
+                          updateWorkingHours.mutate({ workingHoursStart: newValue });
+                        }}
                         defaultValue={field.value.toString()}
                         value={field.value.toString()}
+                        disabled={updateWorkingHours.isPending}
                       >
                         <FormControl>
                           <SelectTrigger>
                             <div className="flex items-center">
                               <Clock className="h-4 w-4 mr-2 text-gray-400" />
                               <SelectValue placeholder="Selecione o horário" />
+                              {updateWorkingHours.isPending && (
+                                <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              )}
                             </div>
                           </SelectTrigger>
                         </FormControl>
@@ -393,7 +493,7 @@ const SettingsPage: React.FC = () => {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Horário que você começa a atender
+                        Horário que você começa a atender (salvo automaticamente)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -407,15 +507,24 @@ const SettingsPage: React.FC = () => {
                     <FormItem>
                       <FormLabel>Horário de término</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        onValueChange={(value) => {
+                          const newValue = parseInt(value);
+                          field.onChange(newValue);
+                          // Salvar automaticamente
+                          updateWorkingHours.mutate({ workingHoursEnd: newValue });
+                        }}
                         defaultValue={field.value.toString()}
                         value={field.value.toString()}
+                        disabled={updateWorkingHours.isPending}
                       >
                         <FormControl>
                           <SelectTrigger>
                             <div className="flex items-center">
                               <Clock className="h-4 w-4 mr-2 text-gray-400" />
                               <SelectValue placeholder="Selecione o horário" />
+                              {updateWorkingHours.isPending && (
+                                <div className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              )}
                             </div>
                           </SelectTrigger>
                         </FormControl>
@@ -428,7 +537,7 @@ const SettingsPage: React.FC = () => {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Horário que você termina de atender
+                        Horário que você termina de atender (salvo automaticamente)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -450,8 +559,13 @@ const SettingsPage: React.FC = () => {
                         ? [...selectedDays, day].sort((a, b) => a - b)
                         : selectedDays.filter(d => d !== day);
                       
+                      const newWorkingDays = newSelectedDays.join(',');
+                      
                       // Atualiza o valor do campo com a nova string de dias
-                      field.onChange(newSelectedDays.join(','));
+                      field.onChange(newWorkingDays);
+                      
+                      // Salvar automaticamente
+                      updateWorkingDays.mutate(newWorkingDays);
                     };
                     
                     return (
@@ -459,7 +573,7 @@ const SettingsPage: React.FC = () => {
                         <div className="mb-4">
                           <FormLabel className="text-base">Dias de trabalho</FormLabel>
                           <FormDescription>
-                            Selecione os dias da semana em que você trabalha
+                            Selecione os dias da semana em que você trabalha (salvos automaticamente)
                           </FormDescription>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
@@ -480,11 +594,17 @@ const SettingsPage: React.FC = () => {
                                 <Checkbox
                                   checked={selectedDays.includes(day.value)}
                                   onCheckedChange={(checked) => updateSelectedDays(day.value, checked as boolean)}
+                                  disabled={updateWorkingDays.isPending}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal cursor-pointer">
-                                {day.label}
-                              </FormLabel>
+                              <div className="flex items-center gap-2">
+                                <FormLabel className="font-normal cursor-pointer">
+                                  {day.label}
+                                </FormLabel>
+                                {updateWorkingDays.isPending && (
+                                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                )}
+                              </div>
                             </FormItem>
                           ))}
                         </div>
@@ -927,6 +1047,29 @@ const SettingsPage: React.FC = () => {
               <p>
                 Após a mudança, você não poderá mais voltar para conta individual e terá acesso às funcionalidades de gestão de equipe.
               </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-blue-800 text-sm font-medium">
+                  💼 <strong>Importante:</strong> Contas empresariais possuem planos específicos com preços diferenciados para atender às necessidades de gestão de equipe.
+                </p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const phoneNumber = "5511984704925";
+                      const message = "Olá. Gostaria de saber mais sobre os planos empresariais do Meu Agendamento PRO.";
+                      const encodedMessage = encodeURIComponent(message);
+                      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
+                      window.open(whatsappUrl, "_blank");
+                    }}
+                    className="inline-flex items-center gap-2 text-blue-700 hover:text-blue-900 font-medium text-sm underline"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    Entre em contato via WhatsApp
+                  </button>
+                </div>
+              </div>
               <p>
                 Tem certeza que deseja continuar?
               </p>
@@ -937,13 +1080,22 @@ const SettingsPage: React.FC = () => {
             <Button 
               onClick={confirmCompanyAccountChange}
               className="flex-1"
+              disabled={updateAccountType.isPending}
             >
-              Sim, alterar para Empresa
+              {updateAccountType.isPending ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Salvando...
+                </div>
+              ) : (
+                "Sim, alterar para Empresa"
+              )}
             </Button>
             <Button 
               variant="outline" 
               onClick={cancelCompanyAccountChange}
               className="flex-1"
+              disabled={updateAccountType.isPending}
             >
               Cancelar
             </Button>

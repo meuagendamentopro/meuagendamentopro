@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useQuery } from "@tanstack/react-query";
 
 interface TermsOfServiceDialogProps {
   open: boolean;
@@ -19,6 +20,18 @@ const TermsOfServiceDialog: React.FC<TermsOfServiceDialogProps> = ({
   open,
   onOpenChange,
 }) => {
+  // Buscar configurações do sistema
+  const { data: systemSettings } = useQuery({
+    queryKey: ['systemSettings'],
+    queryFn: async () => {
+      const response = await fetch('/api/system-settings');
+      if (!response.ok) {
+        throw new Error('Erro ao buscar configurações do sistema');
+      }
+      return response.json();
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
@@ -62,7 +75,7 @@ const TermsOfServiceDialog: React.FC<TermsOfServiceDialogProps> = ({
             <section>
               <h3 className="font-semibold text-base">4. Período de Teste Gratuito</h3>
               <p className="mt-2">
-                Oferecemos um período de teste gratuito de 3 dias para novos usuários. Após este período, você precisará assinar um de nossos planos para continuar utilizando o Serviço. Você não será cobrado automaticamente após o período de teste; será necessário escolher um plano e fornecer informações de pagamento.
+                Oferecemos um período de teste gratuito de {systemSettings?.trialPeriodDays || 3} dias para novos usuários. Após este período, você precisará assinar um de nossos planos para continuar utilizando o Serviço. Você não será cobrado automaticamente após o período de teste; será necessário escolher um plano e fornecer informações de pagamento.
               </p>
             </section>
 
