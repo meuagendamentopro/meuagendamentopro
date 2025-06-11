@@ -134,7 +134,7 @@ const ClinicalNotesModal: React.FC<ClinicalNotesModalProps> = ({
                 <span className="font-semibold">Data:</span> {formatDate(new Date(appointment.date))}
               </div>
               <div className="text-sm text-muted-foreground">
-                <span className="font-semibold">Horário:</span> {formatTime(new Date(appointment.date))}
+                <span className="font-semibold">Horário:</span> {new Date(appointment.date).getUTCHours().toString().padStart(2, '0')}:{new Date(appointment.date).getUTCMinutes().toString().padStart(2, '0')}
               </div>
             </div>
 

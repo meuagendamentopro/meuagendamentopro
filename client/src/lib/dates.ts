@@ -7,13 +7,10 @@ export function formatDate(date: Date): string {
 }
 
 export function formatTime(date: Date): string {
-  // Usar o fuso horário de São Paulo/Brasília diretamente
-  return date.toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'America/Sao_Paulo'
-  });
+  // Usar UTC para manter consistência com o sistema de agendamentos
+  const hours = date.getUTCHours().toString().padStart(2, '0');
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 export function formatDateLong(date: Date): string {

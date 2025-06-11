@@ -147,7 +147,7 @@ const ClientNotesReportModal: React.FC<ClientNotesReportModalProps> = ({
                     {dateNotes[0].appointmentEndTime && (
                       <div className="flex items-center mt-1 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4 mr-2" />
-                        Horário: {formatTime(new Date(dateNotes[0].appointmentDate || ''))} - {formatTime(new Date(dateNotes[0].appointmentEndTime))}
+                        Horário: {new Date(dateNotes[0].appointmentDate || '').getUTCHours().toString().padStart(2, '0')}:{new Date(dateNotes[0].appointmentDate || '').getUTCMinutes().toString().padStart(2, '0')} - {new Date(dateNotes[0].appointmentEndTime).getUTCHours().toString().padStart(2, '0')}:{new Date(dateNotes[0].appointmentEndTime).getUTCMinutes().toString().padStart(2, '0')}
                       </div>
                     )}
                   </div>
