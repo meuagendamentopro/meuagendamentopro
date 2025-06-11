@@ -138,6 +138,14 @@ function createSingletonWebSocket(userId?: number) {
     
     console.log(`Estabelecendo nova conexão WebSocket: ${wsUrl}`);
     
+    // Detectar se estamos no Railway
+    const isRailway = window.location.hostname.includes('railway.app') || 
+                     window.location.hostname.includes('up.railway.app');
+    
+    if (isRailway) {
+      console.log('🚂 Detectado ambiente Railway - configurando cliente WebSocket para produção');
+    }
+    
     // Fecha conexão existente se houver
     if (window.__WS_INSTANCE) {
       try {
@@ -177,6 +185,28 @@ function createSingletonWebSocket(userId?: number) {
         } catch (err) {
           console.error('Erro ao enviar identificação do usuário:', err);
         }
+      }
+      
+      // Configurar ping mais frequente para Railway
+      if (isRailway) {
+        pingInterval = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            try {
+              socket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+            } catch (error) {
+              console.error('Erro ao enviar ping para Railway:', error);
+              if (pingInterval) {
+                clearInterval(pingInterval);
+                pingInterval = null;
+              }
+            }
+          } else {
+            if (pingInterval) {
+              clearInterval(pingInterval);
+              pingInterval = null;
+            }
+          }
+        }, 20000); // Ping a cada 20 segundos para Railway
       }
     };
     

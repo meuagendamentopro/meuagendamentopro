@@ -779,75 +779,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
     process.exit();
   });
   
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('Nova conexão WebSocket estabelecida');
+  // Configuração específica para Railway
+  const isRailway = process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PROJECT_ID;
+  
+  if (isRailway) {
+    console.log('🚂 Detectado ambiente Railway - configurando WebSocket para produção');
     
-    // Inicializar como conexão ativa
-    connectedClients.set(ws, { isAlive: true });
-    
-    // Configurar o heartbeat
-    ws.on('pong', heartbeat);
-    
-    ws.on('message', (message: string) => {
-      try {
-        const data = JSON.parse(message.toString());
-        
-        // Se for um ping do cliente (implementação customizada), responder
-        if (data.type === 'ping') {
+    // Configurações específicas para Railway
+    wss.on('connection', (ws: WebSocket, req) => {
+      console.log('Nova conexão WebSocket estabelecida no Railway');
+      
+      // Headers específicos para Railway
+      const forwardedFor = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      console.log(`Conexão WebSocket de: ${forwardedFor}`);
+      
+      // Configurar heartbeat mais agressivo para Railway
+      const heartbeatInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
           try {
-            ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
-            return;
-          } catch (e) {
-            console.error('Erro ao responder ping do cliente:', e);
+            ws.ping();
+          } catch (error) {
+            console.error('Erro ao enviar ping:', error);
+            clearInterval(heartbeatInterval);
           }
+        } else {
+          clearInterval(heartbeatInterval);
         }
-        
-        // Se a mensagem contém uma identificação de usuário, associamos à conexão
-        if (data.type === 'identify' && data.userId) {
-          console.log(`Cliente WebSocket identificado: usuário ${data.userId}`);
-          const existingClient = connectedClients.get(ws) || {};
-          connectedClients.set(ws, { ...existingClient, userId: data.userId, isAlive: true });
+      }, 25000); // Ping a cada 25 segundos para Railway
+      
+      // Inicializar como conexão ativa
+      connectedClients.set(ws, { isAlive: true });
+      
+      // Configurar o heartbeat
+      ws.on('pong', heartbeat);
+      
+      ws.on('message', (message: string) => {
+        try {
+          const data = JSON.parse(message.toString());
           
-          // Armazenar a conexão WebSocket por usuário para notificações de sessão
-          if (!userWebSockets.has(data.userId)) {
-            userWebSockets.set(data.userId, new Set());
+          // Se for um ping do cliente (implementação customizada), responder
+          if (data.type === 'ping') {
+            try {
+              ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+              return;
+            } catch (e) {
+              console.error('Erro ao responder ping do cliente:', e);
+            }
           }
-          userWebSockets.get(data.userId)?.add(ws);
+          
+          // Se a mensagem contém uma identificação de usuário, associamos à conexão
+          if (data.type === 'identify' && data.userId) {
+            console.log(`Cliente WebSocket identificado: usuário ${data.userId}`);
+            const existingClient = connectedClients.get(ws) || {};
+            connectedClients.set(ws, { ...existingClient, userId: data.userId, isAlive: true });
+            
+            // Armazenar a conexão WebSocket por usuário para notificações de sessão
+            if (!userWebSockets.has(data.userId)) {
+              userWebSockets.set(data.userId, new Set());
+            }
+            userWebSockets.get(data.userId)?.add(ws);
+          }
+        } catch (error) {
+          console.error('Erro ao processar mensagem WebSocket:', error);
         }
-      } catch (error) {
-        console.error('Erro ao processar mensagem WebSocket:', error);
-      }
-    });
-    
-    ws.on('error', (error) => {
-      console.error('Erro na conexão WebSocket:', error);
-      // Remover cliente em caso de erro
-      connectedClients.delete(ws);
-      try {
-        ws.terminate();
-      } catch (e) {
-        console.error('Erro ao terminar conexão com erro:', e);
-      }
-    });
-    
-    ws.on('close', (code, reason) => {
-      // Remover cliente da lista quando a conexão é fechada
-      const client = connectedClients.get(ws);
-      if (client && client.userId) {
-        // Remover a conexão do mapa de conexões por usuário
-        const userSockets = userWebSockets.get(client.userId);
-        if (userSockets) {
-          userSockets.delete(ws);
-          // Se não houver mais conexões para este usuário, remover o conjunto
-          if (userSockets.size === 0) {
-            userWebSockets.delete(client.userId);
+      });
+      
+      ws.on('error', (error) => {
+        console.error('Erro na conexão WebSocket:', error);
+        clearInterval(heartbeatInterval);
+        // Remover cliente em caso de erro
+        connectedClients.delete(ws);
+        try {
+          ws.terminate();
+        } catch (e) {
+          console.error('Erro ao terminar conexão com erro:', e);
+        }
+      });
+      
+      ws.on('close', (code, reason) => {
+        clearInterval(heartbeatInterval);
+        // Remover cliente da lista quando a conexão é fechada
+        const client = connectedClients.get(ws);
+        if (client && client.userId) {
+          // Remover a conexão do mapa de conexões por usuário
+          const userSockets = userWebSockets.get(client.userId);
+          if (userSockets) {
+            userSockets.delete(ws);
+            // Se não houver mais conexões para este usuário, remover o conjunto
+            if (userSockets.size === 0) {
+              userWebSockets.delete(client.userId);
+            }
           }
         }
-      }
-      connectedClients.delete(ws);
-      console.log(`Conexão WebSocket fechada: código ${code}, razão: ${reason || 'N/A'}`);
+        connectedClients.delete(ws);
+        console.log(`Conexão WebSocket fechada: código ${code}, razão: ${reason || 'N/A'}`);
+      });
     });
-  });
+  } else {
+    // Configuração padrão para desenvolvimento local
+    wss.on('connection', (ws: WebSocket) => {
+      console.log('Nova conexão WebSocket estabelecida');
+      
+      // Inicializar como conexão ativa
+      connectedClients.set(ws, { isAlive: true });
+      
+      // Configurar o heartbeat
+      ws.on('pong', heartbeat);
+      
+      ws.on('message', (message: string) => {
+        try {
+          const data = JSON.parse(message.toString());
+          
+          // Se for um ping do cliente (implementação customizada), responder
+          if (data.type === 'ping') {
+            try {
+              ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+              return;
+            } catch (e) {
+              console.error('Erro ao responder ping do cliente:', e);
+            }
+          }
+          
+          // Se a mensagem contém uma identificação de usuário, associamos à conexão
+          if (data.type === 'identify' && data.userId) {
+            console.log(`Cliente WebSocket identificado: usuário ${data.userId}`);
+            const existingClient = connectedClients.get(ws) || {};
+            connectedClients.set(ws, { ...existingClient, userId: data.userId, isAlive: true });
+            
+            // Armazenar a conexão WebSocket por usuário para notificações de sessão
+            if (!userWebSockets.has(data.userId)) {
+              userWebSockets.set(data.userId, new Set());
+            }
+            userWebSockets.get(data.userId)?.add(ws);
+          }
+        } catch (error) {
+          console.error('Erro ao processar mensagem WebSocket:', error);
+        }
+      });
+      
+      ws.on('error', (error) => {
+        console.error('Erro na conexão WebSocket:', error);
+        // Remover cliente em caso de erro
+        connectedClients.delete(ws);
+        try {
+          ws.terminate();
+        } catch (e) {
+          console.error('Erro ao terminar conexão com erro:', e);
+        }
+      });
+      
+      ws.on('close', (code, reason) => {
+        // Remover cliente da lista quando a conexão é fechada
+        const client = connectedClients.get(ws);
+        if (client && client.userId) {
+          // Remover a conexão do mapa de conexões por usuário
+          const userSockets = userWebSockets.get(client.userId);
+          if (userSockets) {
+            userSockets.delete(ws);
+            // Se não houver mais conexões para este usuário, remover o conjunto
+            if (userSockets.size === 0) {
+              userWebSockets.delete(client.userId);
+            }
+          }
+        }
+        connectedClients.delete(ws);
+        console.log(`Conexão WebSocket fechada: código ${code}, razão: ${reason || 'N/A'}`);
+      });
+    });
+  }
   
   // Função auxiliar para enviar atualizações em tempo real
   async function broadcastUpdate(type: string, data: any) {
@@ -855,10 +954,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let sentCount = 0;
     let errorCount = 0;
     
-    console.log(`Broadcastando atualização de tipo ${type} para ${connectedClients.size} clientes:`, 
-      type === 'notification_created' ? 
-        { notificationId: data.notification?.id, userId: data.userId } : 
-        { data: typeof data === 'object' ? 'objeto' : data });
+    // Log mais detalhado para Railway
+    if (isRailway) {
+      console.log(`🚂 [RAILWAY] Broadcastando atualização de tipo ${type} para ${connectedClients.size} clientes conectados`);
+      if (type === 'notification_created') {
+        console.log(`🚂 [RAILWAY] Notificação ID: ${data.notification?.id}, Usuário: ${data.userId}`);
+      } else if (type === 'appointment_created') {
+        console.log(`🚂 [RAILWAY] Agendamento criado ID: ${data.id}, Provider: ${data.providerId}`);
+      }
+    } else {
+      console.log(`Broadcastando atualização de tipo ${type} para ${connectedClients.size} clientes:`, 
+        type === 'notification_created' ? 
+          { notificationId: data.notification?.id, userId: data.userId } : 
+          { data: typeof data === 'object' ? 'objeto' : data });
+    }
     
     // Buscar informações adicionais para direcionar corretamente as notificações
     let targetUserIds: number[] = [];
@@ -947,7 +1056,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    console.log(`Broadcast realizado: ${type} - Enviado para ${sentCount} clientes, ${errorCount} erros`);
+    if (isRailway) {
+      console.log(`🚂 [RAILWAY] Broadcast realizado: ${type} - Enviado para ${sentCount} clientes, ${errorCount} erros`);
+      if (sentCount === 0 && connectedClients.size > 0) {
+        console.log(`🚂 [RAILWAY] ⚠️ ATENÇÃO: Nenhuma mensagem enviada apesar de ter ${connectedClients.size} clientes conectados!`);
+        console.log(`🚂 [RAILWAY] Destinatários esperados:`, targetUserIds);
+        console.log(`🚂 [RAILWAY] Clientes conectados:`, Array.from(connectedClients.values()).map(c => ({ userId: c.userId, isAlive: c.isAlive })));
+      }
+    } else {
+      console.log(`Broadcast realizado: ${type} - Enviado para ${sentCount} clientes, ${errorCount} erros`);
+    }
   }
   
   // Tornar a função broadcastUpdate disponível para outras partes do código
