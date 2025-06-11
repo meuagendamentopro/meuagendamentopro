@@ -1,7 +1,8 @@
 {
-  "max_searches": 5,
+  "max_searches": 200,
   "counts": {
     "2025-06-05": 3
   },
-  "logged_in": false
+  "logged_in": true,
+  "expiration_date": "2025-06-10"
 }

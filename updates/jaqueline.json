@@ -1,8 +1,11 @@
 {
-  "max_searches": 100,
+  "max_searches": 200,
   "counts": {
     "2025-06-05": 15,
-    "2025-06-06": 20
+    "2025-06-06": 20,
+    "2025-06-09": 96,
+    "2025-06-10": 145
   },
-  "logged_in": false
+  "logged_in": false,
+  "expiration_date": "2025-07-06"
 }
