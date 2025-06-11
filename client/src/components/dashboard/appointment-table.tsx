@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Table, 
   TableBody, 
@@ -239,6 +239,31 @@ const AppointmentTable: React.FC<AppointmentTableProps> = ({
 
   // Check if account is company type
   const isCompanyAccount = currentUser?.accountType === 'company';
+
+  // Listener para atualizações automáticas via WebSocket
+  useEffect(() => {
+    const handleAppointmentCreated = (event: CustomEvent) => {
+      console.log('📅 AppointmentTable: Novo agendamento detectado via WebSocket', event.detail);
+      // Refetch imediato dos dados
+      refetch();
+    };
+
+    const handleUpcomingAppointmentsUpdate = (event: CustomEvent) => {
+      console.log('🔄 AppointmentTable: Atualizando próximos agendamentos', event.detail);
+      // Refetch imediato dos dados
+      refetch();
+    };
+
+    // Registrar listeners
+    window.addEventListener('appointment-created', handleAppointmentCreated as EventListener);
+    window.addEventListener('upcoming-appointments-update', handleUpcomingAppointmentsUpdate as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('appointment-created', handleAppointmentCreated as EventListener);
+      window.removeEventListener('upcoming-appointments-update', handleUpcomingAppointmentsUpdate as EventListener);
+    };
+  }, [refetch]);
 
   // Filter appointments
   const filteredAppointments = React.useMemo(() => {

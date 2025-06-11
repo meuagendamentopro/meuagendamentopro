@@ -408,6 +408,31 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
     };
   }, [queryClient, refetchAppointments, selectedDate]);
 
+  // Listener adicional para eventos customizados do WebSocket
+  useEffect(() => {
+    const handleScheduleUpdate = (event: CustomEvent) => {
+      console.log('📅 DaySchedule: Atualização de agenda detectada via evento customizado', event.detail);
+      // Refetch imediato dos agendamentos
+      refetchAppointments();
+    };
+
+    const handleAppointmentCreated = (event: CustomEvent) => {
+      console.log('📅 DaySchedule: Novo agendamento detectado via evento customizado', event.detail);
+      // Refetch imediato dos agendamentos
+      refetchAppointments();
+    };
+
+    // Registrar listeners
+    window.addEventListener('schedule-update', handleScheduleUpdate as EventListener);
+    window.addEventListener('appointment-created', handleAppointmentCreated as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('schedule-update', handleScheduleUpdate as EventListener);
+      window.removeEventListener('appointment-created', handleAppointmentCreated as EventListener);
+    };
+  }, [refetchAppointments]);
+
   const { data: services, isLoading: servicesLoading } = useQuery({
     queryKey: ['/api/my-services'],
     queryFn: async () => {

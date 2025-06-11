@@ -296,27 +296,78 @@ function createSingletonWebSocket(userId?: number) {
           window.dispatchEvent(event);
         }
         else if (data.type === 'appointment_updated' || data.type === 'appointment_created') {
-          console.log(`Atualizando dados após ${data.type}`);
+          console.log(`🔄 Atualizando dados após ${data.type}`, data.data);
           
-          // Refetch para atualizar a lista de agendamentos
-          queryClient.refetchQueries({
-            queryKey: ['/api/providers', data.data.providerId, 'appointments'],
-            ...queryOptions
+          // Detectar se estamos no Railway para logs específicos
+          const isRailway = window.location.hostname.includes('railway.app') || 
+                           window.location.hostname.includes('up.railway.app');
+          
+          if (isRailway) {
+            console.log(`🚂 [RAILWAY CLIENT] Processando ${data.type} - ID: ${data.data.id}, Provider: ${data.data.providerId}`);
+          }
+          
+          // Invalidar todas as queries relacionadas a agendamentos IMEDIATAMENTE
+          queryClient.invalidateQueries({
+            queryKey: ['/api/my-appointments']
           });
           
-          // Refetch para my-appointments (dashboard do profissional)
+          queryClient.invalidateQueries({
+            queryKey: ['/api/providers', data.data.providerId, 'appointments']
+          });
+          
+          queryClient.invalidateQueries({
+            queryKey: ['/api/appointments']
+          });
+          
+          // Forçar refetch imediato das queries principais
           queryClient.refetchQueries({
             queryKey: ['/api/my-appointments'],
-            ...queryOptions
+            type: 'active'
           });
           
-          // Refetch para a consulta específica do agendamento
-          queryClient.refetchQueries({
-            queryKey: ['/api/appointments', data.data.id],
-            ...queryOptions
-          });
+          // Atualizar notificações se for um novo agendamento
+          if (data.type === 'appointment_created' && userId) {
+            queryClient.invalidateQueries({
+              queryKey: ['/api/notifications']
+            });
+            queryClient.invalidateQueries({
+              queryKey: ['/api/notifications/unread']
+            });
+            
+            // Refetch imediato das notificações
+            queryClient.refetchQueries({
+              queryKey: ['/api/notifications/unread'],
+              type: 'active'
+            });
+          }
           
-          // Aciona todos os handlers de websocket registrados (DaySchedule, etc.)
+          // Disparar eventos customizados para componentes específicos
+          if (data.type === 'appointment_created') {
+            // Mostrar notificação toast para novo agendamento
+            if (window.__TOAST_TRIGGER) {
+              window.__TOAST_TRIGGER({
+                title: '🎉 Novo agendamento recebido!',
+                description: 'Sua agenda foi atualizada automaticamente.',
+              });
+            }
+            
+            // Evento para atualizar dashboard
+            window.dispatchEvent(new CustomEvent('appointment-created', { 
+              detail: data.data 
+            }));
+            
+            // Evento para atualizar grade de horários
+            window.dispatchEvent(new CustomEvent('schedule-update', { 
+              detail: { type: 'created', appointment: data.data }
+            }));
+            
+            // Evento para atualizar próximos agendamentos
+            window.dispatchEvent(new CustomEvent('upcoming-appointments-update', { 
+              detail: data.data 
+            }));
+          }
+          
+          // Acionar handlers de WebSocket registrados
           if (window.__WEBSOCKET_HANDLERS) {
             Object.keys(window.__WEBSOCKET_HANDLERS).forEach(key => {
               try {
@@ -332,55 +383,11 @@ function createSingletonWebSocket(userId?: number) {
             });
           }
           
-          // Refetch para as notificações do usuário
-          if (userId) {
-            // Atualiza as notificações não lidas e todas as notificações
-            queryClient.refetchQueries({
-              queryKey: ['/api/notifications'],
-              ...queryOptions
-            });
-            queryClient.refetchQueries({
-              queryKey: ['/api/notifications/unread'],
-              ...queryOptions
-            });
+          if (isRailway) {
+            console.log(`🚂 [RAILWAY CLIENT] Atualizações de interface disparadas para ${data.type}`);
           }
         }
-        
-        // Código de notificação já tratado acima
-          
-        // Força uma atualização da página do dashboard quando um novo agendamento é criado
-        if (data.type === 'appointment_created') {
-          // Verifica se estamos na página de dashboard
-          const currentPath = window.location.pathname;
-          if (currentPath === '/' || currentPath.includes('/dashboard')) {
-            console.log('Detectado novo agendamento, atualizando a página do dashboard...');
-            
-            // Mostra uma notificação toast antes de atualizar
-            try {
-              // Se o toast já estiver disponível no escopo global, usamos ele
-              if (window.__TOAST_TRIGGER) {
-                window.__TOAST_TRIGGER({
-                  title: 'Novo agendamento recebido!',
-                  description: 'Atualizando dados da agenda...',
-                });
-              }
-            } catch (e) {
-              console.error('Erro ao mostrar toast:', e);
-            }
-            
-            // Aguarda 1 segundo para que o toast seja exibido antes de atualizar
-            setTimeout(() => {
-              // Recarrega apenas os dados da agenda ao invés da página toda
-              // Isso mantém o estado atual da interface mas atualiza os dados
-              queryClient.refetchQueries({ queryKey: ['/api/my-appointments'] });
-              
-              // Atualiza a interface para refletir as mudanças
-              window.dispatchEvent(new CustomEvent('appointment-created', { 
-                detail: data.data 
-              }));
-            }, 1000);
-          }
-        }
+
         
         // Notifica todos os handlers de mensagem
         window.__WS_MESSAGE_HANDLERS?.forEach(handler => {
