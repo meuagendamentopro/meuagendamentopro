@@ -593,7 +593,15 @@ const AppointmentsPage: React.FC = () => {
       </Dialog>
 
       {/* Reschedule Appointment Dialog */}
-      <Dialog open={isRescheduleDialogOpen} onOpenChange={setIsRescheduleDialogOpen}>
+      <Dialog open={isRescheduleDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          // Quando o modal for fechado, limpar o estado
+          setIsRescheduleDialogOpen(false);
+          setSelectedAppointment(null);
+        } else {
+          setIsRescheduleDialogOpen(open);
+        }
+      }}>
         <DialogContent className="w-full max-w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Reagendar Agendamento</DialogTitle>
@@ -602,7 +610,10 @@ const AppointmentsPage: React.FC = () => {
             <RescheduleAppointmentForm 
               appointment={selectedAppointment}
               onComplete={handleDialogClose}
-              onCancel={() => setIsRescheduleDialogOpen(false)}
+              onCancel={() => {
+                setIsRescheduleDialogOpen(false);
+                setSelectedAppointment(null);
+              }}
             />
           )}
         </DialogContent>

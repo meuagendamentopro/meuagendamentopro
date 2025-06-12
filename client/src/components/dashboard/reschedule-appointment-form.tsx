@@ -53,6 +53,25 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Função para limpar cache e resetar estado quando o modal for fechado
+  const handleCancel = () => {
+    console.log('🧹 Limpando cache e resetando estado...');
+    
+    // Limpar queries relacionadas aos agendamentos existentes
+    queryClient.removeQueries({ 
+      queryKey: ["/api/my-appointments"], 
+      exact: false 
+    });
+    
+    // Resetar estados locais
+    setOccupiedTimes([]);
+    setAvailableTimes([]);
+    setLunchTimeNotification("");
+    
+    // Chamar função de cancelamento original
+    onCancel();
+  };
+
   // Buscar funcionários
   const { data: employees } = useQuery({
     queryKey: ["/api/employees"],
@@ -86,7 +105,7 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
 
   // Buscar agendamentos existentes para a data e funcionário selecionados
   const { data: existingAppointments } = useQuery({
-    queryKey: ["/api/my-appointments", selectedDate, selectedEmployeeId],
+    queryKey: ["/api/my-appointments", selectedDate, selectedEmployeeId, appointment.id],
     queryFn: async () => {
       if (!selectedDate || !selectedEmployeeId) return [];
       
@@ -132,6 +151,15 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       setOccupiedTimes([]);
     }
   }, [existingAppointments]);
+
+  // Limpar cache quando funcionário ou data mudarem
+  useEffect(() => {
+    console.log('🔄 Funcionário ou data mudaram, limpando cache...');
+    queryClient.removeQueries({ 
+      queryKey: ["/api/my-appointments"], 
+      exact: false 
+    });
+  }, [selectedEmployeeId, selectedDate, queryClient]);
 
   // Gerar datas disponíveis (próximos 30 dias)
   const generateAvailableDates = () => {
@@ -204,8 +232,8 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
     }
 
     // Converter horários para minutos para comparação
-    const [selectedHour, selectedMinute] = selectedTime.split(':').map(Number);
-    const selectedTimeInMinutes = selectedHour * 60 + selectedMinute;
+    const [timeHour, timeMinute] = selectedTime.split(':').map(Number);
+    const timeInMinutes = timeHour * 60 + timeMinute;
 
     const [lunchStartHour, lunchStartMinute] = selectedEmployee.lunchBreakStart.split(':').map(Number);
     const [lunchEndHour, lunchEndMinute] = selectedEmployee.lunchBreakEnd.split(':').map(Number);
@@ -213,11 +241,9 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
     const lunchStartInMinutes = lunchStartHour * 60 + lunchStartMinute;
     const lunchEndInMinutes = lunchEndHour * 60 + lunchEndMinute;
 
-    // Verificar se o horário selecionado está dentro do intervalo de almoço
-    if (selectedTimeInMinutes >= lunchStartInMinutes && selectedTimeInMinutes < lunchEndInMinutes) {
-      setLunchTimeNotification(
-        `⚠️ Este horário (${selectedTime}) está dentro do intervalo de almoço do funcionário ${selectedEmployee.name} (${selectedEmployee.lunchBreakStart} - ${selectedEmployee.lunchBreakEnd})`
-      );
+    // Verificar se o horário está dentro do intervalo de almoço
+    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      setLunchTimeNotification(`⚠️ Este horário está no intervalo de almoço do funcionário (${selectedEmployee.lunchBreakStart} - ${selectedEmployee.lunchBreakEnd}). O agendamento ainda pode ser feito, mas verifique a disponibilidade.`);
     } else {
       setLunchTimeNotification("");
     }
@@ -228,7 +254,8 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       selectedDate,
       selectedTime,
       selectedEmployeeId,
-      isTimeValid: selectedTime !== "no-times-available"
+      isTimeValid: selectedTime !== "no-times-available",
+      isTimeOccupied: occupiedTimes.includes(selectedTime)
     });
 
     if (!selectedDate || !selectedTime || selectedTime === "no-times-available" || !selectedEmployeeId) {
@@ -236,6 +263,17 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, selecione a data, horário e funcionário",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se o horário selecionado está ocupado
+    if (occupiedTimes.includes(selectedTime)) {
+      console.log('❌ Validação falhou - horário ocupado');
+      toast({
+        title: "Horário ocupado",
+        description: "O horário selecionado já está ocupado. Por favor, escolha outro horário.",
         variant: "destructive",
       });
       return;
@@ -300,6 +338,9 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  // Verificar se o horário selecionado está ocupado
+  const isSelectedTimeOccupied = !!(selectedTime && occupiedTimes.includes(selectedTime));
 
   const currentDateTime = new Date(appointment.date);
   const currentEmployee = employees?.find((emp: Employee) => emp.id === appointment.employeeId);
@@ -478,11 +519,18 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
             {lunchTimeNotification}
           </div>
         )}
+
+        {/* Aviso quando horário ocupado está selecionado */}
+        {isSelectedTimeOccupied && (
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+            ⚠️ O horário selecionado está ocupado. Por favor, escolha outro horário para continuar.
+          </div>
+        )}
       </div>
 
       {/* Botões */}
       <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
+        <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
           Cancelar
         </Button>
         <Button 
@@ -490,7 +538,7 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
             console.log('🔘 Botão de reagendamento clicado');
             handleSubmit();
           }} 
-          disabled={isSubmitting}
+          disabled={isSubmitting || isSelectedTimeOccupied}
         >
           {isSubmitting ? "Reagendando..." : "Confirmar reagendamento"}
         </Button>
