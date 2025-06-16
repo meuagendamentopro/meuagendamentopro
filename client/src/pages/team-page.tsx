@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Employee, InsertEmployee, Service } from "@shared/schema";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import PageHeader from "@/components/layout/page-header";
 
 // Schema para validação do formulário de funcionários
 const employeeFormSchema = z.object({
@@ -571,176 +572,177 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Gerenciar Equipe</h1>
-          <p className="text-muted-foreground">
-            Gerencie os funcionários da sua empresa
-          </p>
-        </div>
-
-        <div className="flex gap-2">
+    <div className="space-y-6">
+      <PageHeader 
+        title="Gerenciar Equipe" 
+        description="Gerencie os funcionários da sua empresa"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
           <Button
             variant="outline"
             onClick={() => setShowInactive(!showInactive)}
+            className="w-full sm:w-auto"
           >
             {showInactive ? "Ver Ativos" : "Ver Inativos"}
           </Button>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openAddDialog}>
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar Funcionário
-              </Button>
-            </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingEmployee ? "Editar Funcionário" : "Adicionar Funcionário"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingEmployee 
-                  ? "Atualize as informações do funcionário" 
-                  : "Adicione um novo funcionário à sua equipe"}
-              </DialogDescription>
-            </DialogHeader>
+          <Button onClick={openAddDialog} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Funcionário
+          </Button>
+        </div>
+      </PageHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogTrigger asChild>
+          <div style={{ display: 'none' }} />
+        </DialogTrigger>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingEmployee ? "Editar Funcionário" : "Adicionar Funcionário"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingEmployee 
+                ? "Atualize as informações do funcionário" 
+                : "Adicione um novo funcionário à sua equipe"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Digite o nome do funcionário" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="specialty"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Especialidade</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Corte, Coloração, Manicure..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="lunchBreakStart"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome Completo</FormLabel>
+                      <FormLabel>Início do Almoço (24h)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Digite o nome do funcionário" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="specialty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Especialidade</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Corte, Coloração, Manicure..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="lunchBreakStart"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Início do Almoço (24h)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="time" 
-                            placeholder="13:00"
-                            {...field} 
-                            onChange={(e) => {
-                              field.onChange(e);
-                              handleLunchStartChange(e.target.value);
-                            }}
-                          />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Formato 24h - ex: 13:00 para 1:00 PM
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="lunchBreakEnd"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fim do Almoço (24h)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="time" 
-                            placeholder="14:00"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Formato 24h - ex: 14:00 para 2:00 PM
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">Funcionário Ativo</FormLabel>
-                        <FormDescription>
-                          Desmarque para desabilitar o funcionário sem perder o histórico
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
+                        <Input 
+                          type="time" 
+                          placeholder="13:00"
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleLunchStartChange(e.target.value);
+                          }}
                         />
                       </FormControl>
+                      <FormDescription className="text-xs">
+                        Formato 24h - ex: 13:00 para 1:00 PM
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="flex gap-2 pt-4">
-                  <Button 
-                    type="submit" 
-                    disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
-                  >
-                    {editingEmployee ? "Atualizar" : "Adicionar"}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      setEditingEmployee(null);
-                      form.reset();
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-        </div>
-      </div>
+                <FormField
+                  control={form.control}
+                  name="lunchBreakEnd"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fim do Almoço (24h)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="time" 
+                          placeholder="14:00"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Formato 24h - ex: 14:00 para 2:00 PM
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Funcionário Ativo</FormLabel>
+                      <FormDescription>
+                        Desmarque para desabilitar o funcionário sem perder o histórico
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                <Button 
+                  type="submit" 
+                  disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
+                  className="flex-1"
+                >
+                  {editingEmployee ? "Atualizar" : "Adicionar"}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setEditingEmployee(null);
+                    form.reset();
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(3)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                 <div className="h-3 bg-gray-200 rounded w-1/2"></div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
                 <div className="h-3 bg-gray-200 rounded w-2/3"></div>
               </CardContent>
@@ -766,24 +768,24 @@ export default function TeamPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {employees.map((employee) => (
             <Card key={employee.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{employee.name}</CardTitle>
-                    <CardDescription>{employee.specialty}</CardDescription>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-lg truncate">{employee.name}</CardTitle>
+                    <CardDescription className="truncate">{employee.specialty}</CardDescription>
                   </div>
-                  <Badge variant={employee.isActive ? "default" : "secondary"}>
+                  <Badge variant={employee.isActive ? "default" : "secondary"} className="shrink-0">
                     {employee.isActive ? "Ativo" : "Inativo"}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                  <Clock className="h-4 w-4" />
-                  <span>
+                  <Clock className="h-4 w-4 shrink-0" />
+                  <span className="truncate">
                     Almoço: {employee.lunchBreakStart} - {employee.lunchBreakEnd}
                   </span>
                 </div>
