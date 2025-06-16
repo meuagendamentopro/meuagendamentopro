@@ -158,7 +158,7 @@ const ClientNotesReportModal: React.FC<ClientNotesReportModalProps> = ({
                       <div key={note.id} className="border-b pb-4 last:border-b-0 last:pb-0">
                         <div className="flex justify-between items-start mb-2">
                           <p className="text-sm text-gray-500">
-                            Anotado em: {formatDate(new Date(note.createdAt))} às {formatTime(new Date(note.createdAt))}
+                            Anotado em: {formatDate(new Date(note.createdAt))} às {new Date(note.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                           {note.isPrivate && (
                             <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
