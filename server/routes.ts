@@ -49,6 +49,7 @@ import adminDatabaseRouter from "./routes/admin-database";
 import { registerAppointmentDeleteRoute } from "./routes/appointments-delete";
 import clinicalNotesRoutes from "./routes/clinical-notes-routes";
 import clientAppointmentsRoutes from "./routes/client-appointments";
+import appointmentLookupRoutes from "./routes/appointment-lookup";
 import { sessionCheckRoute } from "./routes/session-check";
 import excelDataRoutes from "./routes/excel-data";
 
@@ -68,6 +69,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Registrar rotas para servir o arquivo Excel (sem autenticação)
   app.use('/api/dados', excelDataRoutes);
+  
+  // Registrar rotas para consulta e reagendamento de agendamentos (sem autenticação)
+  app.use('/api', appointmentLookupRoutes);
   
   // Rota para buscar o histórico de atendimentos de um cliente específico
   app.get('/api/clients/:clientId/appointments', async (req: Request & { user?: any }, res: Response) => {

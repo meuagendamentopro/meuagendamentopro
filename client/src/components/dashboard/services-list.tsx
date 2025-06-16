@@ -103,7 +103,7 @@ const ServicesList: React.FC<ServicesListProps> = ({
             </div>
           ) : displayServices.length > 0 ? (
             <ul className="divide-y divide-gray-200">
-              {displayServices.map((service) => (
+              {displayServices.map((service: Service) => (
                 <li key={service.id} className="py-3 flex justify-between items-center">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{service.name}</p>

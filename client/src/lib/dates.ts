@@ -1,15 +1,29 @@
-export function formatDate(date: Date): string {
-  return date.toLocaleDateString('pt-BR', {
+export function formatDate(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+    console.error('Data inválida fornecida para formatDate:', date);
+    return 'Data inválida';
+  }
+  
+  return dateObj.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
   });
 }
 
-export function formatTime(date: Date): string {
-  // Usar UTC para manter consistência com o sistema de agendamentos
-  const hours = date.getUTCHours().toString().padStart(2, '0');
-  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+export function formatTime(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+    console.error('Data inválida fornecida para formatTime:', date);
+    return 'Hora inválida';
+  }
+  
+  // Usar UTC para manter consistência com o resto do sistema
+  const hours = dateObj.getUTCHours().toString().padStart(2, '0');
+  const minutes = dateObj.getUTCMinutes().toString().padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 

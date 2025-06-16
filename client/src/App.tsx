@@ -11,6 +11,8 @@ import Services from "@/pages/services";
 import Appointments from "@/pages/appointments";
 import Clients from "@/pages/clients";
 import Booking from "@/pages/booking";
+import AppointmentLookup from "@/pages/appointment-lookup";
+import RescheduleAppointment from "@/pages/reschedule-appointment";
 import Settings from "@/pages/settings";
 import ProfilePage from "@/pages/profile-page";
 import AuthPage from "@/pages/auth-page";
@@ -523,6 +525,10 @@ function Router() {
       {/* Rotas públicas para agendamento de clientes (ambos formatos) */}
       <Route path="/booking" component={Booking} />
       <Route path="/booking/:linkId" component={Booking} />
+      
+      {/* Rotas públicas para consulta e reagendamento */}
+      <Route path="/appointment-lookup" component={AppointmentLookup} />
+      <Route path="/reschedule-appointment/:id" component={RescheduleAppointment} />
       
       {/* Rotas protegidas que exigem autenticação */}
       <ProtectedRoute 

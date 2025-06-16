@@ -21,6 +21,11 @@ interface Provider {
   pixEnabled?: boolean;
   pixRequirePayment?: boolean;
   pixPaymentPercentage?: number;
+  // Informações do usuário
+  userId?: number;
+  user?: {
+    accountType?: string;
+  };
 }
 
 const BookingPage: React.FC = () => {
@@ -94,6 +99,20 @@ const BookingPage: React.FC = () => {
     retry: 1,
   });
 
+  // Verificar se é conta empresa (tem funcionários)
+  const { data: employees } = useQuery({
+    queryKey: [`/api/providers/${provider?.id}/employees`],
+    queryFn: async () => {
+      if (!provider?.id) return [];
+      const res = await fetch(`/api/providers/${provider.id}/employees`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!provider?.id,
+  });
+
+  const isCompanyAccount = employees && employees.length > 0;
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -126,6 +145,19 @@ const BookingPage: React.FC = () => {
           <p className="mt-2 text-gray-600">
             Escolha o serviço, data e horário para seu agendamento
           </p>
+          
+          {/* Botão para consultar agendamento - apenas para contas empresa */}
+          {isCompanyAccount && (
+            <div className="mt-6">
+              <button
+                onClick={() => window.location.href = `/appointment-lookup?providerId=${provider?.id}`}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Consultar Agendamento
+              </button>
+            </div>
+          )}
         </div>
 
         {provider ? (

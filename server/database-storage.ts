@@ -508,7 +508,28 @@ export class DatabaseStorage implements IStorage {
         ];
     
     return await db
-      .select()
+      .select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      })
       .from(appointments)
       .where(and(...conditions))
       .orderBy(appointments.date);
@@ -516,7 +537,28 @@ export class DatabaseStorage implements IStorage {
 
   async getAppointment(id: number): Promise<Appointment | undefined> {
     const [appointment] = await db
-      .select()
+      .select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      })
       .from(appointments)
       .where(eq(appointments.id, id));
     return appointment;
@@ -552,7 +594,28 @@ export class DatabaseStorage implements IStorage {
     }
 
     const result = await db
-      .select()
+      .select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      })
       .from(appointments)
       .where(and(...conditions))
       .orderBy(appointments.date);
@@ -580,7 +643,28 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await db
-      .select()
+      .select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      })
       .from(appointments)
       .where(and(...conditions))
       .orderBy(appointments.date);

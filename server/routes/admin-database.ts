@@ -551,7 +551,28 @@ router.delete('/services/:id', async (req, res) => {
 // Listar todos os agendamentos
 router.get('/appointments', async (req, res) => {
   try {
-    const allAppointments = await db.select().from(appointments).orderBy(appointments.date);
+    const allAppointments = await db.select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      }).from(appointments).orderBy(appointments.date);
     res.json(allAppointments);
   } catch (error) {
     console.error('Erro ao buscar agendamentos:', error);
@@ -563,7 +584,28 @@ router.get('/appointments', async (req, res) => {
 router.get('/appointments/:id', async (req, res) => {
   try {
     const appointmentId = parseInt(req.params.id);
-    const appointment = await db.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
+    const appointment = await db.select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      }).from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
     
     if (!appointment || appointment.length === 0) {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
@@ -660,7 +702,28 @@ router.put('/appointments/:id', async (req, res) => {
     } = req.body;
     
     // Verificar se o agendamento existe
-    const existingAppointment = await db.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
+    const existingAppointment = await db.select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      }).from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
     if (!existingAppointment || existingAppointment.length === 0) {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
     }
@@ -699,7 +762,28 @@ router.delete('/appointments/:id', async (req, res) => {
     const appointmentId = parseInt(req.params.id);
     
     // Verificar se o agendamento existe
-    const existingAppointment = await db.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
+    const existingAppointment = await db.select({
+        id: appointments.id,
+        providerId: appointments.providerId,
+        clientId: appointments.clientId,
+        serviceId: appointments.serviceId,
+        employeeId: appointments.employeeId,
+        date: appointments.date,
+        endTime: appointments.endTime,
+        status: appointments.status,
+        notes: appointments.notes,
+        cancellationReason: appointments.cancellationReason,
+        requiresPayment: appointments.requiresPayment,
+        paymentStatus: appointments.paymentStatus,
+        paymentAmount: appointments.paymentAmount,
+        paymentPercentage: appointments.paymentPercentage,
+        pixTransactionId: appointments.pixTransactionId,
+        pixQrCode: appointments.pixQrCode,
+        pixQrCodeExpiration: appointments.pixQrCodeExpiration,
+        pixPaymentDate: appointments.pixPaymentDate,
+        rescheduleCount: appointments.rescheduleCount,
+        createdAt: appointments.createdAt,
+      }).from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
     if (!existingAppointment || existingAppointment.length === 0) {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
     }

@@ -288,6 +288,7 @@ export const appointments = pgTable("appointments", {
   pixQrCode: text("pix_qr_code"), // QR Code para pagamento
   pixQrCodeExpiration: timestamp("pix_qr_code_expiration"), // Expiração do QR Code
   pixPaymentDate: timestamp("pix_payment_date"), // Data do pagamento
+  rescheduleCount: integer("reschedule_count").default(0).notNull(), // Contador de reagendamentos
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -393,6 +394,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments, {
     pixQrCode: true,
     pixQrCodeExpiration: true,
     pixPaymentDate: true,
+    rescheduleCount: true,
   })
   .transform((data) => {
     // Garantir que status e notes nunca são undefined
