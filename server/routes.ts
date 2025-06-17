@@ -1819,7 +1819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
-      const { name, username, password, role } = req.body;
+      const { name, username, password, role, email } = req.body;
       
       // Validar dados
       if (!name || !username || !password || !role) {
@@ -1832,15 +1832,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nome de usuário já existe" });
       }
       
-      // Gerar um email temporário baseado no nome de usuário
-      const email = `${username}@temp.com`;
+      // Usar o email fornecido ou gerar um temporário baseado no nome de usuário
+      const userEmail = email || `${username}@temp.com`;
       
       // Criar o usuário com senha hasheada
       const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         name,
         username,
-        email,
+        email: userEmail,
         password: hashedPassword,
         role,
         isEmailVerified: true, // Usuários criados pelo admin já são verificados
@@ -1858,7 +1858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const provider = await storage.createProvider({
             userId: user.id,
             name: `${name}'s Service`,
-            email: `${username}@example.com`, // Email temporário baseado no nome de usuário
+            email: userEmail, // Usar o mesmo email do usuário
             phone: "",
             bookingLink,
             workingHoursStart: 8, // Horário padrão de início (8h)
@@ -1900,8 +1900,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
       
-      const { name, username, password, role } = req.body;
-      const updateData: Partial<{ name: string, username: string, password: string, role: string, isEmailVerified: boolean }> = {
+      const { name, username, email, password, role } = req.body;
+      const updateData: Partial<{ name: string, username: string, email: string, password: string, role: string, isEmailVerified: boolean }> = {
         // Garantir que usuários editados pelo admin permaneçam com email verificado
         isEmailVerified: true
       };
@@ -1917,6 +1917,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         updateData.username = username;
       }
+      
+      if (email) updateData.email = email;
       
       if (role) updateData.role = role;
       

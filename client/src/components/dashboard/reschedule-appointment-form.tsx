@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatTime } from "@/lib/dates";
 import { apiRequest } from "@/lib/queryClient";
 import { Appointment, Employee } from "@shared/schema";
+import { useAuth } from "@/hooks/use-auth";
 
 interface RescheduleAppointmentFormProps {
   appointment: Appointment;
@@ -25,10 +26,15 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
   onComplete,
   onCancel,
 }) => {
+  const { user } = useAuth();
+  const isCompanyAccount = user?.accountType === "company";
+  
   console.log('🏗️ Inicializando RescheduleAppointmentForm com:', {
     appointmentId: appointment.id,
     appointmentDate: appointment.date,
-    employeeId: appointment.employeeId
+    employeeId: appointment.employeeId,
+    isCompanyAccount,
+    userAccountType: user?.accountType
   });
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(
@@ -44,8 +50,10 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
   console.log('📋 Valores iniciais:', {
     selectedEmployeeId: appointment.employeeId?.toString() || "",
     selectedDate: new Date(appointment.date).toISOString().split('T')[0],
-    selectedTime: formatTime(new Date(appointment.date))
+    selectedTime: formatTime(new Date(appointment.date)),
+    isCompanyAccount
   });
+  
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lunchTimeNotification, setLunchTimeNotification] = useState<string>("");
@@ -72,7 +80,7 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
     onCancel();
   };
 
-  // Buscar funcionários
+  // Buscar funcionários (apenas para contas empresa)
   const { data: employees } = useQuery({
     queryKey: ["/api/employees"],
     queryFn: async () => {
@@ -80,7 +88,28 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       if (!res.ok) throw new Error("Failed to fetch employees");
       return res.json();
     },
+    enabled: isCompanyAccount, // Só busca funcionários para contas empresa
   });
+
+  // Buscar dados do provider (para contas individuais)
+  const { data: provider } = useQuery({
+    queryKey: ["/api/my-provider"],
+    queryFn: async () => {
+      const res = await fetch("/api/my-provider");
+      if (!res.ok) throw new Error("Failed to fetch provider data");
+      return res.json();
+    },
+    enabled: !isCompanyAccount, // Só busca provider para contas individuais
+  });
+
+  // Para contas individuais, usar o provider como "funcionário"
+  useEffect(() => {
+    if (!isCompanyAccount && provider && !selectedEmployeeId) {
+      // Para contas individuais, usar o ID do provider como employeeId
+      setSelectedEmployeeId(provider.id.toString());
+      console.log('🔄 Conta individual: definindo provider como funcionário:', provider.id);
+    }
+  }, [isCompanyAccount, provider, selectedEmployeeId]);
 
   // Buscar cliente
   const { data: client } = useQuery({
@@ -113,12 +142,22 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       if (!res.ok) throw new Error("Failed to fetch appointments");
       const appointments = await res.json();
       
-      // Filtrar apenas agendamentos do funcionário selecionado que não estão cancelados
-      return appointments.filter((apt: any) => 
-        apt.employeeId?.toString() === selectedEmployeeId && 
-        apt.status !== 'cancelled' &&
-        apt.id !== appointment.id // Excluir o agendamento atual que está sendo reagendado
-      );
+      // Para contas individuais, filtrar todos os agendamentos da data
+      // Para contas empresa, filtrar apenas agendamentos do funcionário selecionado
+      return appointments.filter((apt: any) => {
+        const isNotCancelled = apt.status !== 'cancelled';
+        const isNotCurrentAppointment = apt.id !== appointment.id;
+        
+        if (!isCompanyAccount) {
+          // Para contas individuais, considerar todos os agendamentos não cancelados
+          return isNotCancelled && isNotCurrentAppointment;
+        } else {
+          // Para contas empresa, filtrar por funcionário
+          return apt.employeeId?.toString() === selectedEmployeeId && 
+                 isNotCancelled && 
+                 isNotCurrentAppointment;
+        }
+      });
     },
     enabled: !!(selectedDate && selectedEmployeeId),
   });
@@ -189,10 +228,14 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
 
   // Verificar se o horário selecionado é horário de almoço
   useEffect(() => {
-    if (selectedTime && selectedEmployeeId && employees) {
-      checkLunchTime();
+    if (selectedTime && selectedEmployeeId) {
+      if (isCompanyAccount && employees) {
+        checkLunchTime();
+      } else if (!isCompanyAccount && provider) {
+        checkLunchTimeForProvider();
+      }
     }
-  }, [selectedTime, selectedEmployeeId, employees]);
+  }, [selectedTime, selectedEmployeeId, employees, provider, isCompanyAccount]);
 
   const fetchAvailableTimes = async () => {
     if (!selectedDate || !selectedEmployeeId || !service) return;
@@ -249,20 +292,63 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
     }
   };
 
+  const checkLunchTimeForProvider = () => {
+    if (!selectedTime || !provider) {
+      setLunchTimeNotification("");
+      return;
+    }
+
+    // Para contas individuais, verificar se o provider tem horário de almoço definido
+    if (!provider.lunchBreakStart || !provider.lunchBreakEnd) {
+      setLunchTimeNotification("");
+      return;
+    }
+
+    // Converter horários para minutos para comparação
+    const [timeHour, timeMinute] = selectedTime.split(':').map(Number);
+    const timeInMinutes = timeHour * 60 + timeMinute;
+
+    const [lunchStartHour, lunchStartMinute] = provider.lunchBreakStart.split(':').map(Number);
+    const [lunchEndHour, lunchEndMinute] = provider.lunchBreakEnd.split(':').map(Number);
+    
+    const lunchStartInMinutes = lunchStartHour * 60 + lunchStartMinute;
+    const lunchEndInMinutes = lunchEndHour * 60 + lunchEndMinute;
+
+    // Verificar se o horário está dentro do intervalo de almoço
+    if (timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes) {
+      setLunchTimeNotification(`⚠️ Este horário está no seu intervalo de almoço (${provider.lunchBreakStart} - ${provider.lunchBreakEnd}). O agendamento ainda pode ser feito, mas verifique a disponibilidade.`);
+    } else {
+      setLunchTimeNotification("");
+    }
+  };
+
   const handleSubmit = async () => {
     console.log('🔍 Verificando campos:', {
       selectedDate,
       selectedTime,
       selectedEmployeeId,
       isTimeValid: selectedTime !== "no-times-available",
-      isTimeOccupied: occupiedTimes.includes(selectedTime)
+      isTimeOccupied: occupiedTimes.includes(selectedTime),
+      isCompanyAccount
     });
 
-    if (!selectedDate || !selectedTime || selectedTime === "no-times-available" || !selectedEmployeeId) {
+    // Validação adaptada ao tipo de conta
+    if (!selectedDate || !selectedTime || selectedTime === "no-times-available") {
       console.log('❌ Validação falhou - campos obrigatórios ausentes');
       toast({
         title: "Campos obrigatórios",
-        description: "Por favor, selecione a data, horário e funcionário",
+        description: "Por favor, selecione a data e horário",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Para contas empresa, validar se funcionário foi selecionado
+    if (isCompanyAccount && !selectedEmployeeId) {
+      console.log('❌ Validação falhou - funcionário não selecionado para conta empresa');
+      toast({
+        title: "Funcionário obrigatório",
+        description: "Por favor, selecione um funcionário",
         variant: "destructive",
       });
       return;
@@ -299,11 +385,22 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       console.log('📅 Nova data/hora criada (UTC):', newDateTime.toISOString());
       console.log('📅 Horário selecionado:', `${selectedDate} ${selectedTime}`);
       
-      // Atualizar o agendamento
-      const response = await apiRequest("PUT", `/api/appointments/${appointment.id}`, {
+      // Preparar dados para atualização
+      const updateData: any = {
         date: newDateTime.toISOString(),
-        employeeId: parseInt(selectedEmployeeId),
-      });
+      };
+
+      // Para contas empresa, incluir employeeId
+      // Para contas individuais, o employeeId pode ser null ou o ID do provider
+      if (isCompanyAccount) {
+        updateData.employeeId = parseInt(selectedEmployeeId);
+      } else {
+        // Para contas individuais, usar null ou o ID do provider se disponível
+        updateData.employeeId = provider ? provider.id : null;
+      }
+
+      // Atualizar o agendamento
+      const response = await apiRequest("PUT", `/api/appointments/${appointment.id}`, updateData);
 
       console.log('✅ Resposta da API:', response);
 
@@ -343,7 +440,9 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
   const isSelectedTimeOccupied = !!(selectedTime && occupiedTimes.includes(selectedTime));
 
   const currentDateTime = new Date(appointment.date);
-  const currentEmployee = employees?.find((emp: Employee) => emp.id === appointment.employeeId);
+  const currentEmployee = isCompanyAccount 
+    ? employees?.find((emp: Employee) => emp.id === appointment.employeeId)
+    : null;
 
   return (
     <div className="space-y-4">
@@ -360,32 +459,39 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
         <Label className="text-sm font-medium">Horário atual</Label>
         <div className="mt-1 p-2 bg-gray-50 rounded-md text-sm">
           {formatDate(currentDateTime)} às {formatTime(currentDateTime)}
-          {currentEmployee && (
+          {isCompanyAccount && currentEmployee && (
             <span className="ml-2 text-gray-600">
               - {currentEmployee.name}
+            </span>
+          )}
+          {!isCompanyAccount && (
+            <span className="ml-2 text-gray-600">
+              - Você
             </span>
           )}
         </div>
       </div>
 
-      {/* Seleção de funcionário */}
-      <div>
-        <Label htmlFor="employee" className="text-sm font-medium">
-          Funcionário *
-        </Label>
-        <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-          <SelectTrigger className="mt-1">
-            <SelectValue placeholder="Selecione um funcionário" />
-          </SelectTrigger>
-          <SelectContent>
-            {employees?.map((employee: Employee) => (
-              <SelectItem key={employee.id} value={employee.id.toString()}>
-                {employee.name} - {employee.specialty}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Seleção de funcionário (apenas para contas empresa) */}
+      {isCompanyAccount && (
+        <div>
+          <Label htmlFor="employee" className="text-sm font-medium">
+            Funcionário *
+          </Label>
+          <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Selecione um funcionário" />
+            </SelectTrigger>
+            <SelectContent>
+              {employees?.map((employee: Employee) => (
+                <SelectItem key={employee.id} value={employee.id.toString()}>
+                  {employee.name} - {employee.specialty}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Seleção de data */}
       <div>
@@ -413,7 +519,7 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
         </Label>
         
         {/* Legenda de cores */}
-        {selectedDate && selectedEmployeeId && (
+        {selectedDate && (isCompanyAccount ? selectedEmployeeId : true) && (
           <div className="mt-1 mb-2 p-2 bg-gray-50 border border-gray-200 rounded-md text-xs">
             <div className="flex flex-wrap gap-3">
               <div className="flex items-center">
@@ -435,7 +541,7 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
         <Select 
           value={selectedTime} 
           onValueChange={setSelectedTime}
-          disabled={!selectedDate || !selectedEmployeeId}
+          disabled={!selectedDate || (isCompanyAccount && !selectedEmployeeId)}
         >
           <SelectTrigger className="mt-1">
             <SelectValue placeholder="Selecione um horário" />
@@ -448,25 +554,46 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
                 
                 // Verificar se este horário está no intervalo de almoço
                 const isLunchTime = (() => {
-                  if (!selectedEmployeeId || !employees) return false;
-                  
-                  const selectedEmployee = employees.find((emp: Employee) => emp.id.toString() === selectedEmployeeId);
-                  if (!selectedEmployee || !selectedEmployee.lunchBreakStart || !selectedEmployee.lunchBreakEnd) {
-                    return false;
+                  if (isCompanyAccount) {
+                    // Lógica para contas empresa
+                    if (!selectedEmployeeId || !employees) return false;
+                    
+                    const selectedEmployee = employees.find((emp: Employee) => emp.id.toString() === selectedEmployeeId);
+                    if (!selectedEmployee || !selectedEmployee.lunchBreakStart || !selectedEmployee.lunchBreakEnd) {
+                      return false;
+                    }
+
+                    // Converter horários para minutos para comparação
+                    const [timeHour, timeMinute] = time.split(':').map(Number);
+                    const timeInMinutes = timeHour * 60 + timeMinute;
+
+                    const [lunchStartHour, lunchStartMinute] = selectedEmployee.lunchBreakStart.split(':').map(Number);
+                    const [lunchEndHour, lunchEndMinute] = selectedEmployee.lunchBreakEnd.split(':').map(Number);
+                    
+                    const lunchStartInMinutes = lunchStartHour * 60 + lunchStartMinute;
+                    const lunchEndInMinutes = lunchEndHour * 60 + lunchEndMinute;
+
+                    // Verificar se o horário está dentro do intervalo de almoço
+                    return timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes;
+                  } else {
+                    // Lógica para contas individuais
+                    if (!provider || !provider.lunchBreakStart || !provider.lunchBreakEnd) {
+                      return false;
+                    }
+
+                    // Converter horários para minutos para comparação
+                    const [timeHour, timeMinute] = time.split(':').map(Number);
+                    const timeInMinutes = timeHour * 60 + timeMinute;
+
+                    const [lunchStartHour, lunchStartMinute] = provider.lunchBreakStart.split(':').map(Number);
+                    const [lunchEndHour, lunchEndMinute] = provider.lunchBreakEnd.split(':').map(Number);
+                    
+                    const lunchStartInMinutes = lunchStartHour * 60 + lunchStartMinute;
+                    const lunchEndInMinutes = lunchEndHour * 60 + lunchEndMinute;
+
+                    // Verificar se o horário está dentro do intervalo de almoço
+                    return timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes;
                   }
-
-                  // Converter horários para minutos para comparação
-                  const [timeHour, timeMinute] = time.split(':').map(Number);
-                  const timeInMinutes = timeHour * 60 + timeMinute;
-
-                  const [lunchStartHour, lunchStartMinute] = selectedEmployee.lunchBreakStart.split(':').map(Number);
-                  const [lunchEndHour, lunchEndMinute] = selectedEmployee.lunchBreakEnd.split(':').map(Number);
-                  
-                  const lunchStartInMinutes = lunchStartHour * 60 + lunchStartMinute;
-                  const lunchEndInMinutes = lunchEndHour * 60 + lunchEndMinute;
-
-                  // Verificar se o horário está dentro do intervalo de almoço
-                  return timeInMinutes >= lunchStartInMinutes && timeInMinutes < lunchEndInMinutes;
                 })();
 
                 // Determinar a classe CSS baseada no status do horário
@@ -504,9 +631,11 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
               })
             ) : (
               <SelectItem value="no-times-available" disabled>
-                {selectedDate && selectedEmployeeId 
+                {selectedDate && (isCompanyAccount ? selectedEmployeeId : true)
                   ? "Nenhum horário disponível" 
-                  : "Selecione data e funcionário primeiro"
+                  : isCompanyAccount 
+                    ? "Selecione data e funcionário primeiro"
+                    : "Selecione uma data primeiro"
                 }
               </SelectItem>
             )}

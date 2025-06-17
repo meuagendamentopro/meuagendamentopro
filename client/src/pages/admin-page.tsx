@@ -55,6 +55,7 @@ import {
 const userFormSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
+  email: z.string().email("Email inválido").optional(),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string(),
   role: z.enum(["admin", "provider"]),
@@ -69,6 +70,7 @@ interface User {
   id: number;
   name: string;
   username: string;
+  email: string;
   role: string;
   isActive: boolean;
   createdAt: string;
@@ -78,12 +80,13 @@ interface User {
 const editUserFormSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   username: z.string().min(3, "Nome de usuário deve ter pelo menos 3 caracteres"),
+  email: z.string().email("Email inválido").optional(),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
   role: z.enum(["admin", "provider"]),
 }).refine(data => {
   // Se uma senha foi fornecida, confirmar que ambas coincidem
-  if (data.password) {
+  if (data.password && data.password.trim() !== "") {
     return data.password === data.confirmPassword;
   }
   return true;
@@ -166,6 +169,7 @@ export default function AdminPage() {
     defaultValues: {
       name: "",
       username: "",
+      email: "",
       password: "",
       confirmPassword: "",
       role: "provider",
@@ -212,6 +216,7 @@ export default function AdminPage() {
     defaultValues: {
       name: "",
       username: "",
+      email: "",
       password: "",
       confirmPassword: "",
       role: "provider",
@@ -224,6 +229,7 @@ export default function AdminPage() {
       editForm.reset({
         name: selectedUser.name,
         username: selectedUser.username,
+        email: selectedUser.email,
         password: "",
         confirmPassword: "",
         role: selectedUser.role as "admin" | "provider",
@@ -306,15 +312,17 @@ export default function AdminPage() {
     // Remover campos vazios ou nulos
     const updateData: Partial<EditUserFormValues> = {};
     
-    if (data.name) updateData.name = data.name;
-    if (data.username) updateData.username = data.username;
+    if (data.name && data.name.trim() !== "") updateData.name = data.name;
+    if (data.username && data.username.trim() !== "") updateData.username = data.username;
+    if (data.email && data.email.trim() !== "") updateData.email = data.email;
     if (data.role) updateData.role = data.role;
     
-    // Incluir senha apenas se fornecida
+    // Incluir senha apenas se fornecida e não estiver vazia
     if (data.password && data.password.trim() !== "") {
-      const { confirmPassword, ...dataWithPassword } = data;
-      Object.assign(updateData, { password: data.password });
+      updateData.password = data.password;
     }
+    
+    console.log('Dados sendo enviados para atualização:', updateData);
     
     updateUserMutation.mutate({ 
       id: selectedUser.id, 
@@ -851,6 +859,20 @@ export default function AdminPage() {
 
                 <FormField
                   control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@exemplo.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
@@ -996,6 +1018,20 @@ export default function AdminPage() {
 
                   <FormField
                     control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@exemplo.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="password"
                     render={({ field }) => (
                       <FormItem>
@@ -1089,6 +1125,7 @@ export default function AdminPage() {
                     <TableHead>ID</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Usuário</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data de Cadastro</TableHead>
@@ -1102,6 +1139,7 @@ export default function AdminPage() {
                         <TableCell>{user.id}</TableCell>
                         <TableCell>{user.name}</TableCell>
                         <TableCell>{user.username}</TableCell>
+                        <TableCell>{user.email}</TableCell>
                         <TableCell>
                           {user.role === "admin" ? "Administrador" : "Provedor de Serviço"}
                         </TableCell>
@@ -1175,7 +1213,7 @@ export default function AdminPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-4">
+                      <TableCell colSpan={8} className="text-center py-4">
                         Nenhum usuário encontrado
                       </TableCell>
                     </TableRow>
