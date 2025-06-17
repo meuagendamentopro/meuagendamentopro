@@ -12,7 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatDate, formatTime } from "@/lib/dates";
 import { apiRequest } from "@/lib/queryClient";
-import { Appointment, Employee } from "@shared/schema";
+import { Appointment, Employee, AppointmentStatus } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 
 interface RescheduleAppointmentFormProps {
@@ -145,7 +145,7 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       // Para contas individuais, filtrar todos os agendamentos da data
       // Para contas empresa, filtrar apenas agendamentos do funcionário selecionado
       return appointments.filter((apt: any) => {
-        const isNotCancelled = apt.status !== 'cancelled';
+        const isNotCancelled = apt.status !== AppointmentStatus.CANCELLED;
         const isNotCurrentAppointment = apt.id !== appointment.id;
         
         if (!isCompanyAccount) {
@@ -397,6 +397,12 @@ const RescheduleAppointmentForm: React.FC<RescheduleAppointmentFormProps> = ({
       } else {
         // Para contas individuais, usar null ou o ID do provider se disponível
         updateData.employeeId = provider ? provider.id : null;
+      }
+
+      // Se o agendamento estiver cancelado, mudar status para confirmado
+      if (appointment.status === AppointmentStatus.CANCELLED) {
+        updateData.status = AppointmentStatus.CONFIRMED;
+        console.log('🔄 Agendamento cancelado sendo reagendado - mudando status para confirmado');
       }
 
       // Atualizar o agendamento

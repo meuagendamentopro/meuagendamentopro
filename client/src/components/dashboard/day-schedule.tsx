@@ -958,24 +958,26 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
                 console.log(`Criando slot de tempo: ${time} => ${slotTime.toLocaleString()}`);
                 
                 
-                const handleCancelAppointment = async (appointmentId: number) => {
+                const handleCancelAppointmentInGrid = async (appointmentId: number) => {
                   try {
-                    const response = await fetch(`/api/appointments/${appointmentId}/cancel`, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({
-                        cancellationReason: 'Cancelado pelo provedor'
-                      })
+                    await apiRequest('PATCH', `/api/appointments/${appointmentId}/status`, { 
+                      status: AppointmentStatus.CANCELLED 
                     });
-
-                    if (!response.ok) {
-                      throw new Error('Falha ao cancelar agendamento');
-                    }
-
+                    
                     // Atualizar os dados
                     refetchAppointments();
+                    
+                    // Invalidar e refazer todas as queries relacionadas a agendamentos
+                    queryClient.invalidateQueries({ 
+                      queryKey: ['/api/my-appointments'],
+                      exact: false 
+                    });
+                    
+                    // Invalidar queries do mês para atualizar marcações do calendário
+                    queryClient.invalidateQueries({ 
+                      queryKey: ['/api/my-appointments/month'],
+                      exact: false
+                    });
                     
                     toast({
                       title: "Agendamento cancelado",
@@ -1014,7 +1016,7 @@ const DaySchedule: React.FC<DayScheduleProps> = ({ providerId }) => {
                               service={service}
                               employee={employee}
                               onEdit={handleEditAppointment}
-                              onCancel={handleCancelAppointment}
+                              onCancel={handleCancelAppointmentInGrid}
                               onAddNote={handleAddNote}
                             />
                           );

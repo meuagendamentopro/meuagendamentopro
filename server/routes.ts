@@ -4126,7 +4126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: z.string().optional(),
         employeeId: z.number().int().positive().optional(),
         serviceId: z.number().int().positive().optional(),
-        notes: z.string().optional()
+        notes: z.string().optional(),
+        status: z.string().optional()
       });
       
       const updateData = updateSchema.parse(req.body);
@@ -4165,6 +4166,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (updateData.notes !== undefined) {
         appointmentUpdate.notes = updateData.notes;
+      }
+      
+      if (updateData.status !== undefined) {
+        appointmentUpdate.status = updateData.status;
+        console.log(`🔄 Atualizando status do agendamento para: ${updateData.status}`);
       }
       
       // Atualizar o agendamento

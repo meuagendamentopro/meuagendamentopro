@@ -17,7 +17,8 @@ export function useLogoutDetector() {
 
   useEffect(() => {
     const currentPath = window.location.pathname;
-    const isPublicRoute = currentPath === '/auth' || 
+    const isPublicRoute = currentPath === '/' ||
+                         currentPath === '/auth' || 
                          currentPath.startsWith('/booking') || 
                          currentPath.startsWith('/verify-email') ||
                          currentPath === '/renew-subscription';
